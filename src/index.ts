@@ -218,9 +218,9 @@ export default function (app: any) {
         const issued = new Date(alert.issue_datetime + "Z")
         const serialNumber  = alert.message.match(/Serial Number: ([0-9]*)/)[1]
         const messageCode = alert.message.match(/Space Weather Message Code: ([A-Z0-9]*)/)[1]
-        const alertType = getAlertLevel(messageCode)
-        const state = alertType === "WARNING" ? "warn" :
-          alertType === "ALERT" ? "alert" :
+        const alertLevel = getAlertLevel(messageCode)
+        const state = alertLevel === "WARNING" ? "warn" :
+          alertLevel === "ALERT" ? "alert" :
           "normal"
 
         // 5th line, could start with 'WARNING:', 'EXTENDED WARNING:', 'CONTINUED ALERT:', etc.
@@ -235,7 +235,8 @@ export default function (app: any) {
           issued: issued.toISOString(),
           message: mainMessage,
           description: alert.message,
-          state: alertType,
+          alertLevel: alertLevel,
+          state: state,
           method: method
         }
         app.debug('Sending %j', notif)
