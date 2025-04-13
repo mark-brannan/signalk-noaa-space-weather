@@ -9,15 +9,6 @@ const USER_AGENT = 'signalk-noaa-space-weather'
 const observationsKey = 'environment.observations.noaa.swpc.'
 const forecastKey = 'environment.forecast.noaa.swpc.'
 
-// https://www.spaceweather.gov/noaa-scales-explanation
-const NoaaScaleValues = Object.freeze({
-  MINOR:  1,
-  MODERATE: 2,
-  STRONG:   3,
-  SEVERE:   4,
-  EXTREME:  5,
-})
-
 const NotificationStates = Object.freeze({
   NOMINAL:    "nominal",
   NORMAL:     "normal",
@@ -27,12 +18,22 @@ const NotificationStates = Object.freeze({
   EMERGENCY:  "emergency",
 })
 
+// https://www.spaceweather.gov/noaa-scales-explanation
+const NoaaScaleValues = Object.freeze({
+  NONE:     0,
+  MINOR:    1,
+  MODERATE: 2,
+  STRONG:   3,
+  SEVERE:   4,
+  EXTREME:  5,
+})
+
+
 export default function (app: any) {
   const error = app.error
   const debug = app.debug
   let timers: any = []
   let sentMetaPaths: any = {}
-  let hardStationName: string
   let defaultMethod: string[]
 
   const plugin: Plugin = {
@@ -42,7 +43,7 @@ export default function (app: any) {
       timers.push(
         setInterval(() => {
           getObservationsAndForecasts(props)
-        }, (props.observationsInterval|| 60) * 1000) // TODO: 60 * 60
+        }, (props.observationsInterval|| 60 ) * 60 * 1000)
       )
 
       if (props.sendAdvisoryOutlook) {
@@ -50,7 +51,7 @@ export default function (app: any) {
         timers.push(
           setInterval(() => {
             sendAdvisoryOutlook(props)
-          }, (props.notificationsInterval || 60 * 60) * 1000)
+          }, (props.notificationsInterval || 60) * 60 * 1000)
         )
       }
 
@@ -59,7 +60,7 @@ export default function (app: any) {
         timers.push(
           setInterval(() => {
             sendAlertsWatchesWarnings(props)
-          }, (props.notificationsInterval || 60) * 1000) // TODO: 60 * 60
+          }, (props.notificationsInterval || 60) * 60 * 1000)
         )
       }
 
@@ -118,14 +119,14 @@ export default function (app: any) {
         observationsInterval: {
           type: 'number',
           title: 'Interval for observations and forecasts',
-          description: 'in seconds',
+          description: 'in minutes',
           default: 60
         },
         notificationsInterval: {
           type: 'number',
           title: 'Notifications Interval',
-          description: 'in seconds',
-          default: 60
+          description: 'in minutes',
+          default: 60 
         }
       }
     }
@@ -190,7 +191,7 @@ export default function (app: any) {
         method: props.defaultMethod,
       }
       currentAdvisory = notif
-      handleMessageUpdates(path, notif)
+      sendUpdatedValue(path, notif)
 
       //app.debug('Sending %j', notif)
       if (!existing || existing.state === NotificationStates.NORMAL) {
@@ -206,7 +207,7 @@ export default function (app: any) {
           if (currentAdvisory.id != advisory.value.id &&
             advisory.value.state !== NotificationStates.NORMAL) {
             app.debug("Clearing " + advisory.value.id)
-            handleMessageUpdates(
+            sendUpdatedValue(
               advisoryBasePath + "." + shortId,
               { ...advisory.value, state: NotificationStates.NORMAL })
           }
@@ -226,7 +227,7 @@ export default function (app: any) {
       const basePath = "notifications.noaa.swpc"
 
       json.forEach(alert => {
-        debug("handling alert: %j", alert)
+        //debug("handling alert: %j", alert)
 
         const serialNumber  = alert.message.match(/Serial Number: ([0-9]*)/)[1]
 
@@ -272,8 +273,8 @@ export default function (app: any) {
           state: state,
           method: defaultMethod,
         }
-        app.debug('Sending %j', notif)
-        handleMessageUpdates(path, notif)
+        //app.debug('Sending %j', notif)
+        sendUpdatedValue(path, notif)
       })
     })
   }
@@ -291,25 +292,148 @@ export default function (app: any) {
     getSolarWindSpeed(props)
   }
 
+  const commonScaleMeta = {
+    units: "none",
+    "timeout": 60 * 60,
+    displayScale: {
+      "lower": NoaaScaleValues.NONE,
+      "upper": NoaaScaleValues.EXTREME,
+      "type": "linear",
+    }
+  }
+    // "24-Hour Observed Maximums",
+    // "Latest Observed",
+  
   // https://services.swpc.noaa.gov/products/noaa-scales.json
   async function getScales (props: any) {
+
+    const scalesBasePath = 'environment.noaa.swpc.scales.' 
+    const metas: any = [
+      {
+        path: 'environment.noaa.swpc.scales.observations.24_hours_maximums.G',
+        value: {...commonScaleMeta,
+          name: "Geomagnetic Storm Impacts",
+          description: "24-Hour Observed Maximums for geomagnetic storms"
+        }
+      },
+      {
+        path: 'environment.noaa.swpc.scales.observations.24_hours_maximums.S',
+        value: {...commonScaleMeta,
+          name: "Solar Radiation Storm Impacts",
+          description: "24-Hour Observed Maximums for solar radiation storms"
+        }
+      },
+      {
+        path: 'environment.noaa.swpc.scales.observations.24_hours_maximums.R',
+        value: {...commonScaleMeta,
+          name: "Radio Blackout Impacts",
+          description: "24-Hour Observed Maximums for radio blackouts"
+        }
+      },
+      {
+        path: 'environment.noaa.swpc.scales.observations.24_hours_maximums.G',
+        value: {...commonScaleMeta,
+          name: "Geomagnetic Storm Impacts",
+          description: "Latest Observed for geomagnetic storms"
+        }
+      },
+      {
+        path: 'environment.noaa.swpc.scales.observations.24_hours_maximums.S',
+        value: {...commonScaleMeta,
+          name: "Solar Radiation Storm Impacts",
+          description: "Latest Observed for solar radiation storms"
+        }
+      },
+      {
+        path: 'environment.noaa.swpc.scales.observations.24_hours_maximums.R',
+        value: {...commonScaleMeta,
+          name: "Radio Blackout Impacts",
+          description: "Latest Observed for radio blackouts"
+        }
+      },
+    ]
+    sendMetadata(metas)
+
     fetchJson('/products/noaa-scales.json', 'Scales').then(json => {
       const values: any = []
-      const metas: any = []
 
-      const scalesPath = 'environment.noaa.space_weather.scales.'
-      /*if (json["0"]) {
-        values.push({
-          path: scalesPath + "today",
-          value: json[],
-        })
-      }*/
+
+      // TOOD: capture zones from the examplanations for each G/S/R scale effect
+      // inferred from the noaa-scales json
+      const NoaaScaleRangeInfo = [
+        {
+          jsonIndex: "-1",
+          subPath: "observations.24_hours_maximums",
+        },
+        {
+          jsonIndex: "0",
+          subPath: "observations.latest",
+        },
+        {
+          jsonIndex: "1",
+          subPath: "forecast.1day",
+        },
+        {
+          jsonIndex: "2",
+          subPath: "forecast.2day",
+        },
+        {
+          jsonIndex: "3",
+          subPath: "forecast.3day",
+        },
+      ]
+
+      NoaaScaleRangeInfo.forEach(rangeInfo => {
+        const scaleEntry = json[rangeInfo.jsonIndex]
+        if (scaleEntry) {
+          const basePath = scalesBasePath + rangeInfo.subPath
+          const valueUpdates = transformJsonScaleRange(scaleEntry, basePath)
+          values.push(...valueUpdates)
+        } else {
+          error("Json contains no scale entry for index '%s' (%s)",
+            rangeInfo.jsonIndex, rangeInfo.subPath)
+        }
+      })
+      sendUpdatedValues(values)
     })
-    /*
-      .catch((err: any) => {
-        app.error(err)
-        app.setPluginError(err.message)
-      })*/
+  }
+
+  function transformJsonScaleRange(json: any, basePath: String): any[] {
+    const valueUpdates = []
+
+    const isoDateString= json["DateStamp"] + "T" + json["TimeStamp"] + "Z"
+    valueUpdates.push({
+      path: basePath + ".time",
+      value: isoDateString
+    })
+
+    const scaleLetters = ["G", "S", "R"]
+    scaleLetters.forEach(key => {
+      const update = {
+        path: basePath + "." + key,
+        value: null
+      }
+      // prior and current observations have Scale and Text but no probabilities;
+      // forecast G entries have Scale and Text only,
+      // forecast S and R entries have NO scale or text, but 
+      // have probabilities: 'Prob' for S, and minor/major for R
+      if (key == "G" || basePath.match(/.observations./)) {
+        update.value = parseInt(json[key]["Scale"])
+      } else {
+        if (key == "S") {
+          update.value = {
+            probability: parseFloat(json[key]["Prob"]),
+          }
+        } else { // "R"
+          update.value = {
+            minorProbability: parseFloat(json[key]["MinorProb"]),
+            majorProbability: parseFloat(json[key]["MajorProb"]),
+          }
+        }
+      }
+      valueUpdates.push(update)
+    })
+    return valueUpdates
   }
 
   async function getPlanetaryKIndexForecast (props: any) {
@@ -318,7 +442,7 @@ export default function (app: any) {
       const values: any = []
       const metas: any = []
 
-      const scalesPath = 'environment.noaa.space_weather.kp-forecast'
+      const scalesPath = 'environment.noaa.swpc.kp-forecast'
       if (json["0"]) {
         /*values.push({
           path: scalesPath + "today",
@@ -329,13 +453,14 @@ export default function (app: any) {
   }
 
   async function getSolarWindSpeed(props: any) {
+    const basePath = 'environment.noaa.swpc.solar_wind'
   // TODO: maybe include or combine with strength and orientation of the IMF:
   // https://services.swpc.noaa.gov/products/summary/solar-wind-mag-field.json
     fetchJson('/products/summary/solar-wind-speed.json', 'Solar Wind Speed')
     .then(json => {
       const values: any = []
       const metas: any = []
-      const path = 'environment.noaa.space_weather.SolarWindSpeed'
+      const path = basePath + "." + 'speed'
       if (json["WindSpeed"]) {
         const speedInKmPerSecond = json["WindSpeed"]
         values.push({
@@ -366,20 +491,30 @@ export default function (app: any) {
     return "ALERT"
   }
 
-  function handleMessageUpdates(path: String, value: any) {
+  function sendMetadata(metas: any) {
+    if (metas.length > 0) {
       app.handleMessage(plugin.id, {
-        updates: [
-          {
-            values: [
-              {
-                path,
-                value: value
-              }
-            ]
-          }
-        ]
+        updates: [{ meta: metas }]
+      })
+
+      metas.forEach(meta => {
+        sentMetaPaths[meta.path] = true
       })
     }
+  }
+
+  function sendUpdatedValue(path: String, value: any) {
+    sendUpdatedValues([{
+      path: path,
+      value: value
+    }])
+  }
+
+  function sendUpdatedValues(values: any[]) {
+    app.handleMessage(plugin.id, {
+      updates: [{ values: values }]
+    })
+  }
 
   return plugin
 }
