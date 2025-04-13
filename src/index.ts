@@ -9,19 +9,23 @@ const USER_AGENT = 'signalk-noaa-space-weather'
 const observationsKey = 'environment.observations.noaa.swpc.'
 const forecastKey = 'environment.forecast.noaa.swpc.'
 
-// Useful links:
-// https://services.swpc.noaa.gov/products/noaa-scales.json
 // https://www.spaceweather.gov/noaa-scales-explanation
+const NoaaScaleValues = Object.freeze({
+  MINOR:  1,
+  MODERATE: 2,
+  STRONG:   3,
+  SEVERE:   4,
+  EXTREME:  5,
+})
 
-// https://services.swpc.noaa.gov/text/advisory-outlook.txt
-// https://services.swpc.noaa.gov/products/alerts.json
-
-// https://services.swpc.noaa.gov/text/current-space-weather-indices.txt
-// https://services.swpc.noaa.gov/text/3-day-forecast.txt
-// https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json
-
-// https://services.swpc.noaa.gov/images/swx-overview-small.gif
-// https://services.swpc.noaa.gov/images/notifications-timeline.png
+const NotificationStates = Object.freeze({
+  NOMINAL:    "nominal",
+  NORMAL:     "normal",
+  ALERT:      "alert",
+  WARN:       "warn",
+  ALARM:      "alarm",
+  EMERGENCY:  "emergency",
+})
 
 export default function (app: any) {
   const error = app.error
@@ -87,12 +91,12 @@ export default function (app: any) {
       properties: {
         sendAdvisoryOutlook: {
           type: 'boolean',
-          title: 'Send notifications for weekly "Advisory Outlook"',
+          title: 'Send notifications for weekly "Advisory Outlook" (as notification state="alert")',
           default: true
         },
         sendAlertsWatchesWarnings: {
           type: 'boolean',
-          title: 'Send notifications for alerts, watches, and warnings"',
+          title: 'Send notifications for alerts, watches, and warnings (state "alert" or "normal")',
           default: false
         },
         notificationVisual: {
@@ -104,6 +108,12 @@ export default function (app: any) {
           type: 'boolean',
           title: 'Notification Method Sound',
           default: true
+        },
+        minScaleAlert: {
+          type: 'number',
+          title: 'Minimum NOAA "scale" value to trigger "alert" notifications (will use state="normal" below this)',
+          description: '1-5 (minor, moderate, strong, severe, extreme)',
+          default: NoaaScaleValues.STRONG
         },
         observationsInterval: {
           type: 'number',
@@ -152,6 +162,7 @@ export default function (app: any) {
     })
   }
 
+  // https://services.swpc.noaa.gov/text/advisory-outlook.txt
   async function sendAdvisoryOutlook(props: any) {
 
     const advisoryBasePath = "notifications.noaa.swpc.advisory_outlook"
@@ -175,14 +186,14 @@ export default function (app: any) {
         issued: issued.toISOString(),
         message: message,
         description: text,
-        state: 'alert',
-        method: 'normal'
+        state: NotificationStates.ALERT,
+        method: props.defaultMethod,
       }
       currentAdvisory = notif
       handleMessageUpdates(path, notif)
 
       //app.debug('Sending %j', notif)
-      if (!existing || existing.state === 'normal') {
+      if (!existing || existing.state === NotificationStates.NORMAL) {
         app.debug('Sending %s: %s', id, message)
       }
 
@@ -193,11 +204,11 @@ export default function (app: any) {
         (advisory: any) => {
           const shortId = advisory.value.id.slice(idPrefix.length)
           if (currentAdvisory.id != advisory.value.id &&
-            advisory.value.state !== 'normal') {
+            advisory.value.state !== NotificationStates.NORMAL) {
             app.debug("Clearing " + advisory.value.id)
             handleMessageUpdates(
               advisoryBasePath + "." + shortId,
-              { ...advisory.value, state: 'normal' })
+              { ...advisory.value, state: NotificationStates.NORMAL })
           }
         })
       }
@@ -205,6 +216,7 @@ export default function (app: any) {
 
     })
   }
+
 
   // https://services.swpc.noaa.gov/products/alerts.json
   // deciphering message codes:
@@ -215,20 +227,40 @@ export default function (app: any) {
 
       json.forEach(alert => {
         debug("handling alert: %j", alert)
-        const issued = new Date(alert.issue_datetime + "Z")
+
         const serialNumber  = alert.message.match(/Serial Number: ([0-9]*)/)[1]
-        const messageCode = alert.message.match(/Space Weather Message Code: ([A-Z0-9]*)/)[1]
-        const alertLevel = getAlertLevel(messageCode)
-        const state = alertLevel === "WARNING" ? "warn" :
-          alertLevel === "ALERT" ? "alert" :
-          "normal"
 
         // 5th line, could start with 'WARNING:', 'EXTENDED WARNING:', 'CONTINUED ALERT:', etc.
+        let mainMessage: string = "<text parsing failure!>"
         const mainMessageRegex = /([^\n]*\n)([^\n]*\n)([^\n]*\n)([^\n]*\n)([A-Z ]*:[^\n]*)/
-        const mainMessage = alert.message.match(mainMessageRegex)[5]
+        if (alert.message.match(mainMessageRegex)) {
+          mainMessage = alert.message.match(mainMessageRegex)[5]
+        } else {
+          error("Failed to parse main message line from alert text: %s", alert.message)
+        }
         const id = basePath + ".sn:" + serialNumber
         const path = id
-        const method = defaultMethod
+
+        const issued = new Date(alert.issue_datetime + "Z")
+        const messageCode = alert.message.match(/Space Weather Message Code: ([A-Z0-9]*)/)[1]
+        const alertLevel = getAlertLevel(messageCode)
+
+        // Scale line is not always present and could take multiple forms, such as:
+        // NOAA Scale: R2 - Moderate
+        // Predicted NOAA Scale: S1 - Minor
+        // NOAA Scale: G3 or greater - Strong to Extreme
+        let state: String = NotificationStates.NORMAL
+        let scaleText: String = ""
+        const scaleLineRegex = /\n([^[\n]*NOAA Scale: *([GSR][0-9][^-]*)[^\n]*)/
+        console.log("scale regex match: %s", alert.message.match(scaleLineRegex))
+        if (alert.message.match(scaleLineRegex)) {
+          const scaleText = alert.message.match(scaleLineRegex)[2]
+          const numericScale = (scaleText.match(/or greater/)) ?
+            NoaaScaleValues.EXTREME : scaleText.match(/[GSR]([0-5])/)[1]
+
+          const state = numericScale > (props.minScaleAlert) ?
+            NotificationStates.ALERT : NotificationStates.NORMAL
+        }
 
         const notif = {
           id: id,
@@ -236,8 +268,9 @@ export default function (app: any) {
           message: mainMessage,
           description: alert.message,
           alertLevel: alertLevel,
+          scale: scaleText,
           state: state,
-          method: method
+          method: defaultMethod,
         }
         app.debug('Sending %j', notif)
         handleMessageUpdates(path, notif)
@@ -245,12 +278,20 @@ export default function (app: any) {
     })
   }
 
+// TBD:
+// https://services.swpc.noaa.gov/text/current-space-weather-indices.txt
+// https://services.swpc.noaa.gov/text/3-day-forecast.txt
+// https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json
+// https://services.swpc.noaa.gov/images/swx-overview-small.gif
+// https://services.swpc.noaa.gov/images/notifications-timeline.png
+
   async function getObservationsAndForecasts(props: any) {
     getScales(props)
     getPlanetaryKIndexForecast(props)
     getSolarWindSpeed(props)
   }
 
+  // https://services.swpc.noaa.gov/products/noaa-scales.json
   async function getScales (props: any) {
     fetchJson('/products/noaa-scales.json', 'Scales').then(json => {
       const values: any = []
