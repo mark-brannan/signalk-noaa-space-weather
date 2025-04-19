@@ -191,7 +191,7 @@ export default function (app: any) {
         method: props.defaultMethod,
       }
       currentAdvisory = notif
-      sendUpdatedValue(path, notif)
+      sendUpdatedValue(path, notif, issued.toISOString())
 
       //app.debug('Sending %j', notif)
       if (!existing || existing.state === NotificationStates.NORMAL) {
@@ -209,7 +209,9 @@ export default function (app: any) {
             app.debug("Clearing " + advisory.value.id)
             sendUpdatedValue(
               advisoryBasePath + "." + shortId,
-              { ...advisory.value, state: NotificationStates.NORMAL })
+              { ...advisory.value, state: NotificationStates.NORMAL },
+              issued.toISOString()
+            )
           }
         })
       }
@@ -253,7 +255,6 @@ export default function (app: any) {
         let state: String = NotificationStates.NORMAL
         let scaleText: String = ""
         const scaleLineRegex = /\n([^[\n]*NOAA Scale: *([GSR][0-9][^-]*)[^\n]*)/
-        console.log("scale regex match: %s", alert.message.match(scaleLineRegex))
         if (alert.message.match(scaleLineRegex)) {
           const scaleText = alert.message.match(scaleLineRegex)[2]
           const numericScale = (scaleText.match(/or greater/)) ?
@@ -274,7 +275,7 @@ export default function (app: any) {
           method: defaultMethod,
         }
         //app.debug('Sending %j', notif)
-        sendUpdatedValue(path, notif)
+        sendUpdatedValue(path, notif, issued.toISOString())
       })
     })
   }
@@ -289,7 +290,7 @@ export default function (app: any) {
   async function getObservationsAndForecasts(props: any) {
     getScales(props)
     getPlanetaryKIndexForecast(props)
-    getSolarWindSpeed(props)
+    getSolarWindSummary(props)
   }
 
   const commonScaleMeta = {
@@ -394,7 +395,8 @@ export default function (app: any) {
             rangeInfo.jsonIndex, rangeInfo.subPath)
         }
       })
-      sendUpdatedValues(values)
+      const timestamp = values.find(element => element.path === scalesBasePath + 'observations.latest.time')['value']
+      sendUpdatedValues(values, timestamp)
     })
   }
 
@@ -442,7 +444,7 @@ export default function (app: any) {
       const values: any = []
       const metas: any = []
 
-      const scalesPath = 'environment.noaa.swpc.kp-forecast'
+      const scalesPath = 'environment.noaa.swpc.kp'
       if (json["0"]) {
         /*values.push({
           path: scalesPath + "today",
@@ -452,8 +454,9 @@ export default function (app: any) {
     })
   }
 
-  async function getSolarWindSpeed(props: any) {
+  async function getSolarWindSummary(props: any) {
     const basePath = 'environment.noaa.swpc.solar_wind'
+
   // TODO: maybe include or combine with strength and orientation of the IMF:
   // https://services.swpc.noaa.gov/products/summary/solar-wind-mag-field.json
     fetchJson('/products/summary/solar-wind-speed.json', 'Solar Wind Speed')
@@ -503,16 +506,21 @@ export default function (app: any) {
     }
   }
 
-  function sendUpdatedValue(path: String, value: any) {
+  function sendUpdatedValue(path: String, value: any, timestamp: String) {
+    debug("send: %s, timestamp=%s", path, timestamp)
     sendUpdatedValues([{
       path: path,
       value: value
-    }])
+    }],
+    timestamp)
   }
 
-  function sendUpdatedValues(values: any[]) {
+  function sendUpdatedValues(values: any[], timestamp: String) {
     app.handleMessage(plugin.id, {
-      updates: [{ values: values }]
+      updates: [{
+        values: values,
+        timestamp: timestamp,
+      }]
     })
   }
 
