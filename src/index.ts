@@ -143,22 +143,24 @@ export default function (app: any) {
   }
 
   function fetchData(subPath: String, productName: String, dataCallbackFn: DataCallbackFn): Promise<String | any> {
-    return fetch(API + subPath, {
+    const url = API + subPath
+    return fetch(url, {
       method: "GET",
       headers: { 'User-Agent': USER_AGENT }
     }).then(response => {
       if (response.ok) {
         return dataCallbackFn(response)
       } else {
-        const status = `No NOAA Space Weather '${productName}' found!`
+        const status = `NOAA Space Weather '${productName}' not found at ${url}`
         app.setPluginError(status)
         throw new Error(status)
       }
     }).then(data => {
       const status = `NOAA Space Weather ${productName} retrieved: ${new Date()}`
+      app.setPluginStatus(status)
       return data
     }).catch(error => {
-      error(`Failed to fetch '${productName}': ${error}`)
+      app.error(`Failed to fetch '${productName}': ${error}`)
       throw error
     })
   }
@@ -168,6 +170,17 @@ export default function (app: any) {
 
     const advisoryBasePath = "notifications.noaa.swpc.advisory_outlook"
     const idPrefix = "space_weather_advisory_outlook"
+
+    sendMetadata([{
+      path: advisoryBasePath,
+      value: {
+        name: "NOAA Space Weather Advisory Outlook",
+        description: "Issued every Monday, the Advisory provides general descriptions"
+        + " of space weather conditions during the past week and an outlook for the next 7 days."
+        + " Outlooks are based on the NOAA Space Weather Scales.",
+        timeout: 60 * 60 * 24 * 7,
+      }
+    }])
 
     let currentAdvisory
     fetchText('/text/advisory-outlook.txt', 'Advisory Outlook')
@@ -295,7 +308,7 @@ export default function (app: any) {
 
   const commonScaleMeta = {
     units: "none",
-    "timeout": 60 * 60,
+    "timeout": 60 * 60 * 4,
     displayScale: {
       "lower": NoaaScaleValues.NONE,
       "upper": NoaaScaleValues.EXTREME,
@@ -457,19 +470,57 @@ export default function (app: any) {
   async function getSolarWindSummary(props: any) {
     const basePath = 'environment.noaa.swpc.solar_wind'
 
-  // TODO: maybe include or combine with strength and orientation of the IMF:
-  // https://services.swpc.noaa.gov/products/summary/solar-wind-mag-field.json
+    const metas: any = [
+      {
+        path: 'environment.noaa.swpc.solar_wind.speed',
+        value: {
+          displayName: "Solar Wind Speed",
+          shortName: "SWS",
+          description: "The solar wind speed; typical values are 400 km/s",
+          units: "m/s",
+          "timeout": 60 * 60,
+        }
+      },
+      {
+        path: 'environment.noaa.swpc.solar_wind.Bt',
+        value: {
+          displayName: "IMF strength (Bt)",
+          shortName: "Bt",
+          description: "The strength of the interplanetary magnetic field ",
+          units: "nT",
+          "timeout": 60 * 60,
+        }
+      },
+      {
+        path: 'environment.noaa.swpc.solar_wind.Bz',
+        value: {
+          displayName: "IMF orientation (Bz)",
+          description: "The north-south direction of the interplanetary magnetic field",
+          units: "nT north-south",
+          "timeout": 60 * 60,
+        }
+      },
+    ]
+    sendMetadata(metas)
+
     fetchJson('/products/summary/solar-wind-speed.json', 'Solar Wind Speed')
     .then(json => {
-      const values: any = []
-      const metas: any = []
-      const path = basePath + "." + 'speed'
+      const path = basePath + '.speed'
       if (json["WindSpeed"]) {
         const speedInKmPerSecond = json["WindSpeed"]
-        values.push({
-          path: path, value: speedInKmPerSecond * 1000
-        })
+        const timestamp = json['TimeStamp']
+          sendUpdatedValue(path, speedInKmPerSecond * 1000, timestamp)
       }
+    })
+
+    fetchJson('/products/summary/solar-wind-mag-field.json', 'Solar Wind Magnetic Field')
+    .then(json => {
+      const values = [
+          {path: basePath + ".Bt", value: json["Bt"] * 1},
+          {path: basePath + ".Bz", value: json["Bz"] * 1},
+      ]
+      debug("Solar mag field values: %j", values)
+      sendUpdatedValues(values, json['TimeStamp'])
     })
   }
 
@@ -507,7 +558,7 @@ export default function (app: any) {
   }
 
   function sendUpdatedValue(path: String, value: any, timestamp: String) {
-    debug("send: %s, timestamp=%s", path, timestamp)
+    debug("sending updated value for '%s', timestamp=%s", path, timestamp)
     sendUpdatedValues([{
       path: path,
       value: value
