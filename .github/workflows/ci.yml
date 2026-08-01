@@ -1,0 +1,31 @@
+name: CI
+
+# Calls the canonical Signal K reusable plugin workflow, which fans the build
+# and test suite out over Linux x64/arm64, macOS, Windows and armv7 (the Cerbo
+# GX / Venus OS target) on Node 22 and 24.
+#
+# The Signal K plugin registry also reads build-command and test-command from
+# this file when it scores the plugin, so declaring them here is what stops it
+# guessing.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  plugin-ci:
+    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@master
+    with:
+      build-command: npm run build
+      test-command: npm test
+      # Installs the packed plugin into a real server and starts it. 2.23.0 is
+      # here deliberately: issue #1 was a load failure that only appears on
+      # servers predating the esm-resolve fallback, so testing an older server
+      # alongside the current one is the regression guard for it.
+      enable-signalk-integration: true
+      signalk-server-versions: '["2.23.0", "latest"]'
