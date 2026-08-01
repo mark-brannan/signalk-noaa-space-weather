@@ -1,0 +1,120 @@
+# Changelog
+
+All notable changes to this project are documented here.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.2.0] - 2026-08-01
+
+### Fixed
+
+- **The plugin failed to start on some servers with `Cannot find module`**
+  ([#1](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/1)).
+  `package.json` declared `exports` but no `main`. Signal K loads a plugin with
+  `importOrRequire(moduleDir)`, which calls `require()` on an absolute directory
+  path, and Node's CommonJS loader does not consult `exports` in that case — it
+  reads `main`, finds none, falls back to `./index.js` and throws. Recent
+  servers mask this with an `esm-resolve` fallback; older ones do not.
+- **Alert notifications never reflected the storm scale.** `state` and
+  `scaleText` were shadowed by `const` declarations inside the scale-line
+  branch, so every alert was published with `state: "normal"` and an empty
+  scale, and the `minScaleAlert` setting had no effect at all.
+- **Solar wind published `NaN`.** NOAA changed the summary products from
+  `{"WindSpeed": ...}` and `{"Bt": ..., "Bz": ...}` to
+  `[{"proton_speed": ...}]` and `[{"bt": ..., "bz_gsm": ...}]`. Reading an array
+  with the old object accessors left the speed silently absent and made Bt and
+  Bz `undefined * 1`. Both payload shapes are now accepted, as are both shapes
+  of the planetary K-index forecast, which NOAA has likewise switched between a
+  header-row table and a list of records.
+- **`observations.latest.*` had no metadata.** All three "latest observed"
+  entries pointed at the 24-hour maximum paths, which also overwrote the
+  24-hour descriptions. Metadata is now generated from the range table instead
+  of being written out by hand.
+- The advisory outlook notification sent `props.defaultMethod`, which is
+  undefined, instead of the configured notification method.
+- A malformed product could throw inside a promise with no `catch`, and one
+  unparseable alert discarded the whole batch. Parsing now fails soft per item,
+  and fetches have a timeout.
+- `stop()` only cleared the repeating intervals, so stopping within the first
+  five seconds left the initial fetch pending and it still emitted deltas.
+
+### Added
+
+- **Planetary K-index forecast.** Kp defines the G scale directly
+  (G1 = Kp5 ... G5 = Kp9) and the NOAA feed is 3-hourly out to three days, so
+  it answers *when* a geomagnetic storm arrives at eight times the resolution
+  of the single daily G value in `noaa-scales.json`. This feed was already
+  being fetched and its result discarded. New paths:
+  - `environment.noaa.swpc.kp.observed`
+  - `environment.noaa.swpc.kp.forecast.max24h`
+  - `environment.noaa.swpc.kp.forecast.max72h`
+  - `environment.noaa.swpc.kp.forecast.maxNoaaScale`
+  - `environment.noaa.swpc.kp.forecast.nextStormTime`
+  - `environment.noaa.swpc.kp.forecast.nextStormKp`
+- **Zone metadata on every scale and Kp path**, so any Signal K gauge colours
+  itself without extra configuration. Zones drive server-generated
+  notifications, so the mapping is deliberately quiet: NOAA's own frequencies
+  put a level 1 event on roughly a quarter of all days and a level 5 on four
+  days per solar cycle, so levels at or below the threshold carry no visual or
+  sound method and only levels above it can interrupt.
+- `zoneAlertThreshold` setting (default 3) to move that pivot.
+- A test suite — 78 tests over captured NOAA payloads, with no network access.
+- `CHANGELOG.md`, `LICENSE` (the ISC licence was declared but the file was
+  missing), an app icon, and screenshots.
+
+### Changed
+
+- **Breaking:** `solar_wind.Bt` and `solar_wind.Bz` are now published in Tesla
+  with `units: "T"` rather than nanotesla, per Signal K's SI convention.
+- **Breaking:** forecast S and R probabilities move from nested object values
+  to their own leaf paths, so ordinary consumers can subscribe to them:
+  - `scales.forecast.<n>day.S` → `scales.forecast.<n>day.S.probability`
+  - `scales.forecast.<n>day.R` → `scales.forecast.<n>day.R.minorProbability`
+    and `.majorProbability`
+- **Breaking:** those probabilities are now 0–1 ratios with `units: "ratio"`
+  rather than whole percents.
+- `units: "none"` was dropped from the dimensionless G/S/R and Kp paths; the
+  admin UI renders the units string verbatim and displayed "2 none".
+- The published package no longer ships 20 stray working-directory files. It
+  now contains only `dist`, `docs`, the icon, and the documentation.
+- Dropped the `node-fetch` dependency in favour of the `fetch` built into
+  Node 18+. The plugin now has no runtime dependencies.
+
+## [0.1.2] - 2025-04-19
+
+### Added
+
+- Solar wind speed, and interplanetary magnetic field strength (Bt) and
+  orientation (Bz).
+- Metadata for the advisory outlook.
+
+### Changed
+
+- Longer fetch timeouts.
+
+## [0.1.1] - 2025-04-19
+
+### Added
+
+- Explicit timestamps on Signal K updates.
+
+### Fixed
+
+- Removed a noisy console log.
+
+## [0.1.0] - 2025-04-15
+
+### Added
+
+- First published release.
+- NOAA G/S/R storm scales for latest observed, 24-hour observed maximums, and
+  the three-day forecast.
+- The weekly Space Weather Advisory Outlook as a Signal K notification.
+- NOAA alerts, warnings, and watches as notifications, with a configurable
+  scale threshold.
+
+[0.2.0]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.1.2...v0.2.0
+[0.1.2]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/mark-brannan/signalk-noaa-space-weather/releases/tag/v0.1.0
