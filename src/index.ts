@@ -385,7 +385,9 @@ export default function (app: any) {
               ...methods,
               displayName: `${SCALE_DESCRIPTIONS[letter]} (${letter})`,
               description: `${range.label} for ${SCALE_DESCRIPTIONS[letter].toLowerCase()}s`,
-              units: 'none',
+              // No `units`: the scale value is a dimensionless index, and the
+              // admin UI renders whatever string is here verbatim, so the
+              // previous units:"none" displayed as "2 none".
               timeout: 60 * 60 * 4,
               displayScale: {
                 lower: NoaaScaleValues.NONE,
@@ -482,8 +484,8 @@ export default function (app: any) {
     const threshold = zoneAlertThreshold(props)
     const methods = methodsFor(props)
     const kpZones = zonesForKp(threshold)
+    // Kp is a dimensionless index; see the note in scaleMetadata about units.
     const commonKpMeta = {
-      units: 'none',
       timeout: 60 * 60 * 6,
       displayScale: { lower: 0, upper: 9, type: 'linear' }
     }
@@ -528,7 +530,6 @@ export default function (app: any) {
         path: `${kpBasePath}.forecast.maxNoaaScale`,
         value: {
           ...methods,
-          units: 'none',
           timeout: 60 * 60 * 6,
           displayName: 'Max forecast G scale (72h)',
           description:
