@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="NOAA Space Weather">
+  <title>NOAA Space Weather</title>
+  <rect width="64" height="64" rx="10" fill="#0b1026"/>
+  <!-- solar wind streaming from the sun at upper left -->
+  <circle cx="9" cy="11" r="9" fill="#ffb703"/>
+  <g stroke="#ffb703" stroke-width="1.6" stroke-linecap="round" opacity="0.75">
+    <path d="M17 15 q9 4 15 10"/>
+    <path d="M14 21 q8 6 12 13"/>
+    <path d="M9 25 q5 8 7 15"/>
+  </g>
+  <!-- magnetosphere bow shock -->
+  <path d="M52 12 q-16 20 0 40" fill="none" stroke="#4cc9f0" stroke-width="2.2" opacity="0.85"/>
+  <path d="M58 6 q-22 26 0 52" fill="none" stroke="#4cc9f0" stroke-width="1.4" opacity="0.45"/>
+  <!-- earth -->
+  <circle cx="46" cy="32" r="9" fill="#1b4965"/>
+  <path d="M46 23 a9 9 0 0 1 0 18 a5.5 9 0 0 0 0 -18" fill="#2a9d8f" opacity="0.9"/>
+  <!-- auroral oval -->
+  <ellipse cx="46" cy="24.5" rx="5.5" ry="1.8" fill="none" stroke="#90ee90" stroke-width="1.5" opacity="0.95"/>
+</svg>
