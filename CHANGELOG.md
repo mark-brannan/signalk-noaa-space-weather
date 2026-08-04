@@ -5,6 +5,30 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Aurora visibility at the vessel's own position.** "Can I see the aurora
+  from here?" `environment.noaa.swpc.aurora.probability` (a 0-1 ratio) reads
+  NOAA's OVATION model and bilinearly interpolates the vessel's position
+  from the surrounding grid cells rather than snapping to the nearest one.
+  The grid is a coarse 1° (~60nm of latitude), and the aurora oval's edge is
+  exactly where nearest-neighbour would produce visible jumps as the vessel
+  moves.
+
+  Off by default and on its own configurable interval (60 min default) to
+  avoid bloating data transfer costs: the payload is roughly 900 KB. Aurora
+  is treated as an opportunity, not a hazard. Its alarm zones never reach
+  `alarm` and never carry a sound method at any probability.
+
+- **Geometric backoff for a product with an unmet precondition.** Aurora
+  needs a vessel position, which may not exist for the first few seconds
+  after boot (or ever, on a dev server). Rather than fail or wait out a full
+  interval, a product can now report `not-ready` and be retried with
+  geometric backoff: 5s, 10s, 20s and capped at an upper bound of 5 minutes
+  or the interval of that product (NOAA resource).
+
 ## [0.2.0] - 2026-08-01
 
 ### Fixed
