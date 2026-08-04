@@ -5,6 +5,19 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **A companion webapp.** No configuration: it reads whatever the plugin has
+  already published. Storm scale gauges, the Kp observed/24h/72h peaks, solar
+  wind readouts, and — when aurora is enabled — probability at the vessel's
+  position. Static HTML/CSS/JS, no build step, no external requests; the
+  Signal K server serves it automatically from `public/` at
+  `/signalk-noaa-space-weather/`. Every tile degrades to a plain message
+  rather than showing nothing when its data isn't available yet (aurora
+  disabled, no position, first fetch cycle still pending).
+
 ## [0.3.0] - 2026-08-04
 
 ### Added
