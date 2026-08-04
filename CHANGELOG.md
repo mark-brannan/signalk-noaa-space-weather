@@ -5,6 +5,22 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`environment.noaa.swpc.kp.forecast.series`**: the 3-hourly Kp points from
+  24 hours in the past to 72 hours ahead, as `{time, kp, forecast}`. This is
+  the same NOAA feed already fetched for the summary paths — no new network
+  request, just no longer discarding the parsed rows.
+- The webapp's Kp tile now draws a real timeline from that series (observed
+  in grey, forecast in amber, the Kp 5 storm threshold marked, the 72h peak
+  highlighted) instead of a three-bar peak comparison. Falls back to the bars
+  if the series hasn't arrived yet.
+- A "Learn more" links row in the webapp: NOAA's own explanations of the
+  G/S/R scales, the Kp index, the aurora dashboard, and radio/GPS impact
+  pages.
+
 ## [0.4.0] - 2026-08-04
 
 ### Added
