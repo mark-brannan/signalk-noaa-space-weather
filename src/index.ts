@@ -11,17 +11,32 @@ import { Settings, schema, settingsFrom } from './config.js'
 import { createClient } from './noaa/client.js'
 import { createPublisher } from './publisher.js'
 import { advisory } from './products/advisory.js'
+import { aurora } from './products/aurora.js'
 import { alerts } from './products/alerts.js'
 import { kp } from './products/kp.js'
 import { scales } from './products/scales.js'
 import { solarWind } from './products/solarWind.js'
 import { Product } from './products/types.js'
 
-const PRODUCTS: Product[] = [scales, kp, solarWind, advisory, alerts]
+const PRODUCTS: Product[] = [scales, kp, solarWind, aurora, advisory, alerts]
 
 const PLUGIN_ID = 'signalk-noaa-space-weather'
 /** Let the server settle before the first fetch. */
 const INITIAL_DELAY_MS = 5000
+/**
+ * Backoff for a product whose preconditions are not met yet. A GPS fix
+ * usually arrives within seconds, so the first look is quick; but a dev
+ * server or a boat with no GPS at all may never satisfy it, and that must
+ * settle into a quiet heartbeat rather than a busy loop.
+ */
+const NOT_READY_BASE_MS = 5000
+const NOT_READY_MAX_MS = 5 * 60 * 1000
+
+/** Geometric backoff, capped both by NOT_READY_MAX_MS and the product's own interval. */
+export function notReadyDelayMs(attempt: number, intervalMs: number): number {
+  const geometric = NOT_READY_BASE_MS * Math.pow(2, Math.max(0, attempt))
+  return Math.min(geometric, NOT_READY_MAX_MS, Math.max(intervalMs, NOT_READY_BASE_MS))
+}
 
 interface Plugin {
   start: (props: any) => void
@@ -38,22 +53,36 @@ export default function (app: any): Plugin {
 
   let timers: any[] = []
   let stopped = false
+  /** Consecutive 'not-ready' results per product, for the backoff. */
+  const notReadyAttempts = new Map<string, number>()
 
   function intervalFor(product: Product, settings: Settings): number {
-    const minutes =
-      product.schedule === 'observations'
-        ? settings.observationsInterval
-        : settings.notificationsInterval
-    return minutes * 60 * 1000
+    return product.intervalMinutes(settings) * 60 * 1000
   }
 
   function run(product: Product, settings: Settings) {
     const ctx = { client, publisher, settings, stopped: () => stopped }
     // One failing product must never take down the others, and an unhandled
     // rejection here would reach the server.
-    product.refresh(ctx).catch((err) => {
-      publisher.error(`Failed to handle '${product.name}': ${err}`)
-    })
+    product
+      .refresh(ctx)
+      .then((result) => {
+        if (result !== 'not-ready') {
+          notReadyAttempts.delete(product.name)
+          return
+        }
+        if (stopped) return
+        const attempt = notReadyAttempts.get(product.name) ?? 0
+        notReadyAttempts.set(product.name, attempt + 1)
+        const delay = notReadyDelayMs(attempt, intervalFor(product, settings))
+        publisher.debug(
+          `'${product.name}' is not ready; looking again in ${Math.round(delay / 1000)}s`
+        )
+        timers.push(setTimeout(() => run(product, settings), delay))
+      })
+      .catch((err) => {
+        publisher.error(`Failed to handle '${product.name}': ${err}`)
+      })
   }
 
   return {
@@ -64,6 +93,7 @@ export default function (app: any): Plugin {
 
     start(props: any) {
       stopped = false
+      notReadyAttempts.clear()
       const settings = settingsFrom(props)
 
       for (const product of PRODUCTS) {

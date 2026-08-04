@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import createPlugin from '../src/index'
+import createPlugin, { notReadyDelayMs } from '../src/index'
 
 interface Delta {
   updates: any[]
@@ -166,5 +166,25 @@ describe('plugin module', () => {
 
     expect(fetchMock).toHaveBeenCalled()
     expect(app.error).toHaveBeenCalled()
+  })
+
+  it('backs off geometrically while a product is not ready', () => {
+    // A GPS fix normally lands in seconds, so look again quickly at first —
+    // but a dev server or a boat with no GPS at all must settle into a quiet
+    // heartbeat rather than retrying every few seconds forever.
+    const hour = 60 * 60 * 1000
+    const seconds = [0, 1, 2, 3, 4, 5, 6, 9].map(
+      (attempt) => notReadyDelayMs(attempt, hour) / 1000
+    )
+    expect(seconds).toEqual([5, 10, 20, 40, 80, 160, 300, 300])
+  })
+
+  it('never backs off longer than the product\'s own interval', () => {
+    const minute = 60 * 1000
+    for (const attempt of [0, 1, 2, 3, 4, 10]) {
+      expect(notReadyDelayMs(attempt, minute)).toBeLessThanOrEqual(minute)
+    }
+    // ...nor shorter than the base delay, even for an absurd interval.
+    expect(notReadyDelayMs(0, 1)).toBe(5000)
   })
 })
