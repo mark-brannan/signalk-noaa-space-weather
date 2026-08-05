@@ -1,11 +1,15 @@
+import { mkdtempSync, rmSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import createPlugin, { notReadyDelayMs } from '../src/index'
+import { writeAuroraCache } from '../src/noaa/auroraCache'
 
 interface Delta {
   updates: any[]
 }
 
-function fakeApp() {
+function fakeApp(dataDir?: string) {
   const deltas: Delta[] = []
   return {
     deltas,
@@ -14,7 +18,34 @@ function fakeApp() {
     setPluginStatus: vi.fn(),
     setPluginError: vi.fn(),
     getSelfPath: vi.fn(() => undefined),
+    getDataDirPath: vi.fn(() => dataDir ?? '/nonexistent'),
     handleMessage: (_id: string, delta: Delta) => deltas.push(delta)
+  }
+}
+
+/** Captures router.get(path, handler) registrations without a real Express router. */
+function fakeRouter() {
+  const routes = new Map<string, (req: any, res: any) => void>()
+  return {
+    get(path: string, handler: (req: any, res: any) => void) {
+      routes.set(path, handler)
+    },
+    invoke(path: string) {
+      const handler = routes.get(path)
+      if (!handler) throw new Error(`no route registered for ${path}`)
+      const body: { status: number; json: any } = { status: 200, json: undefined }
+      const res = {
+        status(code: number) {
+          body.status = code
+          return res
+        },
+        json(payload: any) {
+          body.json = payload
+        }
+      }
+      handler({}, res)
+      return body
+    }
   }
 }
 
@@ -47,6 +78,45 @@ describe('plugin module', () => {
     expect(typeof plugin.start).toBe('function')
     expect(typeof plugin.stop).toBe('function')
     expect(plugin.schema.type).toBe('object')
+  })
+
+  describe('GET /signalk-noaa-space-weather/aurora-grid (signalKApiRoutes)', () => {
+    const ROUTE = '/signalk-noaa-space-weather/aurora-grid'
+    let dataDir: string
+    beforeEach(() => {
+      dataDir = mkdtempSync(join(tmpdir(), 'plugin-datadir-'))
+    })
+    afterEach(() => {
+      rmSync(dataDir, { recursive: true, force: true })
+    })
+
+    it('returns the same router it was given, mountable at /signalk/v1/api', () => {
+      const plugin = createPlugin(fakeApp(dataDir))
+      const router = fakeRouter()
+      expect(plugin.signalKApiRoutes(router)).toBe(router)
+    })
+
+    it('answers 404 with a helpful message when nothing is cached yet', () => {
+      const plugin = createPlugin(fakeApp(dataDir))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+
+      const response = router.invoke(ROUTE)
+      expect(response.status).toBe(404)
+      expect(response.json.error).toMatch(/enable aurora/i)
+    })
+
+    it('serves back exactly what the aurora product cached', () => {
+      writeAuroraCache(dataDir, { coordinates: [[1, 2, 3]] })
+      const plugin = createPlugin(fakeApp(dataDir))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+
+      const response = router.invoke(ROUTE)
+      expect(response.status).toBe(200)
+      expect(response.json.grid).toEqual({ coordinates: [[1, 2, 3]] })
+      expect(typeof response.json.fetchedAt).toBe('string')
+    })
   })
 
   it('declares every configuration key the plugin reads', () => {

@@ -5,6 +5,31 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-08-05
+
+### Changed
+
+- **The aurora map no longer fetches NOAA from the browser.** The plugin's
+  own aurora product already fetches the ~900 KB OVATION grid server-side to
+  compute the probability at the vessel's position; it now also caches that
+  same fetch to disk (`app.getDataDirPath()`, the same mechanism other
+  plugins use for a cache or a small database), and serves it back to the
+  webapp over its own route. One fetch now does both jobs, and the browser
+  only ever talks to the Signal K server it already loaded the page from —
+  which fully retires the "does this browser have its own path to the
+  internet" question the client-fetch version depended on.
+
+  The route lives at `/signalk/v1/api/signalk-noaa-space-weather/aurora-grid`,
+  not the more obvious `/plugins/signalk-noaa-space-weather/aurora-grid`.
+  Found out why the hard way: `signalk-server` hardcodes the entire
+  `/plugins/*` prefix to admin-only
+  (`adminAuthenticationMiddleware`, applied unconditionally, with no
+  per-route override), which would have made viewing the map require an
+  admin login unlike every other read in this webapp. `/signalk/v1/api/*`
+  carries no such gate on GET — only PUT/POST/DELETE are restricted there —
+  so mounting via `signalKApiRoutes` instead of `registerWithRouter` matches
+  the read-level access the rest of the plugin's data already has.
+
 ## [0.8.0] - 2026-08-05
 
 ### Changed
@@ -252,6 +277,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NOAA alerts, warnings, and watches as notifications, with a configurable
   scale threshold.
 
+[0.9.0]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.6.0...v0.6.1

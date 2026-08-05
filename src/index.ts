@@ -9,6 +9,7 @@
  */
 import { Settings, schema, settingsFrom } from './config.js'
 import { createClient } from './noaa/client.js'
+import { readAuroraCache } from './noaa/auroraCache.js'
 import { createPublisher } from './publisher.js'
 import { advisory } from './products/advisory.js'
 import { aurora } from './products/aurora.js'
@@ -45,6 +46,7 @@ interface Plugin {
   name: string
   description: string
   schema: any
+  signalKApiRoutes: (router: any) => any
 }
 
 export default function (app: any): Plugin {
@@ -90,6 +92,37 @@ export default function (app: any): Plugin {
     name: 'NOAA Space Weather',
     description: 'SignalK Plugin to get SPACE weather from the NOAA SWPC',
     schema,
+
+    // Serves the aurora product's own cached NOAA fetch back to the webapp
+    // (GET /signalk/v1/api/signalk-noaa-space-weather/aurora-grid), so the
+    // map reads the one server-side capture instead of the browser fetching
+    // NOAA a second time. See src/noaa/auroraCache.ts for why.
+    //
+    // Mounted via signalKApiRoutes, not registerWithRouter: the server
+    // hardcodes the whole /plugins/* prefix to admin-only
+    // (tokensecurity.js's adminAuthenticationMiddleware, unconditional, no
+    // per-route override available), which would make this data-serving GET
+    // require a full admin login unlike every other read in this webapp.
+    // /signalk/v1/api/* carries no such gate on GET -- only PUT/POST/DELETE
+    // are restricted there -- so it matches the read-level access the rest
+    // of the plugin's data already has. Self-namespaced under the plugin id
+    // because /signalk/v1/api is a namespace shared by every plugin using
+    // this same extension point.
+    signalKApiRoutes(router: any) {
+      router.get('/signalk-noaa-space-weather/aurora-grid', (_req: any, res: any) => {
+        const cached = readAuroraCache(publisher.dataDirPath())
+        if (!cached) {
+          res.status(404).json({
+            error:
+              'No aurora data cached yet. Enable aurora in the plugin' +
+              ' configuration and wait for the next fetch cycle.'
+          })
+          return
+        }
+        res.json(cached)
+      })
+      return router
+    },
 
     start(props: any) {
       stopped = false
