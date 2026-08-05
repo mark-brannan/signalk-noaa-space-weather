@@ -32,6 +32,13 @@ const INITIAL_DELAY_MS = 5000
  */
 const NOT_READY_BASE_MS = 5000
 const NOT_READY_MAX_MS = 5 * 60 * 1000
+/**
+ * Floor between manual "refresh now" requests from the webapp. The aurora
+ * payload is ~900 KB and the whole reason it defaults to a two-hour interval
+ * is to bound that cost -- a button a user can mash has to bound it too,
+ * independent of whatever interval is configured.
+ */
+const FORCE_REFRESH_COOLDOWN_MS = 60 * 1000
 
 /** Geometric backoff, capped both by NOT_READY_MAX_MS and the product's own interval. */
 export function notReadyDelayMs(attempt: number, intervalMs: number): number {
@@ -57,6 +64,9 @@ export default function (app: any): Plugin {
   let stopped = false
   /** Consecutive 'not-ready' results per product, for the backoff. */
   const notReadyAttempts = new Map<string, number>()
+  /** Set on start(), read by the force-refresh route below. */
+  let currentSettings: Settings | null = null
+  let lastForcedRefreshAt = 0
 
   function intervalFor(product: Product, settings: Settings): number {
     return product.intervalMinutes(settings) * 60 * 1000
@@ -121,6 +131,69 @@ export default function (app: any): Plugin {
         }
         res.json(cached)
       })
+
+      // Manual "refresh now" for the webapp: a one-shot aurora fetch outside
+      // the scheduled interval, cooldown-limited so a user mashing the
+      // button (or a script hitting this URL) cannot turn a two-hour budget
+      // into a busy loop. GET rather than POST for the same reason the read
+      // above is GET: this namespace gates PUT/POST/DELETE behind auth, and
+      // this route needs no more privilege than the data it is refreshing.
+      router.get(
+        '/signalk-noaa-space-weather/aurora-refresh',
+        async (_req: any, res: any) => {
+          if (!currentSettings) {
+            res.status(503).json({ error: 'Plugin is not running.' })
+            return
+          }
+          if (!currentSettings.auroraEnabled) {
+            res.status(400).json({
+              error: 'Aurora is disabled in the plugin configuration.'
+            })
+            return
+          }
+          const sinceLast = Date.now() - lastForcedRefreshAt
+          if (sinceLast < FORCE_REFRESH_COOLDOWN_MS) {
+            const retryAfterS = Math.ceil((FORCE_REFRESH_COOLDOWN_MS - sinceLast) / 1000)
+            res.setHeader('Retry-After', String(retryAfterS))
+            res.status(429).json({
+              error: `Refreshed too recently; try again in ${retryAfterS}s.`
+            })
+            return
+          }
+          lastForcedRefreshAt = Date.now()
+
+          try {
+            const result = await aurora.refresh({
+              client,
+              publisher,
+              settings: currentSettings,
+              stopped: () => stopped
+            })
+            if (result === 'not-ready') {
+              res.status(409).json({
+                error: 'No vessel position available to refresh against yet.'
+              })
+              return
+            }
+          } catch (err) {
+            res.status(502).json({ error: `Aurora refresh failed: ${err}` })
+            return
+          }
+
+          const cached = readAuroraCache(publisher.dataDirPath())
+          if (!cached) {
+            // The fetch above succeeded (no throw, not 'not-ready') but
+            // wrote nothing readable back -- best-effort cache write must
+            // have failed. The scheduled probability publish still went out.
+            res.status(502).json({
+              error: 'Refreshed, but the result could not be read back from cache.'
+            })
+            return
+          }
+          res.json(cached)
+        }
+      )
+
       return router
     },
 
@@ -128,6 +201,7 @@ export default function (app: any): Plugin {
       stopped = false
       notReadyAttempts.clear()
       const settings = settingsFrom(props)
+      currentSettings = settings
 
       for (const product of PRODUCTS) {
         if (product.enabled && !product.enabled(settings)) continue
@@ -150,6 +224,7 @@ export default function (app: any): Plugin {
 
     stop() {
       stopped = true
+      currentSettings = null
       timers.forEach((timer) => clearTimeout(timer))
       timers = []
     }

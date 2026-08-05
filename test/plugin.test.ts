@@ -4,12 +4,13 @@ import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import createPlugin, { notReadyDelayMs } from '../src/index'
 import { writeAuroraCache } from '../src/noaa/auroraCache'
+import { fixtureJson } from './fixtures'
 
 interface Delta {
   updates: any[]
 }
 
-function fakeApp(dataDir?: string) {
+function fakeApp(dataDir?: string, position?: any) {
   const deltas: Delta[] = []
   return {
     deltas,
@@ -17,7 +18,9 @@ function fakeApp(dataDir?: string) {
     debug: vi.fn(),
     setPluginStatus: vi.fn(),
     setPluginError: vi.fn(),
-    getSelfPath: vi.fn(() => undefined),
+    getSelfPath: vi.fn((path: string) =>
+      path === 'navigation.position.value' ? position : undefined
+    ),
     getDataDirPath: vi.fn(() => dataDir ?? '/nonexistent'),
     handleMessage: (_id: string, delta: Delta) => deltas.push(delta)
   }
@@ -25,15 +28,22 @@ function fakeApp(dataDir?: string) {
 
 /** Captures router.get(path, handler) registrations without a real Express router. */
 function fakeRouter() {
-  const routes = new Map<string, (req: any, res: any) => void>()
+  const routes = new Map<string, (req: any, res: any) => any>()
   return {
-    get(path: string, handler: (req: any, res: any) => void) {
+    get(path: string, handler: (req: any, res: any) => any) {
       routes.set(path, handler)
     },
-    invoke(path: string) {
+    // async: route handlers may be async (the force-refresh route awaits a
+    // fetch), so this must await whatever the handler returns before the
+    // response body is complete.
+    async invoke(path: string) {
       const handler = routes.get(path)
       if (!handler) throw new Error(`no route registered for ${path}`)
-      const body: { status: number; json: any } = { status: 200, json: undefined }
+      const body: { status: number; json: any; headers: Record<string, string> } = {
+        status: 200,
+        json: undefined,
+        headers: {}
+      }
       const res = {
         status(code: number) {
           body.status = code
@@ -41,9 +51,12 @@ function fakeRouter() {
         },
         json(payload: any) {
           body.json = payload
+        },
+        setHeader(name: string, value: string) {
+          body.headers[name] = value
         }
       }
-      handler({}, res)
+      await handler({}, res)
       return body
     }
   }
@@ -96,26 +109,137 @@ describe('plugin module', () => {
       expect(plugin.signalKApiRoutes(router)).toBe(router)
     })
 
-    it('answers 404 with a helpful message when nothing is cached yet', () => {
+    it('answers 404 with a helpful message when nothing is cached yet', async () => {
       const plugin = createPlugin(fakeApp(dataDir))
       const router = fakeRouter()
       plugin.signalKApiRoutes(router)
 
-      const response = router.invoke(ROUTE)
+      const response = await router.invoke(ROUTE)
       expect(response.status).toBe(404)
       expect(response.json.error).toMatch(/enable aurora/i)
     })
 
-    it('serves back exactly what the aurora product cached', () => {
+    it('serves back exactly what the aurora product cached', async () => {
       writeAuroraCache(dataDir, { coordinates: [[1, 2, 3]] })
       const plugin = createPlugin(fakeApp(dataDir))
       const router = fakeRouter()
       plugin.signalKApiRoutes(router)
 
-      const response = router.invoke(ROUTE)
+      const response = await router.invoke(ROUTE)
       expect(response.status).toBe(200)
       expect(response.json.grid).toEqual({ coordinates: [[1, 2, 3]] })
       expect(typeof response.json.fetchedAt).toBe('string')
+    })
+  })
+
+  describe('GET /signalk-noaa-space-weather/aurora-refresh (signalKApiRoutes)', () => {
+    const ROUTE = '/signalk-noaa-space-weather/aurora-refresh'
+    const POSITION = { latitude: 70, longitude: 20 }
+    let dataDir: string
+
+    beforeEach(() => {
+      dataDir = mkdtempSync(join(tmpdir(), 'plugin-datadir-'))
+    })
+    afterEach(() => {
+      rmSync(dataDir, { recursive: true, force: true })
+    })
+
+    function stubSuccessfulFetch() {
+      fetchMock = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: async () => fixtureJson('ovation-aurora.2026_08_01.json')
+        })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+    }
+
+    it('refuses before the plugin has started', async () => {
+      const plugin = createPlugin(fakeApp(dataDir, POSITION))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(503)
+    })
+
+    it('refuses when aurora is disabled in configuration', async () => {
+      const plugin = createPlugin(fakeApp(dataDir, POSITION))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({}) // auroraEnabled defaults to false
+
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(400)
+      plugin.stop()
+    })
+
+    it('reports 409 when there is no vessel position to refresh against', async () => {
+      const plugin = createPlugin(fakeApp(dataDir, undefined))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({ auroraEnabled: true })
+
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(409)
+      plugin.stop()
+    })
+
+    it('fetches fresh data on demand and returns the newly cached grid', async () => {
+      stubSuccessfulFetch()
+      const plugin = createPlugin(fakeApp(dataDir, POSITION))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({ auroraEnabled: true })
+
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(200)
+      expect(typeof response.json.fetchedAt).toBe('string')
+      expect(response.json.grid.coordinates.length).toBeGreaterThan(0)
+      // This is the point of the route: a fetch happened right now, not on
+      // whatever the configured interval is.
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      plugin.stop()
+    })
+
+    it('rate-limits repeat requests instead of hammering NOAA', async () => {
+      stubSuccessfulFetch()
+      const plugin = createPlugin(fakeApp(dataDir, POSITION))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({ auroraEnabled: true })
+
+      const first = await router.invoke(ROUTE)
+      expect(first.status).toBe(200)
+
+      const second = await router.invoke(ROUTE)
+      expect(second.status).toBe(429)
+      expect(second.headers['Retry-After']).toBeDefined()
+      expect(fetchMock).toHaveBeenCalledTimes(1) // the second call never reached the network
+
+      plugin.stop()
+    })
+
+    it('allows another refresh once the cooldown has elapsed', async () => {
+      stubSuccessfulFetch()
+      const plugin = createPlugin(fakeApp(dataDir, POSITION))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({ auroraEnabled: true })
+
+      expect((await router.invoke(ROUTE)).status).toBe(200)
+      const callsAfterFirst = fetchMock.mock.calls.length
+      // Past the cooldown, not the scheduled interval: this crosses every
+      // enabled product's own INITIAL_DELAY_MS too, so the network gets
+      // busier than just this route -- the assertion below only needs "at
+      // least one more fetch happened", not an exact count.
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect((await router.invoke(ROUTE)).status).toBe(200)
+      expect(fetchMock.mock.calls.length).toBeGreaterThan(callsAfterFirst)
+
+      plugin.stop()
     })
   })
 
