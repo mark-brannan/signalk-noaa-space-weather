@@ -5,6 +5,19 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **"Show map" in the webapp's Aurora tile.** Fetches NOAA's OVATION grid
+  directly from the browser (a separate request from the plugin's own
+  server-side aurora fetch) and draws probability in a window around the
+  vessel's position, marker at center. Opt-in only — never fetched
+  automatically, since it's a second ~900 KB request on top of whatever the
+  plugin itself is already doing. If the browser has no path to NOAA
+  independent of the Signal K server, it says so rather than failing
+  silently.
+
 ## [0.6.1] - 2026-08-05
 
 ### Changed
