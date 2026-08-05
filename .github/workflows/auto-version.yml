@@ -1,0 +1,144 @@
+name: Auto Version
+
+# Every merge to main should end up published without anyone having to
+# remember to bump a version and tag by hand.
+#
+# - If package.json's version was already bumped as part of the merge (an
+#   explicit, conscious choice of how big the change is -- what a human, or
+#   Claude acting for one, does for anything more than the smallest change),
+#   this just tags and publishes that version.
+# - If it wasn't touched, that's the "small change, no explicit bump" case:
+#   bump the patch version automatically, then tag and publish the result.
+#
+# The auto-bump goes through a normal PR with auto-merge rather than a
+# direct push, so it's governed by the same required checks as everything
+# else on main -- no special-cased bypass for the bot.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: auto-version-main
+  cancel-in-progress: false
+
+jobs:
+  ensure-published:
+    runs-on: ubuntu-latest
+    # This is what stops the auto-bump PR's own merge from re-triggering an
+    # infinite bump: its commit message always starts with this prefix.
+    if: "!startsWith(github.event.head_commit.message, 'chore(auto-version):')"
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # need the full tag history to find the latest one
+
+      - name: Check whether this merge already carries an explicit version bump
+        id: check
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n1)
+          LATEST_VERSION="${LATEST_TAG#v}"
+          echo "package.json: $PKG_VERSION, latest tag: ${LATEST_TAG:-(none)}"
+          if [ "$PKG_VERSION" = "$LATEST_VERSION" ]; then
+            echo "needs_bump=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_bump=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "pkg_version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if there is nothing publishable to bump for
+        id: publishable
+        if: steps.check.outputs.needs_bump == 'true'
+        run: |
+          # `files` in package.json is the actual npm allowlist -- .github/
+          # workflow changes (like this one) never end up in the published
+          # tarball, so auto-bumping for them would publish a byte-identical
+          # package under a new, meaningless version number. Only matters
+          # when needs_bump is already true: an explicit bump elsewhere in
+          # the same push still publishes normally regardless of what else
+          # changed alongside it.
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+          if [ -n "$CHANGED" ] && ! echo "$CHANGED" | grep -qv '^\.github/'; then
+            echo "Only .github/ changed; nothing publishable. Skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Auto-bump the patch version via a PR, and wait for it to land
+        if: steps.check.outputs.needs_bump == 'true' && steps.publishable.outputs.skip != 'true'
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          npm version patch --no-git-tag-version
+          VERSION=$(node -p "require('./package.json').version")
+          BRANCH="auto-version/$VERSION"
+
+          git checkout -b "$BRANCH"
+          git commit -am "chore(auto-version): bump to $VERSION"
+          git push origin "$BRANCH"
+          gh pr create --title "chore(auto-version): bump to $VERSION" \
+            --body "No explicit version bump was part of this merge, so this applies the smallest one: a patch bump." \
+            --base main --head "$BRANCH"
+          gh pr merge "$BRANCH" --auto --squash
+
+          # gh pr merge --auto only *enables* auto-merge; it returns as soon
+          # as that's set, not once the PR has actually merged. Tagging a
+          # version that never landed on main would publish nothing real, so
+          # wait for it -- bounded, because a check that never passes (or a
+          # merge someone closes instead) must not hang this run forever.
+          for i in $(seq 1 60); do
+            STATE=$(gh pr view "$BRANCH" --json state -q .state)
+            if [ "$STATE" = "MERGED" ]; then break; fi
+            if [ "$STATE" = "CLOSED" ]; then
+              echo "Auto-bump PR for $BRANCH was closed without merging" >&2
+              exit 1
+            fi
+            sleep 15
+          done
+          if [ "$STATE" != "MERGED" ]; then
+            echo "Timed out waiting for the auto-bump PR to merge" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Tag the version now on main
+        id: tag
+        if: steps.publishable.outputs.skip != 'true'
+        run: |
+          if [ "${{ steps.check.outputs.needs_bump }}" = "true" ]; then
+            VERSION="${{ steps.bump.outputs.version }}"
+          else
+            VERSION="${{ steps.check.outputs.pkg_version }}"
+          fi
+          TAG="v$VERSION"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # Re-fetch: if the bump step above just waited on a PR merge, the
+          # local origin/main ref is still the pre-merge commit this job
+          # checked out at the start.
+          git fetch origin main
+          # Tags aren't branch-protected, so this can push directly even
+          # though the code above went through a PR to reach main.
+          git tag "$TAG" "$(git rev-parse origin/main)"
+          git push origin "$TAG"
+
+  publish:
+    needs: ensure-published
+    if: needs.ensure-published.outputs.tag != ''
+    permissions:
+      contents: write
+      id-token: write
+    uses: ./.github/workflows/publish.yml
+    with:
+      tag: ${{ needs.ensure-published.outputs.tag }}
