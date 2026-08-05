@@ -5,6 +5,21 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Conditional GET (`ETag`/`If-None-Match`) on every NOAA fetch. A `304`
+  reuses the last parsed value instead of re-downloading and re-parsing.
+
+  Checked against the live endpoints before writing this off as a clean win:
+  NOAA regenerates these files every 15-45 seconds, well under any sane poll
+  interval, so at the default 60-minute interval a `304` essentially never
+  happens — this doesn't cut real-world bandwidth the way it would if NOAA's
+  cache-control header (`max-age=60`) reflected how often the data actually
+  changes. It does help if you set a short interval, and it's free
+  insurance against duplicate work on a rapid restart.
+
 ## [0.5.2] - 2026-08-04
 
 ### Fixed
