@@ -21,7 +21,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  id-token: write
+  actions: write # to dispatch publish.yml (gh workflow run / gh run list,watch)
 
 concurrency:
   group: auto-version-main
@@ -133,12 +133,31 @@ jobs:
           git tag "$TAG" "$(git rev-parse origin/main)"
           git push origin "$TAG"
 
-  publish:
-    needs: ensure-published
-    if: needs.ensure-published.outputs.tag != ''
-    permissions:
-      contents: write
-      id-token: write
-    uses: ./.github/workflows/publish.yml
-    with:
-      tag: ${{ needs.ensure-published.outputs.tag }}
+      # Deliberately NOT a tag push and NOT workflow_call: a tag pushed with
+      # the default GITHUB_TOKEN doesn't trigger other workflows (GitHub's
+      # own loop-prevention), and workflow_call was tried first and found to
+      # fail npm's OIDC trusted-publisher check even though the identical
+      # steps succeed here -- see publish.yml's own comment. workflow_dispatch
+      # is the one path proven to work for both a human and this job.
+      - name: Trigger the real publish, and wait for it to actually succeed
+        if: steps.tag.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          BEFORE=$(gh run list --workflow=publish.yml --json databaseId --jq '.[0].databaseId // 0')
+          gh workflow run publish.yml --ref "$TAG"
+
+          RUN_ID=""
+          for i in $(seq 1 20); do
+            sleep 5
+            RUN_ID=$(gh run list --workflow=publish.yml --json databaseId,event,headBranch \
+              --jq "[.[] | select(.event == \"workflow_dispatch\" and .headBranch == \"$TAG\" and .databaseId > $BEFORE)][0].databaseId // empty")
+            if [ -n "$RUN_ID" ]; then break; fi
+          done
+          if [ -z "$RUN_ID" ]; then
+            echo "Could not find the triggered publish run for $TAG" >&2
+            exit 1
+          fi
+          echo "Watching publish run $RUN_ID for $TAG"
+          gh run watch "$RUN_ID" --exit-status
