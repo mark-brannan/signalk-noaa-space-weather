@@ -5,6 +5,24 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-08-05
+
+### Changed
+
+- **Merged `minScaleAlert` into `zoneAlertThreshold`.** Both were 1-5
+  thresholds, both defaulted to 3 ("strong"), and both answered the same
+  question — how bad before this plugin makes noise about it — just for two
+  different pipelines (the alarm zones on scale/Kp values, and NOAA
+  alert/watch/warning notifications). One setting now drives both. If you
+  had customised `minScaleAlert` away from `zoneAlertThreshold`, the saved
+  value is picked up as the new combined threshold rather than silently
+  dropped; if you'd never touched either, nothing changes, since they always
+  defaulted to the same number.
+- **`auroraInterval` default raised from 60 to 120 minutes.** Aurora is a
+  glance-at-it feature, not one that needs to track in real time, so there
+  was little reason to default to spending the ~900 KB payload twice an
+  hour rather than once.
+
 ## [0.7.0] - 2026-08-05
 
 ### Added
@@ -234,6 +252,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NOAA alerts, warnings, and watches as notifications, with a configurable
   scale threshold.
 
+[0.8.0]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.5.2...v0.6.0

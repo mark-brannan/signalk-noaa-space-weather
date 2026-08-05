@@ -56,7 +56,6 @@ describe('plugin module', () => {
       'sendAlertsWatchesWarnings',
       'notificationVisual',
       'notificationSound',
-      'minScaleAlert',
       'zoneAlertThreshold',
       'observationsInterval',
       'notificationsInterval'
