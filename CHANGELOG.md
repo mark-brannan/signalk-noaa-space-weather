@@ -5,6 +5,16 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Webapp: the storm scale tile now spells out "Geomagnetic Storm," "Solar
+  Radiation Storm," and "Radio Blackout" instead of just the letter, with a
+  large colored G/S/R badge next to each gauge.
+- The "alert" severity color was too close to the accent amber to tell apart
+  at a glance (2° apart in hue). Shifted it to a clearer yellow-gold.
+
 ## [0.5.0] - 2026-08-04
 
 ### Added
