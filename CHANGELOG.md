@@ -5,6 +5,21 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **No icon or display name on the admin Webapps page**, though both showed
+  correctly in the App Store and on npm. The App Store resolves the icon
+  server-side; the Webapps page just serves the raw `package.json`, and the
+  admin UI reads `appIcon`/`displayName` off the *top level* of that object,
+  not the nested `signalk.appIcon` convention everything else uses. Added
+  top-level `appIcon`/`displayName` fields (the nested ones stay, for the App
+  Store and npm) and copied the icon into `public/` so it's actually served
+  at the path the webapp is mounted on — `signalk.appIcon`'s `./icon.svg` is
+  relative to the package root, not to whatever admin page happens to be
+  open in the browser, so it never resolved there.
+
 ## [0.5.1] - 2026-08-04
 
 ### Changed
