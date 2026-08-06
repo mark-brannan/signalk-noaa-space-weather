@@ -5,6 +5,35 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.3] - 2026-08-06
+
+### Changed
+
+- **Version bumps are now enforced locally, not by CI trying to create and
+  auto-merge a PR of its own.** `.husky/pre-commit` auto-patch-bumps
+  `package.json` at commit time if nothing on the branch has already given
+  it an explicit bump. `auto-version.yml` got simpler in the same move: it
+  no longer bumps anything, only tags and publishes whatever version is
+  already on `main`.
+
+  The bot-PR approach it replaces hit a different GitHub anti-abuse gate on
+  every real attempt — Actions forbidden from creating pull requests,
+  repo-wide auto-merge disabled, a bot-authored PR's own CI needing manual
+  approval — each only discoverable by hitting it. The local hook sidesteps
+  all of it: a normal push never touches the machinery those gates exist to
+  gate.
+
+## [0.10.2] - 2026-08-06
+
+### Fixed
+
+- **The admin Webapps sidebar page was showing a stale icon.** It reads
+  `public/icon.svg` (a separate top-level `appIcon` field, different from
+  the App Store's `signalk.appIcon`), which was a real copy last updated
+  when it was first added and never touched again after the icon was
+  redesigned. Copied the current icon over, and added a test asserting
+  the two files stay identical so this can't silently drift apart again.
+
 ## [0.10.1] - 2026-08-05
 
 ### Fixed
@@ -315,6 +344,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NOAA alerts, warnings, and watches as notifications, with a configurable
   scale threshold.
 
+[0.10.3]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.10.2...v0.10.3
+[0.10.2]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.8.0...v0.9.0
