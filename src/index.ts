@@ -14,12 +14,21 @@ import { createPublisher } from './publisher.js'
 import { advisory } from './products/advisory.js'
 import { aurora } from './products/aurora.js'
 import { alerts } from './products/alerts.js'
+import { f107 } from './products/f107.js'
 import { kp } from './products/kp.js'
 import { scales } from './products/scales.js'
 import { solarWind } from './products/solarWind.js'
 import { Product } from './products/types.js'
 
-const PRODUCTS: Product[] = [scales, kp, solarWind, aurora, advisory, alerts]
+const PRODUCTS: Product[] = [
+  scales,
+  kp,
+  solarWind,
+  f107,
+  aurora,
+  advisory,
+  alerts
+]
 
 const PLUGIN_ID = 'signalk-noaa-space-weather'
 /** Let the server settle before the first fetch. */
