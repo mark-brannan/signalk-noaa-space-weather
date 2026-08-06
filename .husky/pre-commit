@@ -1,0 +1,27 @@
+# Auto-bumps the patch version when nothing staged on this branch has
+# already given it an explicit one, so a real release never depends on
+# remembering to bump the version by hand. Compares against the latest
+# tag, not the immediate parent commit -- a feature branch's parent isn't
+# necessarily what's currently on main.
+
+# .github/-only changes never reach the published npm tarball (see
+# package.json's "files"), so a bump here would publish nothing new under
+# a new number.
+STAGED=$(git diff --cached --name-only)
+if [ -n "$STAGED" ] && ! echo "$STAGED" | grep -qv '^\.github/'; then
+  exit 0
+fi
+
+PKG_VERSION=$(node -p "require('./package.json').version")
+LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n1)
+LATEST_VERSION="${LATEST_TAG#v}"
+
+if [ "$PKG_VERSION" != "$LATEST_VERSION" ]; then
+  # Already differs from the last release -- an explicit, conscious choice
+  # by whoever/whatever changed it, however far back on this branch.
+  exit 0
+fi
+
+npm version patch --no-git-tag-version >/dev/null
+git add package.json package-lock.json
+echo "Auto-bumped to $(node -p "require('./package.json').version") (no explicit version bump was staged)"
