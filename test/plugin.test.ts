@@ -39,7 +39,11 @@ function fakeRouter() {
     async invoke(path: string) {
       const handler = routes.get(path)
       if (!handler) throw new Error(`no route registered for ${path}`)
-      const body: { status: number; json: any; headers: Record<string, string> } = {
+      const body: {
+        status: number
+        json: any
+        headers: Record<string, string>
+      } = {
         status: 200,
         json: undefined,
         headers: {}
@@ -345,9 +349,9 @@ describe('plugin module', () => {
     expect(units['environment.noaa.swpc.solar_wind.speed']).toBe('m/s')
     expect(units['environment.noaa.swpc.solar_wind.Bt']).toBe('T')
     expect(units['environment.noaa.swpc.solar_wind.Bz']).toBe('T')
-    expect(units['environment.noaa.swpc.scales.forecast.1day.S.probability']).toBe(
-      'ratio'
-    )
+    expect(
+      units['environment.noaa.swpc.scales.forecast.1day.S.probability']
+    ).toBe('ratio')
   })
 
   it('survives a fetch failure without an unhandled rejection', async () => {
@@ -372,7 +376,7 @@ describe('plugin module', () => {
     expect(seconds).toEqual([5, 10, 20, 40, 80, 160, 300, 300])
   })
 
-  it('never backs off longer than the product\'s own interval', () => {
+  it("never backs off longer than the product's own interval", () => {
     const minute = 60 * 1000
     for (const attempt of [0, 1, 2, 3, 4, 10]) {
       expect(notReadyDelayMs(attempt, minute)).toBeLessThanOrEqual(minute)

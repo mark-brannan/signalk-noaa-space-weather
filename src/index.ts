@@ -43,7 +43,11 @@ const FORCE_REFRESH_COOLDOWN_MS = 60 * 1000
 /** Geometric backoff, capped both by NOT_READY_MAX_MS and the product's own interval. */
 export function notReadyDelayMs(attempt: number, intervalMs: number): number {
   const geometric = NOT_READY_BASE_MS * Math.pow(2, Math.max(0, attempt))
-  return Math.min(geometric, NOT_READY_MAX_MS, Math.max(intervalMs, NOT_READY_BASE_MS))
+  return Math.min(
+    geometric,
+    NOT_READY_MAX_MS,
+    Math.max(intervalMs, NOT_READY_BASE_MS)
+  )
 }
 
 interface Plugin {
@@ -119,18 +123,21 @@ export default function (app: any): Plugin {
     // because /signalk/v1/api is a namespace shared by every plugin using
     // this same extension point.
     signalKApiRoutes(router: any) {
-      router.get('/signalk-noaa-space-weather/aurora-grid', (_req: any, res: any) => {
-        const cached = readAuroraCache(publisher.dataDirPath())
-        if (!cached) {
-          res.status(404).json({
-            error:
-              'No aurora data cached yet. Enable aurora in the plugin' +
-              ' configuration and wait for the next fetch cycle.'
-          })
-          return
+      router.get(
+        '/signalk-noaa-space-weather/aurora-grid',
+        (_req: any, res: any) => {
+          const cached = readAuroraCache(publisher.dataDirPath())
+          if (!cached) {
+            res.status(404).json({
+              error:
+                'No aurora data cached yet. Enable aurora in the plugin' +
+                ' configuration and wait for the next fetch cycle.'
+            })
+            return
+          }
+          res.json(cached)
         }
-        res.json(cached)
-      })
+      )
 
       // Manual "refresh now" for the webapp: a one-shot aurora fetch outside
       // the scheduled interval, cooldown-limited so a user mashing the
@@ -153,7 +160,9 @@ export default function (app: any): Plugin {
           }
           const sinceLast = Date.now() - lastForcedRefreshAt
           if (sinceLast < FORCE_REFRESH_COOLDOWN_MS) {
-            const retryAfterS = Math.ceil((FORCE_REFRESH_COOLDOWN_MS - sinceLast) / 1000)
+            const retryAfterS = Math.ceil(
+              (FORCE_REFRESH_COOLDOWN_MS - sinceLast) / 1000
+            )
             res.setHeader('Retry-After', String(retryAfterS))
             res.status(429).json({
               error: `Refreshed too recently; try again in ${retryAfterS}s.`
@@ -186,7 +195,8 @@ export default function (app: any): Plugin {
             // wrote nothing readable back -- best-effort cache write must
             // have failed. The scheduled probability publish still went out.
             res.status(502).json({
-              error: 'Refreshed, but the result could not be read back from cache.'
+              error:
+                'Refreshed, but the result could not be read back from cache.'
             })
             return
           }

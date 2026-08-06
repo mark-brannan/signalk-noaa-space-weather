@@ -13,7 +13,10 @@ describe('icon.svg', () => {
    * copy wasn't), which is what this guards against.
    */
   it('stays identical to the root icon.svg', () => {
-    const root = readFileSync(fileURLToPath(new URL('../icon.svg', import.meta.url)), 'utf8')
+    const root = readFileSync(
+      fileURLToPath(new URL('../icon.svg', import.meta.url)),
+      'utf8'
+    )
     const webapp = readFileSync(
       fileURLToPath(new URL('../public/icon.svg', import.meta.url)),
       'utf8'

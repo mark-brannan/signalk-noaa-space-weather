@@ -39,7 +39,8 @@ export function readAuroraCache(dataDirPath: string): AuroraCacheEntry | null {
   if (!existsSync(path)) return null
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8'))
-    if (!parsed || typeof parsed.fetchedAt !== 'string' || !parsed.grid) return null
+    if (!parsed || typeof parsed.fetchedAt !== 'string' || !parsed.grid)
+      return null
     return parsed
   } catch {
     return null
