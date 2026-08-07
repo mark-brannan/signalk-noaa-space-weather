@@ -188,6 +188,8 @@ export interface AdvisoryOutlook {
   idLine: string
   shortId: string
   issued: Date
+  /** First sentence of the "Outlook For ..." section, for a one-line teaser. */
+  outlookTeaser: string | null
 }
 
 /**
@@ -201,7 +203,13 @@ export function parseAdvisoryOutlook(text: string): AdvisoryOutlook | null {
   if (!match) return null
   const issued = parseIssueDate(text)
   if (!issued) return null
-  return { idLine: match[1], shortId: match[2].trim(), issued }
+
+  // NOAA always breaks the outlook into single-sentence-per-line paragraphs;
+  // the first line after the header is the teaser.
+  const teaserMatch = text.match(/\nOutlook For [^\n]*\n\n([^\n]+)/)
+  const outlookTeaser = teaserMatch ? teaserMatch[1].trim() : null
+
+  return { idLine: match[1], shortId: match[2].trim(), issued, outlookTeaser }
 }
 
 /** Message codes are documented at http://www.spaceweather.org/ISES/code/fmt/exam.html */

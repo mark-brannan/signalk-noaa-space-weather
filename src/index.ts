@@ -9,7 +9,8 @@
  */
 import { Settings, schema, settingsFrom } from './config.js'
 import { createClient } from './noaa/client.js'
-import { readAuroraCache } from './noaa/auroraCache.js'
+import { readAuroraCache } from './cache/auroraCache.js'
+import { readAdvisoryCache } from './cache/advisoryCache.js'
 import { createPublisher } from './publisher.js'
 import { advisory } from './products/advisory.js'
 import { aurora } from './products/aurora.js'
@@ -73,7 +74,10 @@ export default function (app: any): Plugin {
   const publisher = createPublisher(app, PLUGIN_ID)
   const client = createClient(publisher)
 
-  let timers: any[] = []
+  // One live timer handle per product, not a growing array: each product
+  // reschedules itself after every run (see `run()` below), so a flat array
+  // pushed to on every tick would grow for as long as the server runs.
+  const productTimers = new Map<string, any>()
   let stopped = false
   /** Consecutive 'not-ready' results per product, for the backoff. */
   const notReadyAttempts = new Map<string, number>()
@@ -85,28 +89,45 @@ export default function (app: any): Plugin {
     return product.intervalMinutes(settings) * 60 * 1000
   }
 
+  function schedule(product: Product, settings: Settings, delayMs: number) {
+    if (stopped) return
+    productTimers.set(
+      product.name,
+      setTimeout(() => run(product, settings), delayMs)
+    )
+  }
+
   function run(product: Product, settings: Settings) {
     const ctx = { client, publisher, settings, stopped: () => stopped }
     // One failing product must never take down the others, and an unhandled
-    // rejection here would reach the server.
+    // rejection here would reach the server. Every branch below reschedules
+    // itself — there is no setInterval backing this up.
     product
       .refresh(ctx)
       .then((result) => {
-        if (result !== 'not-ready') {
-          notReadyAttempts.delete(product.name)
+        if (result === 'not-ready') {
+          const attempt = notReadyAttempts.get(product.name) ?? 0
+          notReadyAttempts.set(product.name, attempt + 1)
+          const delay = notReadyDelayMs(attempt, intervalFor(product, settings))
+          publisher.debug(
+            `'${product.name}' is not ready; looking again in ${Math.round(delay / 1000)}s`
+          )
+          schedule(product, settings, delay)
           return
         }
-        if (stopped) return
-        const attempt = notReadyAttempts.get(product.name) ?? 0
-        notReadyAttempts.set(product.name, attempt + 1)
-        const delay = notReadyDelayMs(attempt, intervalFor(product, settings))
-        publisher.debug(
-          `'${product.name}' is not ready; looking again in ${Math.round(delay / 1000)}s`
-        )
-        timers.push(setTimeout(() => run(product, settings), delay))
+        notReadyAttempts.delete(product.name)
+        // A product can override its own next interval (the advisory
+        // outlook tightens its cadence near the expected weekly issuance);
+        // everyone else just gets intervalMinutes again, unchanged.
+        const delay =
+          result && 'nextDelayMinutes' in result
+            ? result.nextDelayMinutes * 60 * 1000
+            : intervalFor(product, settings)
+        schedule(product, settings, delay)
       })
       .catch((err) => {
         publisher.error(`Failed to handle '${product.name}': ${err}`)
+        schedule(product, settings, intervalFor(product, settings))
       })
   }
 
@@ -119,7 +140,7 @@ export default function (app: any): Plugin {
     // Serves the aurora product's own cached NOAA fetch back to the webapp
     // (GET /signalk/v1/api/signalk-noaa-space-weather/aurora-grid), so the
     // map reads the one server-side capture instead of the browser fetching
-    // NOAA a second time. See src/noaa/auroraCache.ts for why.
+    // NOAA a second time. See src/cache/auroraCache.ts for why.
     //
     // Mounted via signalKApiRoutes, not registerWithRouter: the server
     // hardcodes the whole /plugins/* prefix to admin-only
@@ -141,6 +162,23 @@ export default function (app: any): Plugin {
               error:
                 'No aurora data cached yet. Enable aurora in the plugin' +
                 ' configuration and wait for the next fetch cycle.'
+            })
+            return
+          }
+          res.json(cached)
+        }
+      )
+
+      // Same idea as aurora-grid above, for the weekly advisory outlook: the
+      // webapp reads the plugin's own cached bulletin instead of a
+      // notification path, which has changed shape before for other products.
+      router.get(
+        '/signalk-noaa-space-weather/advisory-outlook',
+        (_req: any, res: any) => {
+          const cached = readAdvisoryCache(publisher.dataDirPath())
+          if (!cached) {
+            res.status(404).json({
+              error: 'No advisory outlook cached yet.'
             })
             return
           }
@@ -219,6 +257,7 @@ export default function (app: any): Plugin {
     start(props: any) {
       stopped = false
       notReadyAttempts.clear()
+      productTimers.clear()
       const settings = settingsFrom(props)
       currentSettings = settings
 
@@ -229,23 +268,15 @@ export default function (app: any): Plugin {
           publisher.meta(product.metadata(settings))
         }
 
-        // Both handles are tracked: only the intervals used to be, so a stop
-        // inside the initial delay left a fetch pending that still published.
-        timers.push(setTimeout(() => run(product, settings), INITIAL_DELAY_MS))
-        timers.push(
-          setInterval(
-            () => run(product, settings),
-            intervalFor(product, settings)
-          )
-        )
+        schedule(product, settings, INITIAL_DELAY_MS)
       }
     },
 
     stop() {
       stopped = true
       currentSettings = null
-      timers.forEach((timer) => clearTimeout(timer))
-      timers = []
+      productTimers.forEach((timer) => clearTimeout(timer))
+      productTimers.clear()
     }
   }
 }

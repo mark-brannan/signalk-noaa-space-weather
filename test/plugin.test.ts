@@ -3,7 +3,8 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import createPlugin, { notReadyDelayMs } from '../src/index'
-import { writeAuroraCache } from '../src/noaa/auroraCache'
+import { writeAuroraCache } from '../src/cache/auroraCache'
+import { writeAdvisoryCache } from '../src/cache/advisoryCache'
 import { fixtureJson } from './fixtures'
 
 interface Delta {
@@ -133,6 +134,43 @@ describe('plugin module', () => {
       expect(response.status).toBe(200)
       expect(response.json.grid).toEqual({ coordinates: [[1, 2, 3]] })
       expect(typeof response.json.fetchedAt).toBe('string')
+    })
+  })
+
+  describe('GET /signalk-noaa-space-weather/advisory-outlook (signalKApiRoutes)', () => {
+    const ROUTE = '/signalk-noaa-space-weather/advisory-outlook'
+    let dataDir: string
+    beforeEach(() => {
+      dataDir = mkdtempSync(join(tmpdir(), 'plugin-datadir-'))
+    })
+    afterEach(() => {
+      rmSync(dataDir, { recursive: true, force: true })
+    })
+
+    it('answers 404 with nothing cached yet', async () => {
+      const plugin = createPlugin(fakeApp(dataDir))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(404)
+    })
+
+    it('serves back exactly what the advisory product cached', async () => {
+      writeAdvisoryCache(dataDir, {
+        issued: '2026-08-03T04:25:00.000Z',
+        idLine: 'SPACE WEATHER ADVISORY OUTLOOK #26-30',
+        teaser: 'G1 storms expected.',
+        text: 'raw bulletin text'
+      })
+      const plugin = createPlugin(fakeApp(dataDir))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(200)
+      expect(response.json.text).toBe('raw bulletin text')
+      expect(response.json.issued).toBe('2026-08-03T04:25:00.000Z')
     })
   })
 
