@@ -687,8 +687,11 @@
   function renderScales(scales, xrayFlare, forecast) {
     const body = document.getElementById('scalesBody');
     const days = ['1day', '2day', '3day'].map((key) => forecast?.[key]);
+    // The day's own date is the *value* at `<n>day.time` (NOAA's per-day
+    // DateStamp), not the leaf's delta timestamp -- all three days publish in
+    // one update, so a timestamp would label every column identically.
     const dayLabel = (d, i) => {
-      const t = leafTime(d?.time);
+      const t = leafValue(d?.time);
       return t ? new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : `Day ${i + 1}`;
     };
 
