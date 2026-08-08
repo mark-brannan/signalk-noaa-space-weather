@@ -1148,9 +1148,6 @@
         getJson('/signalk/v1/api/vessels/self/navigation/position'),
         getJson('/signalk/v1/api/vessels/self/name'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/xray_flare'),
-        // This one route isn't under /signalk/v1/api -- it's the plugin's own
-        // cache readback (see src/cache/advisoryCache.ts) -- so a missing
-        // cache 404s rather than needing auth like everything else above.
         getJson('/signalk/v1/api/signalk-noaa-space-weather/advisory-outlook')
       ]);
     } catch (err) {
