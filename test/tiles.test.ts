@@ -162,14 +162,32 @@ describe('rasterizeTile', () => {
     }
   })
 
-  it('never emits a NaN-derived byte', () => {
+  /**
+   * The buffer comes from `Buffer.allocUnsafe`, so any pixel the rasterizer
+   * fails to write keeps whatever was in that memory. An all-zero grid must
+   * therefore produce one exact colour everywhere -- uninitialised bytes show
+   * up as noise, and a NaN reaching the LUT index would land somewhere else
+   * in the table.
+   *
+   * Counted into a Set and asserted once rather than per byte: 262,144
+   * separate `expect` calls take 26 seconds under armv7 emulation and time
+   * out the CI job for the Cerbo GX.
+   */
+  it('writes every byte it allocates', () => {
     const raw = rasterizeTile(
-      gridOf((lon, lat) => (lat > 60 ? 9 : 0)),
+      gridOf(() => 0),
       1,
       0,
       0
     )
-    for (const byte of raw) expect(Number.isFinite(byte)).toBe(true)
+    const distinct = new Set<string>()
+    for (let y = 0; y < TILE_SIZE; y++) {
+      for (let x = 0; x < TILE_SIZE; x++) {
+        const p = pixel(raw, x, y)
+        distinct.add(`${p.r},${p.g},${p.b},${p.a}`)
+      }
+    }
+    expect([...distinct]).toEqual(['116,166,117,0'])
   })
 
   /**
