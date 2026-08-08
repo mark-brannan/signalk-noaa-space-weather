@@ -4,11 +4,24 @@
 # tag, not the immediate parent commit -- a feature branch's parent isn't
 # necessarily what's currently on main.
 
-# .github/-only changes never reach the published npm tarball (see
-# package.json's "files"), so a bump here would publish nothing new under
-# a new number.
+# Paths that cannot change how the plugin behaves, so a bump here would burn
+# a version number on nothing. Most of these are simply outside package.json's
+# "files" and never reach the published tarball at all.
+#
+# docs/ is the one judgement call: it IS in "files", so screenshots really do
+# ship. It sits here anyway because they change often and change nothing a
+# boat can observe -- the tarball's copy just lags a release behind. Reverse
+# that by dropping docs/ from this list; nothing else depends on it.
+#
+# Deliberately absent, and keep them that way: src/ compiles into dist/, and
+# tsconfig.json changes what dist/ emits.
+#
+# A skipped bump is safe downstream. .github/workflows/auto-version.yml sees
+# package.json's version already matching the latest tag, logs "Already
+# tagged; nothing to publish" and exits without triggering publish.yml.
+NO_PUBLISH_IMPACT='^(\.github/|\.husky/|\.gitignore|\.prettierrc|\.editorconfig|scripts/|test/|examples/|docs/|CLAUDE\.md)'
 STAGED=$(git diff --cached --name-only)
-if [ -n "$STAGED" ] && ! echo "$STAGED" | grep -qv '^\.github/'; then
+if [ -n "$STAGED" ] && ! echo "$STAGED" | grep -qvE "$NO_PUBLISH_IMPACT"; then
   exit 0
 fi
 
