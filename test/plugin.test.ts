@@ -37,16 +37,18 @@ function fakeRouter() {
     // async: route handlers may be async (the force-refresh route awaits a
     // fetch), so this must await whatever the handler returns before the
     // response body is complete.
-    async invoke(path: string) {
+    async invoke(path: string, params: Record<string, string> = {}) {
       const handler = routes.get(path)
       if (!handler) throw new Error(`no route registered for ${path}`)
       const body: {
         status: number
         json: any
+        sent: any
         headers: Record<string, string>
       } = {
         status: 200,
         json: undefined,
+        sent: undefined,
         headers: {}
       }
       const res = {
@@ -57,11 +59,14 @@ function fakeRouter() {
         json(payload: any) {
           body.json = payload
         },
+        send(payload: any) {
+          body.sent = payload
+        },
         setHeader(name: string, value: string) {
           body.headers[name] = value
         }
       }
-      await handler({}, res)
+      await handler({ params }, res)
       return body
     }
   }
@@ -134,6 +139,104 @@ describe('plugin module', () => {
       expect(response.status).toBe(200)
       expect(response.json.grid).toEqual({ coordinates: [[1, 2, 3]] })
       expect(typeof response.json.fetchedAt).toBe('string')
+    })
+  })
+
+  describe('GET /signalk-noaa-space-weather/aurora-tile/:z/:x/:y.png', () => {
+    const ROUTE = '/signalk-noaa-space-weather/aurora-tile/:z/:x/:y.png'
+    let dataDir: string
+    beforeEach(() => {
+      dataDir = mkdtempSync(join(tmpdir(), 'plugin-datadir-'))
+    })
+    afterEach(() => {
+      rmSync(dataDir, { recursive: true, force: true })
+    })
+
+    function serving(grid: any) {
+      writeAuroraCache(dataDir, grid)
+      const plugin = createPlugin(fakeApp(dataDir))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      return { plugin, router }
+    }
+
+    /** A band of aurora across the northern latitudes. */
+    const BAND = {
+      coordinates: Array.from({ length: 360 }, (_, lon) =>
+        Array.from({ length: 181 }, (_, i) => [
+          lon,
+          i - 90,
+          i - 90 > 60 ? 40 : 0
+        ])
+      ).flat()
+    }
+
+    it('answers 404 when no grid has been cached yet', async () => {
+      const plugin = createPlugin(fakeApp(dataDir))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+
+      const response = await router.invoke(ROUTE, { z: '2', x: '1', y: '1' })
+      expect(response.status).toBe(404)
+      expect(response.sent).toBeUndefined()
+    })
+
+    it('rejects a tile outside the pyramid without rendering it', async () => {
+      const { router } = serving(BAND)
+      for (const params of [
+        { z: '2', x: '9', y: '0' },
+        { z: '99', x: '0', y: '0' },
+        { z: 'x', x: '0', y: '0' }
+      ]) {
+        const response = await router.invoke(ROUTE, params)
+        expect(response.status).toBe(400)
+        expect(response.sent).toBeUndefined()
+      }
+    })
+
+    it('serves a PNG for a tile inside the pyramid', async () => {
+      const { router } = serving(BAND)
+      const response = await router.invoke(ROUTE, { z: '2', x: '1', y: '0' })
+
+      expect(response.status).toBe(200)
+      expect(response.headers['Content-Type']).toBe('image/png')
+      expect([...response.sent.subarray(0, 8)]).toEqual([
+        137, 80, 78, 71, 13, 10, 26, 10
+      ])
+    })
+
+    it('returns the identical buffer on a repeat request', async () => {
+      const { router } = serving(BAND)
+      const first = await router.invoke(ROUTE, { z: '3', x: '4', y: '2' })
+      const second = await router.invoke(ROUTE, { z: '3', x: '4', y: '2' })
+      expect(second.sent).toBe(first.sent)
+    })
+
+    it('renders from the newer grid after a refresh replaces the cache', async () => {
+      const { router } = serving(BAND)
+      const before = await router.invoke(ROUTE, { z: '2', x: '1', y: '0' })
+
+      // The cache is keyed on the entry's `fetchedAt`, and these tests run on
+      // fake timers, so the clock has to move for a second write to look like
+      // a later fetch rather than the same one.
+      vi.advanceTimersByTime(1000)
+
+      // Same tile, a grid with nothing in it: a cache keyed only on {z}/{x}/{y}
+      // would hand back the previous render forever.
+      writeAuroraCache(dataDir, {
+        coordinates: BAND.coordinates.map(([lon, lat]) => [lon, lat, 0])
+      })
+      const after = await router.invoke(ROUTE, { z: '2', x: '1', y: '0' })
+
+      expect(after.status).toBe(200)
+      expect(after.sent.equals(before.sent)).toBe(false)
+      expect(after.headers.ETag).not.toBe(before.headers.ETag)
+    })
+
+    it('answers 404 when the cached payload has no usable grid', async () => {
+      const { router } = serving({ coordinates: [] })
+      const response = await router.invoke(ROUTE, { z: '1', x: '0', y: '0' })
+      expect(response.status).toBe(404)
     })
   })
 

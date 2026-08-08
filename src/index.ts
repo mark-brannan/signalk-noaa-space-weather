@@ -20,6 +20,12 @@ import { kp } from './products/kp.js'
 import { scales } from './products/scales.js'
 import { solarWind } from './products/solarWind.js'
 import { Product } from './products/types.js'
+import {
+  MAX_ZOOM,
+  auroraGridFrom,
+  isValidTile,
+  renderAuroraTile
+} from './tiles.js'
 
 const PRODUCTS: Product[] = [
   scales,
@@ -49,6 +55,13 @@ const NOT_READY_MAX_MS = 5 * 60 * 1000
  * independent of whatever interval is configured.
  */
 const FORCE_REFRESH_COOLDOWN_MS = 60 * 1000
+/**
+ * Rendered tiles held in memory. A 1280x800 viewport is about 20 tiles, so
+ * this covers several pans and zooms of the same forecast; anything evicted
+ * costs the ~4ms to draw again. Bounded because this runs on boat hardware
+ * next to everything else the server is doing.
+ */
+const TILE_CACHE_LIMIT = 256
 
 /** Geometric backoff, capped both by NOT_READY_MAX_MS and the product's own interval. */
 export function notReadyDelayMs(attempt: number, intervalMs: number): number {
@@ -84,6 +97,40 @@ export default function (app: any): Plugin {
   /** Set on start(), read by the force-refresh route below. */
   let currentSettings: Settings | null = null
   let lastForcedRefreshAt = 0
+
+  /**
+   * Tile rendering reads the same disk cache the webapp's map does, but
+   * re-parsing 900 KB of JSON and reflattening the grid costs ~33ms, which
+   * would dwarf the ~4ms of actual drawing on every request. So both the
+   * flattened grid and the rendered tiles are memoised against the cache
+   * entry's `fetchedAt`, and the whole lot is dropped when a newer fetch
+   * lands -- a stale tile is worse than a slow one.
+   */
+  let tileGridKey: string | null = null
+  let tileGrid: Uint8Array | null = null
+  const tileCache = new Map<string, Buffer>()
+
+  function auroraGridForTiles(): { grid: Uint8Array; key: string } | null {
+    const cached = readAuroraCache(publisher.dataDirPath())
+    if (!cached) return null
+    if (tileGridKey !== cached.fetchedAt || !tileGrid) {
+      const grid = auroraGridFrom(cached.grid?.coordinates)
+      if (!grid) return null
+      tileGrid = grid
+      tileGridKey = cached.fetchedAt
+      tileCache.clear()
+    }
+    return { grid: tileGrid, key: cached.fetchedAt }
+  }
+
+  function rememberTile(key: string, png: Buffer) {
+    if (tileCache.size >= TILE_CACHE_LIMIT) {
+      // Map iterates in insertion order, so the first key is the oldest.
+      const oldest = tileCache.keys().next()
+      if (!oldest.done) tileCache.delete(oldest.value)
+    }
+    tileCache.set(key, png)
+  }
 
   function intervalFor(product: Product, settings: Settings): number {
     return product.intervalMinutes(settings) * 60 * 1000
@@ -186,6 +233,66 @@ export default function (app: any): Plugin {
         }
       )
 
+      // The aurora grid as Web Mercator PNG tiles, so a chart plotter can
+      // draw the oval over the actual chart. `@signalk/charts-plugin` takes
+      // an online chart source as a {z}/{x}/{y} URL, so this needs no
+      // resource-provider registration and no Freeboard-SK change: point a
+      // chart source at this route and the overlay appears.
+      //
+      // GET-only and on the same namespace as the reads above, for the same
+      // reason -- it serves the same data the webapp already reads, in a
+      // different shape.
+      router.get(
+        '/signalk-noaa-space-weather/aurora-tile/:z/:x/:y.png',
+        async (req: any, res: any) => {
+          const z = Number(req.params.z)
+          const x = Number(req.params.x)
+          const y = Number(req.params.y)
+          if (!isValidTile(z, x, y)) {
+            res.status(400).json({
+              error: `Tile out of range. Zoom must be 0-${MAX_ZOOM}, and x and y within 0..2^z-1.`
+            })
+            return
+          }
+
+          const source = auroraGridForTiles()
+          if (!source) {
+            res.status(404).json({
+              error:
+                'No aurora data cached yet. Enable aurora in the plugin' +
+                ' configuration and wait for the next fetch cycle.'
+            })
+            return
+          }
+
+          const cacheKey = `${z}/${x}/${y}`
+          let png = tileCache.get(cacheKey)
+          if (!png) {
+            try {
+              png = await renderAuroraTile(source.grid, z, x, y)
+            } catch (err) {
+              publisher.error(
+                `Failed to render aurora tile ${cacheKey}: ${err}`
+              )
+              res.status(500).json({ error: 'Tile could not be rendered.' })
+              return
+            }
+            // The grid can be replaced by a refresh while a render is in
+            // flight; caching the result under the new grid's key would serve
+            // a tile drawn from the old one.
+            if (tileGridKey === source.key) rememberTile(cacheKey, png)
+          }
+
+          res.setHeader('Content-Type', 'image/png')
+          // Tiles are only as fresh as the fetch behind them, and the aurora
+          // interval is 120 minutes by default. ETag lets a client revalidate
+          // cheaply across a refresh instead of guessing at an age.
+          res.setHeader('ETag', `"${source.key}-${cacheKey}"`)
+          res.setHeader('Cache-Control', 'public, max-age=300')
+          res.send(png)
+        }
+      )
+
       // Manual "refresh now" for the webapp: a one-shot aurora fetch outside
       // the scheduled interval, cooldown-limited so a user mashing the
       // button (or a script hitting this URL) cannot turn a two-hour budget
@@ -277,6 +384,11 @@ export default function (app: any): Plugin {
       currentSettings = null
       productTimers.forEach((timer) => clearTimeout(timer))
       productTimers.clear()
+      // Several MB of rendered tiles and the flattened grid have no reason to
+      // outlive the plugin being switched off.
+      tileCache.clear()
+      tileGrid = null
+      tileGridKey = null
     }
   }
 }
