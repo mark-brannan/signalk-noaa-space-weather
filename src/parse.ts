@@ -493,11 +493,14 @@ export function currentAlertNotifications(
       newest.set(candidate.code, candidate)
   }
 
-  const ordered = [...newest.values()].sort(
-    (a, b) =>
-      STATE_SEVERITY.indexOf(b.state) - STATE_SEVERITY.indexOf(a.state) ||
-      b.issued.getTime() - a.issued.getTime()
-  )
+  const held = [...newest.values()]
+  const ordered = held
+    .filter((alert) => !downgraded(alert, held))
+    .sort(
+      (a, b) =>
+        STATE_SEVERITY.indexOf(b.state) - STATE_SEVERITY.indexOf(a.state) ||
+        b.issued.getTime() - a.issued.getTime()
+    )
 
   return {
     inForce: ordered.slice(0, limit),
@@ -518,6 +521,59 @@ function supersedes(
   const byTime = candidate.issued.getTime() - held.issued.getTime()
   if (byTime !== 0) return byTime > 0
   return Number(candidate.serialNumber) > Number(held.serialNumber)
+}
+
+/**
+ * Split a message code into the ladder it belongs to and its rung, e.g.
+ * `ALTK07` -> `ALTK` at 7. A code with no numeric suffix — `ALTXMF`, `WARSUD`,
+ * `SUM10R` — is on no ladder and returns null.
+ *
+ * Deliberately lexical, and deliberately narrow: only codes differing solely
+ * in a trailing number are treated as levels of one phenomenon. That keeps
+ * `ALTPC0` and `ALTPX1` apart, which are different particle measurements and
+ * not a ladder at all.
+ */
+function ladderRung(code: string): { family: string; level: number } | null {
+  const match = /^(.*?)(\d+)$/.exec(code)
+  return match ? { family: match[1], level: Number(match[2]) } : null
+}
+
+/**
+ * Whether a later, lower message on the same ladder has overtaken this one.
+ *
+ * NOAA cancels a condition when it ends, and the observed-value zones follow a
+ * storm down on their own, but neither covers a *downgrade*: an `ALTK07`
+ * carries no "Valid To" at all, so it rides {@link ALERT_MAX_AGE_MS} for a
+ * full day while the next synoptic period is already reporting `ALTK05`. Over
+ * the three fixtures that is one episode per storm — 0 polls in April 2025,
+ * 5.5 hours in the 16 April storm, 22 hours over 4-5 July 2026 — each one a G3
+ * or G4 notification still raised after NOAA said the storm had eased.
+ *
+ * Dropping it here is enough: `clearWithdrawn` in the alerts product returns
+ * any code that leaves the in-force set to `normal`.
+ *
+ * Sound on the ladders NOAA actually uses. K-index synoptic periods are
+ * disjoint three-hour windows, so the newest `ALTK` *is* the current state; a
+ * later `WARK` at a lower threshold is a revised forecast; and a `WATA` watch
+ * says in its own text that it supersedes all prior watches. Ties on issue
+ * time keep the louder message, which is the safe direction.
+ */
+function downgraded(
+  alert: AlertNotification,
+  all: AlertNotification[]
+): boolean {
+  const rung = ladderRung(alert.code)
+  if (!rung) return false
+
+  return all.some((other) => {
+    const otherRung = ladderRung(other.code)
+    return (
+      otherRung !== null &&
+      otherRung.family === rung.family &&
+      otherRung.level < rung.level &&
+      other.issued.getTime() > alert.issued.getTime()
+    )
+  })
 }
 
 /**
