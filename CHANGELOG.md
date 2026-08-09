@@ -5,6 +5,18 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.1] - 2026-08-09
+
+### Fixed
+
+- **`notificationSound` was resolved by testing `notificationVisual`**, so each
+  setting's default was gated on the other one's presence. Turning the sound
+  off without also saving the visual checkbox kept the sound on; turning the
+  visual off silently dropped the sound too. Each field now resolves its own
+  default. Only ever affected hand-edited configs — both fields carry
+  `default: true` in the schema, so the admin UI always writes the pair, which
+  is why it went unnoticed.
+
 ## [0.12.0] - 2026-08-09
 
 ### Fixed
