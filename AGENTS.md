@@ -1,0 +1,121 @@
+# Conventions
+
+How to work in this repo. Adapted from
+[signalk-server's AGENTS.md](https://github.com/SignalK/signalk-server/blob/master/AGENTS.md)
+so a contribution here arrives in the shape the upstream project expects —
+where this repo has to differ, the difference is called out rather than left
+to be discovered.
+
+`CLAUDE.md` is the companion: it holds what this codebase *is* (architecture,
+the non-obvious constraints, local development, releasing). This file holds how
+to behave. Read both.
+
+## Scope
+
+Follow YAGNI, DRY and KISS. Only make changes that were asked for or are
+clearly necessary. A bug fix does not need the surrounding code cleaned up. A
+new feature does not need extra configurability.
+
+Do not add error handling or validation for cases that cannot happen. Validate
+at the boundaries — the NOAA payload, the plugin's saved config, an HTTP
+request — and trust internal code in between.
+
+## Comments and docs
+
+Comments explain **why**, never what. No echo comments restating the line
+below them.
+
+**Documentation describes the current state, not how it got there.** No
+version archaeology in source or in the README: "0.12.0 did X, then 0.13.0
+changed it to Y" is what `CHANGELOG.md` is for, and it goes stale everywhere
+else. State the rule and the reason it holds. A version number earns its place
+in a comment only when it is load-bearing — the migration in
+`clearSerialNumberPaths` needs to say which releases left the old paths behind,
+because that is the whole point of the code.
+
+## Type safety
+
+New code is TypeScript. `tsconfig.json` has `strict: false` for historical
+reasons, so strictness is a convention here rather than a compiler guarantee:
+don't add `any` to new code, and prefer narrowing to casting.
+
+## Tests
+
+All new code needs tests. Assert behaviour — values, states, paths, unit
+conversions, boundaries — never display strings.
+
+**Tests must run with no network and inside 60 seconds.** The plugin registry
+scores this package under `firejail --net=none`. See `CLAUDE.md` for why, and
+capture a dated fixture into `examples/` before writing any parser.
+
+## Performance
+
+This runs on a Pi 3-5, often on battery, inside somebody's navigation server.
+CPU cycles cost watts, and a plugin does not get to stall the event loop.
+
+- Guard `debug()` arguments — the string is built even when debug is off.
+- Don't block on the tile-render path; see the measurements in `CLAUDE.md`.
+- Publish deltas only when a value actually changed. Re-broadcasting an
+  unchanged set to every connected client on every poll is what
+  [#45](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/45)
+  was made of.
+
+## Configuration
+
+A setting has to earn its place. The bar is a decision only the boat owner can
+make — one where a sensible default would be wrong for someone, and where they
+can tell the difference. If no default is defensible, that is a design problem
+to solve, not a dial to add.
+
+Before adding or defending one, **measure it**:
+
+- Bandwidth means bytes on the wire. NOAA serves gzipped and Node's `fetch`
+  asks for it, so a fixture's size on disk can overstate the real cost by ten
+  times.
+- Loudness means notifications a user would actually be interrupted by, counted
+  against the captured payloads at the default threshold — not paths published.
+
+Prefer a labelled `oneOf`/`const` select over a free number field. Keep `type`
+and `default` on the property: without `type` the admin form renders nothing at
+all, and without `default` it silently selects the first option. Out-of-range
+saved values render as a blank select with no error and save back unchanged, so
+`settingsFrom` is the only real validation — put it there.
+
+## Commits
+
+Conventional format: `<type>(<scope>): <subject>`, where type is one of
+`feat|fix|docs|style|refactor|test|chore|perf`. Subject in the imperative, 50
+characters or fewer, no trailing period. Body wrapped at 72, explaining what
+and why. One-liners are fine for small changes.
+
+One logical change per commit. Split unrelated work. Amend a correction into
+the commit it belongs to rather than stacking "fix typo" on top — the history
+should read as intentional steps, with no work-in-progress artifacts left in
+it. Clean it up before pushing.
+
+Stage by path. Never `git add -A`.
+
+## Pull requests
+
+- Branch from latest `main`
+- `npm run format` and `npm test` must pass
+- One logical change per PR. A refactor and a behaviour change are two PRs.
+  If the work would produce two changelog entries, it is two PRs.
+- Title as if it were the release note, because it becomes one
+- Description: motivation and approach, not mechanics — the diff shows what
+  changed. Call out breaking changes explicitly.
+- Reference issues with `closes` / `fixes` / `resolves`
+- Rebase onto `main`; never merge `main` into the branch
+
+If a request arrives that is outside the current PR's topic, say so and propose
+a separate PR rather than quietly folding it in.
+
+### Versions: this repo is the exception
+
+Upstream says never to touch version numbers, because a maintainer sets them at
+publish time. **Here, the version on `main` *is* the release trigger.**
+`.husky/pre-commit` auto-patch-bumps when nothing on the branch has set one
+explicitly, and `.github/workflows/auto-version.yml` tags and publishes whatever
+lands on `main`. So bump explicitly for anything larger than a patch, and let
+the hook cover the rest. Never create a tag locally — CI does that, and a local
+tag makes it skip the publish.
