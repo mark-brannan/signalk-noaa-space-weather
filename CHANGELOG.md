@@ -5,6 +5,49 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-08-09
+
+### Changed
+
+- **Ten settings down to five.** Nothing about what the plugin does changes on
+  a default install except that the alerts product is now always on. Old
+  configs keep working — the removed keys are ignored, and the two intervals
+  carry over automatically.
+
+  - `notificationVisual` and `notificationSound` are gone. They were a ceiling
+    on `methodForState`, applied to every product at once, and on most days
+    they changed nothing observable: measured across the captured fixtures,
+    toggling both changed 0 of 4 notifications on a quiet day and 2 of 8 during
+    the April 2025 G4 storm. Severity already says how loud something should
+    be, and `zoneAlertThreshold` moves the whole ladder — which is the setting
+    that reflects the decision actually being made. Muting one method across
+    every product is a preference about the notification client. This matches
+    what the rest of the community does; hoeken's anchor alarm, the most
+    notification-heavy plugin out there, picks severity once and derives the
+    method from it.
+  - `alertMaxAgeHours` is now a fixed 24 hours. It only ever applied to NOAA
+    messages that state no expiry of their own, nobody can answer it better
+    than the value matching how NOAA issues them, and both directions of
+    getting it wrong are invisible until they aren't — too low drops live
+    conditions, too high rebuilds [#45] one poll at a time.
+  - `observationsInterval` and `notificationsInterval` merged into
+    **`updateInterval`** (still 60 minutes). They shared a default and had no
+    reason to differ; NOAA publishes on its own cadence and polling faster than
+    it publishes only costs bandwidth. A saved config that customised either
+    one keeps its cadence — the lower of the two wins, since that is the rate
+    the install was already polling at. `auroraInterval` stays separate because
+    of the payload size.
+  - `sendAlertsWatchesWarnings` is gone; the alerts product is always on.
+    Neither justification for the switch survived being measured. Severity is
+    `zoneAlertThreshold`'s job — at the default this product raises four
+    notifications on an ordinary day and none of them make a sound. And the
+    bandwidth is ~5 KB per poll, not the 71–146 KB the fixtures suggest: NOAA
+    serves the endpoint gzipped, Node's fetch asks for it, and the client's
+    existing `If-None-Match` means an unchanged payload is a 304 with no body.
+    It was off by default because enabling it used to raise ~120 permanent
+    notifications with a sound on all of them ([#45]); that is fixed, and
+    leaving it off shipped the fix to nobody.
+
 ## [0.12.4] - 2026-08-09
 
 ### Fixed

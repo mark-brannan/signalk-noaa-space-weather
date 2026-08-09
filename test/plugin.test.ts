@@ -3,6 +3,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import createPlugin, { notReadyDelayMs } from '../src/index'
+import { settingsFrom } from '../src/config'
 import { writeAuroraCache } from '../src/cache/auroraCache'
 import { writeAdvisoryCache } from '../src/cache/advisoryCache'
 import { fixtureJson } from './fixtures'
@@ -397,16 +398,22 @@ describe('plugin module', () => {
     const properties = createPlugin(fakeApp()).schema.properties
     for (const key of [
       'sendAdvisoryOutlook',
-      'sendAlertsWatchesWarnings',
-      'notificationVisual',
-      'notificationSound',
       'zoneAlertThreshold',
-      'observationsInterval',
-      'notificationsInterval'
+      'auroraEnabled',
+      'auroraInterval',
+      'updateInterval'
     ]) {
       expect(properties[key], key).toBeTruthy()
       expect(properties[key].default, key).toBeDefined()
     }
+  })
+
+  it('offers no setting the plugin does not resolve', () => {
+    // The other direction, and the one that rots: a property left in the schema
+    // after the code stopped reading it is a dial that visibly does nothing.
+    const properties = createPlugin(fakeApp()).schema.properties
+    const resolved = Object.keys(settingsFrom({}))
+    expect(Object.keys(properties).sort()).toEqual(resolved.sort())
   })
 
   it('touches the network only after the initial delay, not during start', () => {
@@ -420,7 +427,7 @@ describe('plugin module', () => {
     // Only the repeating intervals used to be tracked, so a stop inside the
     // first five seconds left the initial timeout pending and it still fired.
     const plugin = createPlugin(fakeApp())
-    plugin.start({ sendAdvisoryOutlook: true, sendAlertsWatchesWarnings: true })
+    plugin.start({ sendAdvisoryOutlook: true })
     plugin.stop()
 
     await vi.advanceTimersByTimeAsync(10_000)
@@ -503,7 +510,7 @@ describe('plugin module', () => {
   it('survives a fetch failure without an unhandled rejection', async () => {
     const app = fakeApp()
     const plugin = createPlugin(app)
-    plugin.start({ sendAdvisoryOutlook: true, sendAlertsWatchesWarnings: true })
+    plugin.start({ sendAdvisoryOutlook: true })
     await vi.advanceTimersByTimeAsync(6_000)
     plugin.stop()
 
