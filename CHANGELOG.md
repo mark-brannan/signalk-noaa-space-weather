@@ -5,7 +5,26 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.12.4] - 2026-08-09
+
+### Fixed
+
+- **The webapp showed `[object Object]` for the X-ray flare class.** A path that
+  carries only `meta` — described at startup, but never published because that
+  product's fetch failed — fell through `leafValue` to the node itself. It now
+  reads as "–", the same as any other missing value.
+
+- **A NOAA payload read mid-rewrite lost the whole reading.** NOAA rewrites these
+  files in place about once a minute, and a read landing mid-write returns the
+  new content followed by the tail of the old, longer content — `JSON.parse`
+  rejects all of it. The client now takes the complete leading JSON value and
+  logs how many trailing bytes it ignored. A payload that is merely truncated
+  still fails, because there is no complete value to recover and publishing half
+  a payload as though it were whole would be worse than skipping a poll.
+
+  This is what left the flare class with metadata and no value, and it is not
+  specific to that product: every endpoint is rewritten on the same cycle.
+## [0.12.3] - 2026-08-09
 
 ### Fixed
 

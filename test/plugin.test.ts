@@ -290,13 +290,16 @@ describe('plugin module', () => {
     })
 
     function stubSuccessfulFetch() {
-      fetchMock = vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          status: 200,
-          headers: { get: () => null },
-          json: async () => fixtureJson('ovation-aurora.2026_08_01.json')
-        })
+      // A real Response rather than a hand-rolled shape: this was an object
+      // carrying only `json()`, which broke the moment the client started
+      // reading the body as text to survive a torn payload. The double should
+      // not encode which accessor the client happens to use.
+      fetchMock = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify(fixtureJson('ovation-aurora.2026_08_01.json')),
+            { status: 200 }
+          )
       )
       vi.stubGlobal('fetch', fetchMock)
     }
