@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The aurora setting now states its real bandwidth cost, in the config UI.**
+  It said ~900 KB per fetch, which is the decoded size; on the wire it is 145 KB,
+  because NOAA serves it gzipped. Still about thirty times everything else this
+  plugin downloads combined, so the switch keeps earning its place — but the
+  number someone decides on should be the one they'd actually be billed for,
+  and the config page is where that decision gets made, not the README.
+
 - **`zoneAlertThreshold` becomes `alarmLevel`, and now names the level that
   sounds an alarm** rather than the lowest level worth noticing. The quiet
   states derive downward from it: one level below shows a popup, two below is
