@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   This is what left the flare class with metadata and no value, and it is not
   specific to that product: every endpoint is rewritten on the same cycle.
+
 ## [0.12.3] - 2026-08-09
 
 ### Fixed

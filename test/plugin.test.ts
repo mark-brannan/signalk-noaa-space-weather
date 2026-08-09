@@ -289,18 +289,20 @@ describe('plugin module', () => {
       rmSync(dataDir, { recursive: true, force: true })
     })
 
+    // Serialised once, at import. Building it inside the mock read and parsed
+    // 0.88 MB off disk and re-serialised it on every fetch -- imperceptible
+    // natively, but the armv7 job runs under QEMU and the rate-limit test
+    // fetches several times, which pushed it past its 5s timeout.
+    const AURORA_BODY = JSON.stringify(
+      fixtureJson('ovation-aurora.2026_08_01.json')
+    )
+
     function stubSuccessfulFetch() {
       // A real Response rather than a hand-rolled shape: this was an object
       // carrying only `json()`, which broke the moment the client started
       // reading the body as text to survive a torn payload. The double should
       // not encode which accessor the client happens to use.
-      fetchMock = vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify(fixtureJson('ovation-aurora.2026_08_01.json')),
-            { status: 200 }
-          )
-      )
+      fetchMock = vi.fn(async () => new Response(AURORA_BODY, { status: 200 }))
       vi.stubGlobal('fetch', fetchMock)
     }
 
