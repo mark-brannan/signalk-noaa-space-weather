@@ -398,7 +398,7 @@ describe('plugin module', () => {
     const properties = createPlugin(fakeApp()).schema.properties
     for (const key of [
       'sendAdvisoryOutlook',
-      'zoneAlertThreshold',
+      'alarmLevel',
       'auroraEnabled',
       'auroraInterval',
       'updateInterval'
