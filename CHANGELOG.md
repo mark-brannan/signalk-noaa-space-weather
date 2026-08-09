@@ -5,6 +5,64 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-08-09
+
+### Fixed
+
+- **The alerts product raised a notification for every message in NOAA's
+  30-day archive, and asked for a sound on all of them** ([#45]). A Pi 5 was
+  unusable within ten minutes of enabling it, and a second Signal K instance
+  subscribed to the first saw an endless list of alarms.
+
+  `/products/alerts.json` is a rolling archive, not a list of current
+  conditions — 88 to 200 messages in every payload captured so far. Each one
+  became its own notification at `notifications.noaa.swpc.sn:<serial>`, with
+  `method: ['visual', 'sound']` attached regardless of state, so ~110
+  informational messages per poll each asked clients to sound an alarm. NOAA
+  also mints a fresh serial number every time it extends or continues a
+  condition, so one ongoing K-index warning became 19 separate permanent
+  paths in a month, and the whole set was re-published every hour forever.
+
+  Four changes:
+
+  - **Only messages that describe the present are raised.** Warnings and
+    watches carry their own expiry (`Valid To` / `Now Valid Until`) and are
+    dropped when it passes; event summaries expire at their stated `End Time`;
+    plain alerts state no expiry and are bounded by the new
+    `alertMaxAgeHours`. Against the captured payloads this reduces 88–200
+    messages to 1–8 notifications, and 8 is the April 2025 G4 storm.
+  - **One path per NOAA message code**, at
+    `notifications.noaa.swpc.alerts.<CODE>` (`alerts.WARK05`, `alerts.ALTEF3`).
+    A code names one condition, so extensions, continuations and
+    cancellations now update the path in place instead of accumulating beside
+    it, and the path count is bounded for the life of the server.
+  - **Severity decides loudness**, through the same ladder the scale and Kp
+    zones already use and the same `zoneAlertThreshold`: `normal` and `alert`
+    are silent, `warn` is visual, `alarm` is visual and audible. A real G4
+    storm still sounds. `notificationVisual` / `notificationSound` are now a
+    ceiling on that rather than a floor under it.
+  - **Withdrawn notifications are actively stood down**, and unchanged ones
+    are not re-published at all — so a quiet hour now produces no deltas
+    instead of the whole set.
+
+  Upgrading also clears the `sn:` notifications left over from earlier
+  versions. Signal K cannot delete a path, so without that they would stay
+  raised and audible in every client that had already seen them.
+
+- The weekly advisory outlook is `state: 'alert'`, which this project's own
+  documented policy makes silent — but it was attaching visual+sound, so a
+  default install sounded an alarm every Monday for an informational bulletin.
+  It now follows the policy: visible in the notifications UI, no popup, no
+  sound.
+
+### Added
+
+- `alertMaxAgeHours` (default 24, clamped to 168) — how long a NOAA message
+  that states no expiry of its own stays raised. The clamp is deliberate:
+  without an upper bound, setting this to 720 would reconstruct [#45].
+
+[#45]: https://github.com/mark-brannan/signalk-noaa-space-weather/issues/45
+
 ## [0.11.0] - 2026-08-06
 
 ### Added
