@@ -50,7 +50,7 @@ const NOT_READY_BASE_MS = 5000
 const NOT_READY_MAX_MS = 5 * 60 * 1000
 /**
  * Floor between manual "refresh now" requests from the webapp. The aurora
- * payload is ~900 KB and the whole reason it defaults to a two-hour interval
+ * payload is ~145 KB and the whole reason it defaults to a two-hour interval
  * is to bound that cost -- a button a user can mash has to bound it too,
  * independent of whatever interval is configured.
  */
