@@ -25,6 +25,15 @@ request — and trust internal code in between.
 Comments explain **why**, never what. No echo comments restating the line
 below them.
 
+**Measured facts live in `docs/noaa-products.md`, not in comments.** Wire sizes,
+publish cadence, whether a conditional request returns 304 — these are dated
+observations against a live service, and a comment cannot carry a date anyone
+will update. A comment gets to state an invariant ("a truncated payload must not
+be recovered") and point at the doc for the number behind it. Re-measure with
+`scripts/measure-noaa.mjs` rather than reasoning about what NOAA probably does;
+that habit produced two wrong claims in one day, one of which contradicted this
+repo's own changelog.
+
 **Documentation describes the current state, not how it got there.** No
 version archaeology in source or in the README: "0.12.0 did X, then 0.13.0
 changed it to Y" is what `CHANGELOG.md` is for, and it goes stale everywhere
