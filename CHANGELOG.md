@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`zoneAlertThreshold` becomes `alarmLevel`, and now names the level that
+  sounds an alarm** rather than the lowest level worth noticing. The quiet
+  states derive downward from it: one level below shows a popup, two below is
+  listed but silent.
+
+  The old direction ran off the end of the scale. Loudness derived *upward* from
+  the pivot, so a pivot of 4 could never reach `alarm` and a pivot of 5 could
+  not even reach `warn` — the two loudest-sounding choices a user could make
+  were the two that silenced the plugin, which is not something a label can
+  explain away. Anchoring on the alarm leaves the levels above the pivot to
+  absorb that, so every option is live and turning the number down is
+  monotonically louder. Measured on the April 2025 storm payload, dropping from
+  5 to 1 takes it from 1 notification and no sound to 5 of each, with no step
+  going backwards.
+
+  **Default behaviour does not change.** The new default of 5 produces exactly
+  the old default's mapping — `alarm` at level 5, `warn` at 4, `alert` at 3 — and
+  a saved `zoneAlertThreshold` migrates by adding two, so an existing config
+  keeps behaving the same way. Old values of 4 and 5 clamp to 5; those were the
+  settings that could never sound at all.
+
+  It is also a dropdown now rather than a free number field, labelled with how
+  often each level happens (`Strong (3) and above — about monthly`) instead of
+  NOAA's days-per-solar-cycle, which is the frequency of the *event* rather than
+  of the interruption being chosen. A non-integer or out-of-range saved value
+  falls back to the default, since the admin form renders one as a blank select
+  with no error and saves it back untouched.
+
 - **Ten settings down to five.** Nothing about what the plugin does changes on
   a default install except that the alerts product is now always on. Old
   configs keep working — the removed keys are ignored, and the two intervals
@@ -19,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     they changed nothing observable: measured across the captured fixtures,
     toggling both changed 0 of 4 notifications on a quiet day and 2 of 8 during
     the April 2025 G4 storm. Severity already says how loud something should
-    be, and `zoneAlertThreshold` moves the whole ladder — which is the setting
+    be, and `alarmLevel` moves the whole ladder — which is the setting
     that reflects the decision actually being made. Muting one method across
     every product is a preference about the notification client. This matches
     what the rest of the community does; hoeken's anchor alarm, the most
@@ -39,7 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     of the payload size.
   - `sendAlertsWatchesWarnings` is gone; the alerts product is always on.
     Neither justification for the switch survived being measured. Severity is
-    `zoneAlertThreshold`'s job — at the default this product raises four
+    `alarmLevel`'s job — at the default this product raises four
     notifications on an ordinary day and none of them make a sound. And the
     bandwidth is ~5 KB per poll, not the 71–146 KB the fixtures suggest: NOAA
     serves the endpoint gzipped, Node's fetch asks for it, and the client's
