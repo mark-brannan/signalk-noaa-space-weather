@@ -76,9 +76,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     Neither justification for the switch survived being measured. Severity is
     `alarmLevel`'s job — at the default this product raises four
     notifications on an ordinary day and none of them make a sound. And the
-    bandwidth is ~5 KB per poll, not the 71–146 KB the fixtures suggest: NOAA
-    serves the endpoint gzipped, Node's fetch asks for it, and the client's
-    existing `If-None-Match` means an unchanged payload is a 304 with no body.
+    bandwidth is ~5 KB gzipped per poll — about 120 KB a day — not the 71–146 KB
+    the fixtures suggest: NOAA serves the endpoint gzipped and Node's fetch asks
+    for it.
     It was off by default because enabling it used to raise ~120 permanent
     notifications with a sound on all of them ([#45]); that is fixed, and
     leaving it off shipped the fix to nobody.
