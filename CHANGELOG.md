@@ -5,6 +5,23 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.2] - 2026-08-09
+
+### Fixed
+
+- **A NOAA scale of "G3 or greater" was graded as level 5**, which inverted the
+  severity ladder: a hedged *forecast* (`WARK07`, "G3 or greater") sounded an
+  alarm, while an *observed* G4 (`ALTK08`) only reached `warn`. "Or greater" is
+  a floor NOAA is asserting, not a ceiling it is predicting, so it now grades
+  at the level stated. On the April 2025 G4 storm fixture this takes the
+  audible notifications from 2 to 1 — the observed G4, visual only. The hedge
+  is still visible in the notification's `scale` field.
+
+  Introduced in 0.12.0: that release started running `scaleValue` through the
+  zone ladder instead of collapsing everything to `alert`, which made a
+  previously inert `or greater → EXTREME` mapping load-bearing. A test caught
+  it and its assertion was rewritten to match.
+
 ## [0.12.1] - 2026-08-09
 
 ### Fixed
