@@ -524,18 +524,31 @@ function supersedes(
 }
 
 /**
- * Split a message code into the ladder it belongs to and its rung, e.g.
- * `ALTK07` -> `ALTK` at 7. A code with no numeric suffix — `ALTXMF`, `WARSUD`,
- * `SUM10R` — is on no ladder and returns null.
+ * The message code prefixes whose trailing number is a severity level.
  *
- * Deliberately lexical, and deliberately narrow: only codes differing solely
- * in a trailing number are treated as levels of one phenomenon. That keeps
- * `ALTPC0` and `ALTPX1` apart, which are different particle measurements and
- * not a ladder at all.
+ * An allow-list, not a pattern, because the pattern is wrong. A shared prefix
+ * and a trailing digit look like a ladder and mostly are not: `ALTTP2` and
+ * `ALTTP4` are Type II and Type IV radio bursts, two unrelated emissions, and
+ * treating the 4 as "higher" than the 2 stood a live Type IV burst down when
+ * an unrelated Type II arrived 45 seconds later in
+ * `alerts.2026_08_01.json`. Only these three are levels of one phenomenon:
+ * K-index observations, K-index warnings, and geomagnetic storm watches.
+ *
+ * Adding a family here is a claim about what NOAA means by the number, so make
+ * it one family at a time against a fixture. An unlisted code keeps the
+ * behaviour it had before this rule existed, which is the safe direction.
+ */
+const SEVERITY_LADDERS = ['ALTK', 'WARK', 'WATA']
+
+/**
+ * Split a message code into the ladder it belongs to and its rung, e.g.
+ * `ALTK07` -> `ALTK` at 7. Anything outside {@link SEVERITY_LADDERS}, and any
+ * code with no numeric suffix, is on no ladder and returns null.
  */
 function ladderRung(code: string): { family: string; level: number } | null {
   const match = /^(.*?)(\d+)$/.exec(code)
-  return match ? { family: match[1], level: Number(match[2]) } : null
+  if (!match || !SEVERITY_LADDERS.includes(match[1])) return null
+  return { family: match[1], level: Number(match[2]) }
 }
 
 /**
@@ -552,11 +565,12 @@ function ladderRung(code: string): { family: string; level: number } | null {
  * Dropping it here is enough: `clearWithdrawn` in the alerts product returns
  * any code that leaves the in-force set to `normal`.
  *
- * Sound on the ladders NOAA actually uses. K-index synoptic periods are
- * disjoint three-hour windows, so the newest `ALTK` *is* the current state; a
- * later `WARK` at a lower threshold is a revised forecast; and a `WATA` watch
- * says in its own text that it supersedes all prior watches. Ties on issue
- * time keep the louder message, which is the safe direction.
+ * Sound on each of {@link SEVERITY_LADDERS} for its own reason. K-index
+ * synoptic periods are disjoint three-hour windows, so the newest `ALTK` *is*
+ * the current state; a later `WARK` at a lower threshold is a revised
+ * forecast; and a `WATA` watch says in its own text that it supersedes all
+ * prior watches. Ties on issue time keep the louder message, which is the safe
+ * direction.
  */
 function downgraded(
   alert: AlertNotification,

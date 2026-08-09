@@ -13,8 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   expiry, so a `ALTK07` (G3) kept its notification for a full 24 hours even
   after the next synoptic period had already reported `ALTK05`. Cancellations
   and the observed-value zones both missed this — nothing was cancelled and
-  nothing was wrong, the storm had simply eased. A message code is now stood
-  down when a later message on the same ladder reports a lower level. Measured
+  nothing was wrong, the storm had simply eased. A K-index or storm-watch
+  message code is now stood down when a later message on the same ladder
+  reports a lower level. Measured
   over the three archive fixtures this is one episode per geomagnetic storm:
   none in April 2025, 5.5 hours in the 16 April storm, and 22 hours over 4–5
   July 2026. Levels arriving in ascending order — a storm ramping up — are

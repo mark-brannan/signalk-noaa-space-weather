@@ -306,9 +306,25 @@ describe('currentAlertNotifications', () => {
     ])
   })
 
-  it('treats only a trailing number as a level of the same phenomenon', () => {
-    // ALTPC0 and ALTPX1 are different particle measurements, not rungs of one
-    // ladder, and a code with no number at all is on no ladder.
+  it('leaves a shared prefix that is not a severity ladder alone', () => {
+    // ALTTP2 and ALTTP4 are Type II and Type IV radio bursts -- unrelated
+    // emissions, not rungs. Grouping them by prefix stood a live Type IV
+    // burst down when a Type II arrived 45 seconds later.
+    const now = new Date('2026-07-30T18:00:00Z')
+    const payload = asOf(fixtureJson('alerts.2026_08_01.json'), now)
+    const codes = currentAlertNotifications(payload, {
+      now,
+      maxAgeMs: 24 * HOUR_MS,
+      alertThreshold: 3
+    }).inForce.map((a) => a.code)
+
+    expect(codes).toContain('ALTTP2')
+    expect(codes).toContain('ALTTP4')
+  })
+
+  it('keeps codes that only look like one phenomenon', () => {
+    // ALTPC0 and ALTPX1 are different particle measurements, and a code with
+    // no number at all is on no ladder.
     const entry = (code: string, issued: string) => ({
       product_id: code,
       issue_datetime: issued,
@@ -327,13 +343,15 @@ describe('currentAlertNotifications', () => {
     expect(inForce).toHaveLength(3)
   })
 
-  it('leaves no downgraded level raised in any fixture', () => {
+  it('leaves no stale K-index level raised in any fixture', () => {
+    // Named families rather than the implementation's own regex: an invariant
+    // written in terms of the rule it is checking passes by construction.
     for (const name of ALERT_FIXTURES) {
-      const rung = (code: string) => /^(.*?)(\d+)$/.exec(code)
+      const kIndex = (code: string) => /^(ALTK|WARK)(\d+)$/.exec(code)
       const { inForce } = select(name)
       for (const a of inForce)
         for (const b of inForce) {
-          const [ra, rb] = [rung(a.code), rung(b.code)]
+          const [ra, rb] = [kIndex(a.code), kIndex(b.code)]
           if (!ra || !rb || ra[1] !== rb[1]) continue
           const stale = Number(ra[2]) > Number(rb[2]) && a.issued < b.issued
           expect(stale, `${name} ${a.code} under ${b.code}`).toBe(false)
