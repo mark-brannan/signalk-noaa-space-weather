@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -94,6 +94,17 @@ describe('plugin module', () => {
   afterEach(() => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
+  })
+
+  it('keeps `main` in package.json, pointing at the built entry point', () => {
+    // The server loads plugins with require() on an absolute directory path,
+    // and Node's CommonJS resolver ignores `exports` in that case. Removing
+    // `main` reintroduces issue #1: "Cannot find module" on install.
+    const pkg = JSON.parse(
+      readFileSync(new URL('../package.json', import.meta.url), 'utf8')
+    )
+    expect(pkg.main).toBeTruthy()
+    expect(existsSync(new URL(`../${pkg.main}`, import.meta.url))).toBe(true)
   })
 
   it('exposes the Signal K plugin interface', () => {
@@ -505,6 +516,31 @@ describe('plugin module', () => {
     expect(
       units['environment.noaa.swpc.scales.forecast.1day.S.probability']
     ).toBe('ratio')
+  })
+
+  it('declares no units at all on the dimensionless indices', () => {
+    // The admin UI renders the string verbatim, so `units: "none"` displays as
+    // "2 none". The G/S/R levels and Kp are dimensionless and must carry no
+    // `units` key -- the assertion above only checks the physical paths, so a
+    // stray unit on a level would have gone unnoticed.
+    const app = fakeApp()
+    const plugin = createPlugin(app)
+    plugin.start({})
+    vi.advanceTimersByTime(6_000)
+    plugin.stop()
+
+    const dimensionless = /\.(kp|kp\.observed|scales\.[^.]+\.[^.]+\.[GSR])$/
+    let checked = 0
+    for (const delta of app.deltas) {
+      for (const update of delta.updates) {
+        for (const meta of update.meta ?? []) {
+          if (!dimensionless.test(meta.path)) continue
+          checked++
+          expect(meta.value, meta.path).not.toHaveProperty('units')
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(0)
   })
 
   it('survives a fetch failure without an unhandled rejection', async () => {
