@@ -113,11 +113,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the observed-value zones both missed this — nothing was cancelled and
   nothing was wrong, the storm had simply eased. A K-index or storm-watch
   message code is now stood down when a later message on the same ladder
-  reports a lower level. Measured
-  over the three archive fixtures this is one episode per geomagnetic storm:
-  none in April 2025, 5.5 hours in the 16 April storm, and 22 hours over 4–5
-  July 2026. Levels arriving in ascending order — a storm ramping up — are
-  untouched.
+  reports a lower level. Measured over the three archive fixtures this is one
+  episode per geomagnetic storm: none in April 2025, 5.5 hours in the 16 April
+  storm, and 22 hours over 4–5 July 2026. Levels arriving in ascending order —
+  a storm ramping up — are untouched.
 
 ## [0.12.2] - 2026-08-09
 
