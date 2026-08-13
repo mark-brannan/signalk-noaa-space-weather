@@ -205,3 +205,78 @@ export function settingsDiffer(shown, running) {
   if (!running) return false
   return Object.keys(shown).some((key) => shown[key] !== running[key])
 }
+
+/**
+ * A Signal K leaf is `{value, timestamp, $source, meta}`, and a path that has
+ * only ever been described carries `meta` and no `value` at all -- a product
+ * whose first fetch has not landed, or has been failing. Both read as absent.
+ */
+export function leafValue(node) {
+  if (!node || typeof node !== 'object') return null
+  return 'value' in node ? node.value : null
+}
+
+function finite(raw) {
+  // `Number(null)` and `Number('')` are both 0, so an absent path would read as
+  // "no activity" rather than as absent -- the exact confusion this whole
+  // section exists to avoid.
+  if (raw === null || raw === undefined || raw === '') return null
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+/** Mirrors `gScaleForKp` in src/parse.ts. */
+export function gScaleForKp(kp) {
+  if (!Number.isFinite(kp) || kp < 5) return 0
+  return Math.min(Math.floor(kp) - 4, 5)
+}
+
+/**
+ * G before R before S at equal levels, the same order and for the same reason
+ * as `LETTER_ORDER` in public/hero.js: it is what the level costs a boat, not
+ * NOAA's own order and not alphabetical.
+ */
+const LETTER_ORDER = ['G', 'R', 'S']
+
+/**
+ * What the sky is doing, from the two paths the plugin already publishes, in
+ * the shape the panel needs to judge it against `alarmLevel`.
+ *
+ * Returns null when nothing has been published rather than a set of zeroes: on
+ * this screen "quiet" and "the first fetch has not landed" are different
+ * answers, and only one of them says the setting above is doing anything.
+ */
+export function currentConditions(scales, kp) {
+  const levels = {}
+  let worst = null
+  for (const letter of LETTER_ORDER) {
+    const level = finite(leafValue(scales?.[letter]))
+    if (level === null) continue
+    levels[letter] = level
+    if (!worst || level > worst.level) worst = { letter, level }
+  }
+
+  const observedKp = finite(leafValue(kp?.observed))
+  const forecastKp = finite(leafValue(kp?.forecast?.max24h))
+  if (!worst && observedKp === null && forecastKp === null) return null
+
+  return {
+    levels,
+    worst,
+    observedKp,
+    forecast:
+      forecastKp === null
+        ? null
+        : { kp: forecastKp, level: gScaleForKp(forecastKp) }
+  }
+}
+
+/**
+ * What a level would do at the chosen alarm level -- the same three fields the
+ * ladder shows, for one level rather than all five, so the row a boat is
+ * actually sitting on can be named.
+ */
+export function verdictFor(level, alarmLevel) {
+  const state = stateForScaleValue(level, alarmLevel)
+  return { state, method: methodForState(state), effect: EFFECT[state] }
+}

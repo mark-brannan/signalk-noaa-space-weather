@@ -6,17 +6,21 @@ import {
   DEFAULTS,
   OTHER_WIRE_KB,
   STORM_DAYS_PER_YEAR,
+  currentConditions,
   dailyKb,
   formatKb,
+  gScaleForKp,
   ladderFor,
   methodForState,
   panelSettings,
   settingsDiffer,
-  stateForScaleValue
+  stateForScaleValue,
+  verdictFor
 } from '../public/config-panel.js'
 import { schema, settingsFrom } from '../src/config'
 import {
   NotificationStates,
+  gScaleForKp as pluginGScaleForKp,
   methodForState as pluginMethodForState,
   stateForScaleValue as pluginStateForScaleValue
 } from '../src/parse'
@@ -40,6 +44,14 @@ describe('the panel agrees with the plugin about loudness', () => {
         )
       }
     }
+  })
+
+  it('reads the same G level out of every Kp the forecast can carry', () => {
+    for (let tenths = 0; tenths <= 90; tenths++) {
+      const kp = tenths / 10
+      expect(gScaleForKp(kp)).toBe(pluginGScaleForKp(kp))
+    }
+    expect(gScaleForKp(NaN)).toBe(pluginGScaleForKp(NaN))
   })
 
   it('maps every state to the same notification methods', () => {
@@ -242,5 +254,62 @@ describe('ladderFor', () => {
 describe('a month', () => {
   it('is short enough that every calendar month has one', () => {
     expect(DAYS_PER_MONTH).toBeLessThanOrEqual(28 + 2)
+  })
+})
+
+/** A Signal K leaf, as the data API serves one. */
+const leaf = (value: any) => ({ value, timestamp: '2026-08-13T09:00:00.000Z' })
+
+describe('currentConditions', () => {
+  it('says nothing rather than "quiet" when nothing has been published', () => {
+    expect(currentConditions(null, null)).toBeNull()
+    // A path described at startup but never published carries meta and no
+    // value, which is a product that failed rather than a level of zero.
+    expect(currentConditions({ G: { meta: {} } }, null)).toBeNull()
+  })
+
+  it('reports only the scales that have a value', () => {
+    const now = currentConditions({ G: leaf(2), S: leaf(0) }, null)
+    expect(now.levels).toEqual({ G: 2, S: 0 })
+    expect(now.worst).toEqual({ letter: 'G', level: 2 })
+  })
+
+  it('leads with the scale that costs a boat the most on a tie', () => {
+    expect(
+      currentConditions({ G: leaf(3), R: leaf(3), S: leaf(3) }, null).worst
+    ).toEqual({ letter: 'G', level: 3 })
+    expect(currentConditions({ R: leaf(3), S: leaf(3) }, null).worst).toEqual({
+      letter: 'R',
+      level: 3
+    })
+  })
+
+  it('carries the forecast peak as the G level it would reach', () => {
+    const now = currentConditions(null, {
+      observed: leaf(6.33),
+      forecast: { max24h: leaf(5.67) }
+    })
+    expect(now.observedKp).toBe(6.33)
+    expect(now.forecast).toEqual({ kp: 5.67, level: 1 })
+    expect(now.worst).toBeNull()
+  })
+})
+
+describe('verdictFor', () => {
+  it('names the ladder row a level is sitting on', () => {
+    for (const alarmLevel of ALARM_LEVELS) {
+      for (const level of LEVELS) {
+        const verdict = verdictFor(level, alarmLevel)
+        const row = ladderFor(alarmLevel).find((r) => r.level === level)
+        expect(verdict.state).toBe(stateForScaleValue(level, alarmLevel))
+        if (row) {
+          expect(verdict).toEqual({
+            state: row.state,
+            method: row.method,
+            effect: row.effect
+          })
+        }
+      }
+    }
   })
 })

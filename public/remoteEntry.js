@@ -33,16 +33,22 @@ import {
   DEFAULTS,
   ALARM_LEVEL_OPTIONS,
   SCALE_NAMES,
+  currentConditions,
   dailyKb,
   formatKb,
   ladderFor,
   panelSettings,
   settingsDiffer,
+  verdictFor,
   DAYS_PER_MONTH
 } from './config-panel.js'
 
 const EXPOSED = './PluginConfigurationPanel'
-const STATUS_URL = '/signalk/v1/api/signalk-noaa-space-weather/status'
+const API = '/signalk/v1/api'
+const STATUS_URL = `${API}/signalk-noaa-space-weather/status`
+// The two paths the plugin already publishes that say what the sky is doing.
+const SCALES_URL = `${API}/vessels/self/environment/noaa/swpc/scales/observations/latest`
+const KP_URL = `${API}/vessels/self/environment/noaa/swpc/kp`
 
 let React = null
 
@@ -200,6 +206,45 @@ function createPanel(React) {
     )
 
   /**
+   * Where the sky is on the ladder above, right now. "Extreme (5)" is an
+   * abstraction; "this is a G2, and at your setting that is recorded only" is
+   * the same choice with today's answer attached, on the screen where the
+   * choice is being made.
+   *
+   * Absent when the plugin has published nothing yet, rather than reading as
+   * quiet: the card header immediately above this carries the plugin's status
+   * and last error, which is the better place to learn that it is not working.
+   */
+  const RightNow = ({ conditions, alarmLevel }) => {
+    if (!conditions) return null
+    const { levels, worst, observedKp, forecast } = conditions
+    const observed = Object.keys(levels)
+      .map((letter) => `${letter}${levels[letter]}`)
+      .join(' · ')
+    const verdict = worst && verdictFor(worst.level, alarmLevel)
+    return h(
+      'div',
+      { className: 'small mb-3' },
+      h('span', { className: 'fw-semibold me-2' }, 'Right now'),
+      observed && h('span', { className: 'font-monospace me-2' }, observed),
+      observedKp !== null && `Kp ${observedKp.toFixed(2)}. `,
+      verdict &&
+        h(
+          'span',
+          null,
+          `The worst in force is ${worst.letter}${worst.level}, which at this`,
+          ' setting is ',
+          h('span', { className: 'fw-semibold' }, verdict.state),
+          ` — ${verdict.effect}.`
+        ),
+      forecast &&
+        ` Forecast to reach Kp ${forecast.kp.toFixed(2)}` +
+          `${forecast.level > 0 ? ` (G${forecast.level})` : ''} in the next` +
+          ' 24 hours.'
+    )
+  }
+
+  /**
    * What the two intervals cost, per day and per month, at the values in the
    * form right now. The schema description this replaces could only quote the
    * figure for the default interval, and quietly stayed at that figure when
@@ -242,20 +287,28 @@ function createPanel(React) {
   return function PluginConfigurationPanel({ configuration, save }) {
     const [settings, setSettings] = useState(() => panelSettings(configuration))
     const [running, setRunning] = useState(null)
+    const [conditions, setConditions] = useState(null)
     const [saved, setSaved] = useState(false)
     const savedTimer = useRef(null)
 
     // Read once, on mount. Re-reading after a save would race the restart the
     // save triggers and could answer with the settings being replaced; the
     // save itself is the more reliable signal, and updates `running` below.
+    // Nothing here polls: a configuration screen is open for a minute, and the
+    // slowest thing behind these paths moves on an hour.
     useEffect(() => {
       let current = true
-      fetch(STATUS_URL, { credentials: 'include' })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((body) => {
-          if (current) setRunning(body?.settings ?? null)
-        })
-        .catch(() => {})
+      const read = (url) =>
+        fetch(url, { credentials: 'include' })
+          .then((res) => (res.ok ? res.json() : null))
+          .catch(() => null)
+
+      read(STATUS_URL).then((body) => {
+        if (current) setRunning(body?.settings ?? null)
+      })
+      Promise.all([read(SCALES_URL), read(KP_URL)]).then(([scales, kp]) => {
+        if (current) setConditions(currentConditions(scales, kp))
+      })
       return () => {
         current = false
       }
@@ -268,13 +321,10 @@ function createPanel(React) {
       []
     )
 
-    const set = useCallback(
-      (key, value) => {
-        setSaved(false)
-        setSettings((previous) => ({ ...previous, [key]: value }))
-      },
-      []
-    )
+    const set = useCallback((key, value) => {
+      setSaved(false)
+      setSettings((previous) => ({ ...previous, [key]: value }))
+    }, [])
 
     const onSubmit = useCallback(
       (event) => {
@@ -349,7 +399,11 @@ function createPanel(React) {
               )
             )
           ),
-          h(Ladder, { alarmLevel: settings.alarmLevel })
+          h(Ladder, { alarmLevel: settings.alarmLevel }),
+          h(RightNow, {
+            conditions,
+            alarmLevel: settings.alarmLevel
+          })
         )
       ),
 
@@ -358,7 +412,8 @@ function createPanel(React) {
         checked: settings.auroraEnabled,
         onChange: (value) => set('auroraEnabled', value),
         label: 'Publish aurora visibility at the vessel position',
-        help: 'Needs a vessel position. Off by default on bandwidth — the' +
+        help:
+          'Needs a vessel position. Off by default on bandwidth — the' +
           ' aurora grid is the one large payload this plugin fetches.'
       }),
 
