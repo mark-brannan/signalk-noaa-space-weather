@@ -25,7 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ladder would fire constantly on low-confidence data and dilute the 3-day
   alerts that are worth interrupting for.
 
-  No new setting: 451 B on the wire every four hours is about 2.7 KB a day.
+  No new setting, and a deliberately slow poll: NOAA reissues the outlook once
+  a day, so it is fetched every eight hours rather than on `updateInterval`.
+  451 B on the wire, about 1.4 KB a day.
 
 ## [0.13.0] - 2026-08-09
 
