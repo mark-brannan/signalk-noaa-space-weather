@@ -221,13 +221,18 @@ function createPanel(React) {
     const observed = Object.keys(levels)
       .map((letter) => `${letter}${levels[letter]}`)
       .join(' · ')
-    const verdict = worst && verdictFor(worst.level, alarmLevel)
+    // Nothing is "in force" at level 0, and the verdict there is `nominal` --
+    // nothing whatever the alarm level, so quoting it says nothing about the
+    // setting. On a quiet day the forecast below is the part worth reading.
+    const inForce = worst && worst.level > 0
+    const verdict = inForce && verdictFor(worst.level, alarmLevel)
     return h(
       'div',
       { className: 'small mb-3' },
       h('span', { className: 'fw-semibold me-2' }, 'Right now'),
       observed && h('span', { className: 'font-monospace me-2' }, observed),
       observedKp !== null && `Kp ${observedKp.toFixed(2)}. `,
+      worst && !inForce && 'No storm in force.',
       verdict &&
         h(
           'span',

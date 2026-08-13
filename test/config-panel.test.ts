@@ -296,6 +296,19 @@ describe('currentConditions', () => {
 })
 
 describe('verdictFor', () => {
+  it('is vacuous at level 0, which is why the panel does not quote it', () => {
+    // `nominal` -- nothing, at every alarm level. Rendering "the worst in
+    // force is G0, which at this setting is nominal" both claims something is
+    // in force when nothing is, and implies the setting decided it.
+    for (const alarmLevel of ALARM_LEVELS) {
+      expect(verdictFor(0, alarmLevel)).toEqual({
+        state: 'nominal',
+        method: [],
+        effect: 'nothing'
+      })
+    }
+  })
+
   it('names the ladder row a level is sitting on', () => {
     for (const alarmLevel of ALARM_LEVELS) {
       for (const level of LEVELS) {
