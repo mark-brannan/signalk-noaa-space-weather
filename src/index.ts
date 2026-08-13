@@ -365,6 +365,13 @@ export default function (app: any): Plugin {
       // look identical -- Signal K carries no trace of a value that was
       // never published. The plugin's own start time is the only thing that
       // separates them, and nothing else exposes it.
+      //
+      // `settings` is what `settingsFrom` made of the saved configuration,
+      // which is not the same thing as the saved configuration: a default it
+      // supplied, or a superseded key it migrated, is a value the plugin is
+      // running that nothing has ever been saved with. The configuration
+      // panel shows the saved side and needs this one to know when the two
+      // disagree.
       router.get(
         '/signalk-noaa-space-weather/status',
         (_req: any, res: any) => {
@@ -372,7 +379,7 @@ export default function (app: any): Plugin {
             res.status(503).json({ error: 'Plugin is not running.' })
             return
           }
-          res.json({ startedAt })
+          res.json({ startedAt, settings: currentSettings })
         }
       )
 

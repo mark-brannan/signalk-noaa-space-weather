@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.17.0] - 2026-08-13
+
+### Added
+
+- **The plugin's configuration screen is now the plugin's own, and it costs
+  the bandwidth out for you.** Signal K lets a package replace the form the
+  server generates from its JSON schema; this release takes that up. Every
+  setting is the same setting, in the same order, saving the same values — what
+  changes is that the screen can now compute.
+
+  What it computes first is the download budget. Under the two interval fields
+  is a running total: what the observations, forecasts and alerts cost per day,
+  what the aurora grid costs per day, and both together per day and per month.
+  It moves as you type. Set aurora to every fifteen minutes and it says 13.6 MB
+  a day and 411 MB a month, before you save.
+
+  That number was previously a sentence — "about 1.7 MB a day" — which was true
+  at the default two-hour interval and silently wrong at every other. Anyone
+  who tightened the interval to get a fresher aurora map was reading a figure
+  eight times under what they were about to spend, on a link where that is
+  metered. The sentence is gone; the schema description now states the measured
+  per-fetch size and leaves the arithmetic to the screen that can do it.
+
+  The screen also says when the plugin is running values that were never
+  saved — a default, or an alarm level carried across from the setting it
+  replaced two releases ago. Saving writes all five explicitly and the notice
+  clears.
+
+### Changed
+
+- `GET /signalk/v1/api/signalk-noaa-space-weather/status` now reports the
+  settings the plugin is running alongside its start time. These are the
+  settings after defaults and migration have been applied, which is not the
+  same thing as the saved configuration, and is what lets the screen above tell
+  the two apart.
+
+### Notes
+
+- The generated form has not been removed and is not going anywhere: a server
+  older than this mechanism, or one where the panel fails to load, still gets
+  it. `plugin.schema` remains the source of truth for defaults and for the
+  migration of superseded keys, both of which stay on the server.
+- The panel ships as plain JavaScript, with no bundler and no dependencies
+  added to this package. The admin UI loads it on every page it draws, so it
+  had to stay small.
+
 ## [0.16.1] - 2026-08-13
 
 ### Changed
