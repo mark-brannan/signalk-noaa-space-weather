@@ -139,6 +139,14 @@ serve the bundled webapp and nothing outside the tarball can tell whether they
 exist. The exception is a route we invite other software to point at — the
 aurora tile endpoint is one — which is a capability like any other, and minor.
 
+The webapp itself sits on both sides of that line, so say which side. A route
+it consumes, a redraw, a fix to something already displayed: patch. A change in
+**what the page tells its reader** — a condition it now distinguishes, a number
+it now shows, a state that used to read as something else: minor, on the same
+grounds as a change in what gets published. The bundled webapp is how most
+owners meet this plugin, and "only the webapp" is not the same claim as "only
+its plumbing."
+
 Reviewers reach for the strict reading of semver here, where any new
 non-breaking functionality is minor. That reading counts routes nobody outside
 this package calls, and it burns a minor version on each one.
