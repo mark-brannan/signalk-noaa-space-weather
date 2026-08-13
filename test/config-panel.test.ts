@@ -7,7 +7,7 @@ import {
   DAYS_PER_MONTH,
   DEFAULTS,
   OTHER_WIRE_KB,
-  STORM_DAYS_PER_YEAR,
+  RATE,
   currentConditions,
   dailyKb,
   formatKb,
@@ -446,16 +446,18 @@ describe('ladderFor', () => {
     }
   })
 
-  it('carries a rate for every level, rarer as the level rises', () => {
-    const rows = ladderFor(5)
-    for (const row of rows) {
-      expect(row.stormDaysPerYear).toBe(STORM_DAYS_PER_YEAR[row.level])
-    }
-    for (let level = 2; level <= 5; level++) {
-      expect(STORM_DAYS_PER_YEAR[level]).toBeLessThan(
-        STORM_DAYS_PER_YEAR[level - 1]
+  it('carries a rate for every level', () => {
+    for (const row of ladderFor(5)) expect(row.rate).toBe(RATE[row.level])
+  })
+
+  it('quotes the same rate the fallback dropdown quotes', () => {
+    // The ladder and the dropdown are the same choice to a user, who may well
+    // see either -- the panel is not guaranteed to load. Two lists of words
+    // would drift; one list read twice cannot.
+    for (const option of LEVEL_OPTIONS)
+      expect(option.rate).toBe(
+        option.value === ALARM_NEVER ? undefined : RATE[option.value]
       )
-    }
   })
 })
 

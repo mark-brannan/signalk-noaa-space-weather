@@ -152,20 +152,27 @@ export function methodForState(state) {
 }
 
 /**
- * Geomagnetic storm days in a median year at each level *and above*, from the
- * measured table in docs/noaa-products.md, re-counted under NOAA's banding. The
- * alarm-level dropdown quotes the same figures, so both move together.
+ * How often an event at each level *and above* happens, in words, from the
+ * measured table in docs/noaa-products.md re-counted under NOAA's banding.
+ * Both controls quote these, so they move together.
  *
- * The G figures, because the dropdown quotes G and one cadence cannot label
- * three scales; the panel says so where it shows them. Regenerate with
+ * Words rather than the day counts they came from. The counts are geomagnetic
+ * storm days in a median year, and at that resolution Extreme rounds to zero --
+ * a number that reads as "never" for the level the alarm defaults to. The
+ * phrasing also carries the uncertainty the archive actually supports: "once or
+ * twice a year" is honest where "3" is not. docs/noaa-products.md keeps the
+ * figures, with the method that makes them mean something; regenerate them with
  * scripts/measure-kp.mjs.
+ *
+ * The G figures, because one cadence cannot label three scales; the panel says
+ * so where it shows them.
  */
-export const STORM_DAYS_PER_YEAR = Object.freeze({
-  1: 72,
-  2: 27,
-  3: 10,
-  4: 3,
-  5: 0
+export const RATE = Object.freeze({
+  1: 'most weeks',
+  2: 'a couple of times a month',
+  3: 'several times a year',
+  4: 'once or twice a year',
+  5: 'several times a decade'
 })
 
 /** Mirrors `ALARM_NEVER` in src/parse.ts. */
@@ -177,12 +184,11 @@ export const ALARM_NEVER = 6
  * up, which puts "Never" at the top. It carries no rate: it has no frequency.
  */
 export const LEVEL_OPTIONS = Object.freeze([
+  // ALARM_NEVER carries no rate: it does not happen at a frequency.
   { value: ALARM_NEVER },
-  { value: 5, rate: 'several times a decade' },
-  { value: 4, rate: 'once or twice a year' },
-  { value: 3, rate: 'several times a year' },
-  { value: 2, rate: 'a couple of times a month' },
-  { value: 1, rate: 'most weeks' }
+  ...[5, 4, 3, 2, 1].map((value) =>
+    Object.freeze({ value, rate: RATE[value] })
+  )
 ])
 
 /** What a state does to a notification client, in the words a user would use. */
@@ -209,7 +215,13 @@ export function ladderFor(alarmLevel, popupLevel) {
       state,
       method: methodForState(state),
       effect: EFFECT[state],
-      stormDaysPerYear: STORM_DAYS_PER_YEAR[level]
+      // The same words the fallback dropdown uses, so a user who has seen one
+      // control recognises the other. They carry their own uncertainty --
+      // "once or twice", "several" -- which the measured day counts cannot: a
+      // bare 3 claims a precision the Kp archive does not support, and at
+      // Extreme the median year rounds to 0, which reads as "never" for the
+      // one level this whole screen exists to get right.
+      rate: RATE[level]
     })
   }
   return rows

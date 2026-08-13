@@ -323,7 +323,7 @@ function createPanel(React) {
           h('th', { scope: 'col' }, 'Level'),
           h('th', { scope: 'col' }, 'Notification'),
           h('th', { scope: 'col' }, 'What you get'),
-          h('th', { scope: 'col', className: 'text-end' }, 'Days a year')
+          h('th', { scope: 'col' }, 'How often')
         )
       ),
       h(
@@ -375,11 +375,7 @@ function createPanel(React) {
             ),
             h('td', { className: 'font-monospace', style: cell }, row.state),
             h('td', { style: cell }, row.effect),
-            h(
-              'td',
-              { className: 'text-end font-monospace', style: cell },
-              row.stormDaysPerYear
-            )
+            h('td', { style: cell }, row.rate)
           )
         })
       )
@@ -600,10 +596,10 @@ function createPanel(React) {
             ' Strong (3) and above is listed whatever the two lines are set' +
               ' to — a storm that size should leave a trace even with the' +
               ' plugin turned all the way down. The states and methods apply' +
-              ' to the G, S and R scales and to Kp. The rates are geomagnetic' +
-              ' storm days in a median year, measured over 1932–2025; the' +
-              ' other two scales differ, sharply at 4 and 5, and every rate' +
-              ' roughly doubles during the active stretch of a solar cycle. ',
+              ' to the G, S and R scales and to Kp. How often is geomagnetic,' +
+              ' counted from the Kp archive over 1932–2025; the other two' +
+              ' scales differ, sharply at 4 and 5, and every rate roughly' +
+              ' doubles during the active stretch of a solar cycle. ',
             h(NoaaLink, {
               href: NOAA_SCALES_URL,
               text: 'How NOAA defines the scales'

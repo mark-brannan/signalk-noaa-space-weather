@@ -27,6 +27,13 @@ observe, so internal plumbing lands in a patch even when it adds something.
   "Never". Both controls resolve a pair of thresholds identically, so it makes
   no difference to what gets saved which one you used.
 
+- **The ladder says how often each level happens in words**, the same words the
+  dropdown uses — "several times a decade", "once or twice a year" — rather
+  than a count of storm days per year. The counts came from a median year, and
+  at that resolution Extreme rounds to zero, which reads as "never" for the
+  level the alarm defaults to. The words also carry the uncertainty the
+  measurement supports, where a bare number claims more than it can.
+
 ## [0.19.0] - 2026-08-13
 
 ### Added
