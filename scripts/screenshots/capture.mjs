@@ -38,8 +38,71 @@ const BASE = (
   'http://localhost:3010'
 ).replace(/\/$/, '')
 
+// The hero banner's whole point is that its states differ, and on most days
+// the sky is quiet -- so a shot of a live server pictures the one state
+// anybody can already see for themselves. These four render the others from
+// fixed payloads served to the page in place of NOAA's, which is also what
+// makes them reproducible: the same four pictures a year from now.
+const HOUR_MS = 60 * 60 * 1000
+
+// Kp forecast points at NOAA's three-hour spacing.
+function kpSeries(now, ...kps) {
+  return kps.map((kp, i) => ({
+    time: new Date(now + (i + 1) * 3 * HOUR_MS).toISOString(),
+    kp,
+    forecast: true
+  }))
+}
+
+const HERO_STATES = {
+  'hero-storm': {
+    observedKp: 8.0,
+    // Two storms at once: the worst leads, the other keeps its own line.
+    observed: { G: 4, S: 4, R: 3 },
+    peak24h: { G: 4, S: 4, R: 3 },
+    kp: (now) => kpSeries(now, 8, 9, 7, 5)
+  },
+  'hero-brewing': {
+    observedKp: 4.0,
+    observed: { G: 1, S: 0, R: 0 },
+    peak24h: { G: 1, S: 0, R: 0 },
+    kp: (now) => kpSeries(now, 4, 4, 7, 7)
+  },
+  'hero-all-clear': {
+    observedKp: 3.0,
+    observed: { G: 1, S: 0, R: 0 },
+    peak24h: { G: 3, S: 0, R: 0 },
+    kp: (now) => kpSeries(now, 3, 2, 2)
+  },
+  'hero-stale': {
+    observedKp: 2.0,
+    observed: { G: 1, S: 0, R: 0 },
+    peak24h: { G: 1, S: 0, R: 0 },
+    kp: (now) => kpSeries(now, 2, 2),
+    // Older than the webapp's three-hour staleness window.
+    ageMs: 5 * HOUR_MS
+  }
+}
+
+function heroShots() {
+  return Object.fromEntries(
+    Object.entries(HERO_STATES).map(([name, state]) => [
+      name,
+      {
+        file: `${name}.png`,
+        theme: 'dark',
+        height: 700,
+        full: false,
+        clip: '.grid > .tile',
+        run: (page) => shotHero(page, state)
+      }
+    ])
+  )
+}
+
 // Each shot renders one file. `full` means fullPage; the data-browser tables
 // are effectively endless, so those are captured at viewport height instead.
+// `clip` names an element to shoot instead of the page.
 const SHOTS = {
   webapp: {
     file: 'webapp.png',
@@ -76,7 +139,8 @@ const SHOTS = {
     height: 940,
     full: false,
     run: shotNotifications
-  }
+  },
+  ...heroShots()
 }
 
 main().catch((err) => {
@@ -154,7 +218,9 @@ async function main() {
         await shot.run(page)
         await page.evaluate(() => window.scrollTo(0, 0))
         const file = path.join(OUT_DIR, shot.file)
-        await page.screenshot({ path: file, fullPage: shot.full })
+        await (shot.clip
+          ? page.locator(shot.clip).first().screenshot({ path: file })
+          : page.screenshot({ path: file, fullPage: shot.full }))
         console.log(`  ✓ ${name} → docs/screenshots/${shot.file}`)
       } finally {
         await context.close()
@@ -222,6 +288,33 @@ async function openWebapp(page) {
 }
 
 async function shotWebapp(page) {
+  await openWebapp(page)
+}
+
+// Serves one hero state's payloads in place of the server's own, then shoots
+// the banner alone. Only the three paths the hero reads are intercepted, so
+// the rest of the page stays live and honest about what it is showing.
+async function shotHero(page, state) {
+  const now = Date.now()
+  const stamp = new Date(now - (state.ageMs || 0)).toISOString()
+  const leaf = (value) => ({ value, timestamp: stamp })
+  const levels = (of) =>
+    Object.fromEntries(Object.entries(of).map(([k, v]) => [k, leaf(v)]))
+
+  await page.route(/scales\/observations\/latest/, (route) =>
+    route.fulfill({ json: levels(state.observed) })
+  )
+  await page.route(/scales\/observations\/24_hours_maximums/, (route) =>
+    route.fulfill({ json: levels(state.peak24h) })
+  )
+  await page.route(/swpc\/kp$/, (route) =>
+    route.fulfill({
+      json: {
+        observed: leaf(state.observedKp),
+        forecast: { series: leaf(state.kp(now)) }
+      }
+    })
+  )
   await openWebapp(page)
 }
 
