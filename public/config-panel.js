@@ -141,7 +141,7 @@ export const ALARM_LEVEL_OPTIONS = Object.freeze([
 const EFFECT = Object.freeze({
   nominal: 'nothing',
   normal: 'recorded only',
-  alert: 'listed, no sound',
+  alert: 'listed, no popup, no sound',
   warn: 'pops up, no sound',
   alarm: 'pops up and sounds'
 })

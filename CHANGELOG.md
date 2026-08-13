@@ -51,7 +51,8 @@ observe, so internal plumbing lands in a patch even when it adds something.
 - **The screen says what the sky is doing, and where that lands on your
   choice.** Under the ladder: the G, S and R levels observed now, the current
   Kp, which of them is worst, and the row that one is sitting on — "the worst
-  in force is G2, which at this setting is `alert` — listed, no sound" — plus
+  in force is G2, which at this setting is `alert` — listed, no popup, no
+  sound" — plus
   the highest Kp forecast for the next 24 hours and the storm level it would
   reach. It moves with the dropdown too, so a level can be judged against a
   real day rather than an abstraction.
