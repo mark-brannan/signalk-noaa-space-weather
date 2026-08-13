@@ -110,7 +110,10 @@ export function methodForState(state) {
 
 /**
  * Geomagnetic storm days in a median year at each level *and above*, from the
- * measured table in docs/noaa-products.md. The G figures, because the dropdown
+ * measured table in docs/noaa-products.md. That table was counted under the
+ * integer banding the plugin used before it adopted NOAA's thirds, so it reads
+ * low until the re-measure that doc asks for lands; the dropdown labels quote
+ * the same figures and move with it. The G figures, because the dropdown
  * quotes G and one cadence cannot label three scales; the panel says so where
  * it shows them. Regenerate with scripts/measure-kp.mjs.
  */
@@ -225,10 +228,19 @@ function finite(raw) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+/**
+ * Mirrors `kpFloorForG` in src/parse.ts: a G band opens a third below the Kp
+ * it is named after, so G4 starts at 7.667 rather than 8.
+ */
+export const kpFloorForG = (g) => 5 + g - 1 - 1 / 3
+
 /** Mirrors `gScaleForKp` in src/parse.ts. */
 export function gScaleForKp(kp) {
-  if (!Number.isFinite(kp) || kp < 5) return 0
-  return Math.min(Math.floor(kp) - 4, 5)
+  if (!Number.isFinite(kp)) return 0
+  for (let g = 5; g >= 1; g--) {
+    if (kp >= kpFloorForG(g)) return g
+  }
+  return 0
 }
 
 /**

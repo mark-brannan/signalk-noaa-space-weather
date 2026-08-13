@@ -290,7 +290,8 @@ describe('currentConditions', () => {
       forecast: { max24h: leaf(5.67) }
     })
     expect(now.observedKp).toBe(6.33)
-    expect(now.forecast).toEqual({ kp: 5.67, level: 1 })
+    // 5.67 is 6-, the bottom of NOAA's Kp 6 band, so G2 rather than G1.
+    expect(now.forecast).toEqual({ kp: 5.67, level: 2 })
     expect(now.worst).toBeNull()
   })
 })
