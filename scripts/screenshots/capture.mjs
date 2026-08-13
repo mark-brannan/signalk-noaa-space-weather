@@ -29,7 +29,9 @@ const HERE = path.dirname(fileURLToPath(import.meta.url))
 const OUT_DIR = path.resolve(HERE, '..', '..', 'docs', 'screenshots')
 
 const PLUGIN_ID = 'signalk-noaa-space-weather'
-const WIDTH = 1400 // every checked-in screenshot is this wide; keep it that way
+// The viewport every shot renders in, and the width of every full-page one;
+// keep it that way. A `clip` shot comes out as wide as its element instead.
+const WIDTH = 1400
 
 const argv = parseArgs(process.argv.slice(2))
 const BASE = (
