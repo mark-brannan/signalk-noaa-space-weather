@@ -312,7 +312,14 @@ function createPanel(React) {
           'tr',
           null,
           // The gutter the grips sit in: wide enough for two lanes of pill.
-          h('th', { scope: 'col', style: { width: '11rem' } }),
+          // Its name is there but not drawn -- a column reached by header
+          // navigation needs one, and on screen the grips are self-evidently
+          // what the column is for.
+          h(
+            'th',
+            { scope: 'col', style: { width: '11rem' } },
+            h('span', { className: 'visually-hidden' }, 'Thresholds')
+          ),
           h('th', { scope: 'col' }, 'Level'),
           h('th', { scope: 'col' }, 'Notification'),
           h('th', { scope: 'col' }, 'What you get'),
