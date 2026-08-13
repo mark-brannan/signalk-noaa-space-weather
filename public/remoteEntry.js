@@ -30,6 +30,7 @@
 // React 19 compatibility. Taking it from the scope means this file has no
 // opinion about the version at all.
 import {
+  ALARM_NEVER,
   DEFAULTS,
   LEVEL_OPTIONS,
   levelOptionLabel,
@@ -376,11 +377,17 @@ function createPanel(React) {
      * the other takes it along rather than refusing the change. Refusing would
      * leave the select showing a value the plugin does not hold: `settingsFrom`
      * clamps this same pair on the way in, whatever the panel saved.
+     *
+     * A popup of "Never" is exempt, in both directions, because it is quieter
+     * than every level rather than louder than the alarm. Dragging the alarm up
+     * to meet it would silence a plugin nobody asked to silence: turning off
+     * the silent popups would take the sound with it.
      */
     const setLevel = useCallback((key, value) => {
       setSaved(false)
       setSettings((previous) => {
         const next = { ...previous, [key]: value }
+        if (next.popupLevel === ALARM_NEVER) return next
         if (key === 'alarmLevel')
           next.popupLevel = Math.min(next.popupLevel, value)
         else next.alarmLevel = Math.max(next.alarmLevel, value)

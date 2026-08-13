@@ -124,6 +124,13 @@ offer the full scale plus `ALARM_NEVER`. Neither range is clipped to the levels
 a skipper would sensibly pick: clipping would also strand an existing config
 that asked for something outside it.
 
+**`ALARM_NEVER` is exempt from that clamp on `popupLevel`**, and the panel does
+not drag the alarm up to meet it either. It is the one value above the alarm
+that is not a mistake: the rest are inert by accident, that one asks for no
+popup band at all. Clamping it redraws a chosen "Never" as a level on the next
+load — the exact dishonest control the split was for — and, below `ALERT_FLOOR`
+where the quiet rung follows the popup band down, it changes behaviour too.
+
 **`ALERT_FLOOR` is level 3, and nothing turns it off.** A G3 is several a year,
 so there is no setting at which one should leave no trace — and `alert` carries
 an empty method array, so being listed costs the user nothing but a line. The

@@ -172,8 +172,8 @@ export const STORM_DAYS_PER_YEAR = Object.freeze({
 export const ALARM_NEVER = 6
 
 /**
- * The choices offered for both thresholds, mirroring the shared `LEVEL_OPTIONS`
- * in src/config.ts. Quietest first, so reading down the list turns the plugin
+ * The choices offered for both thresholds, mirroring `levelOptions` in
+ * src/config.ts. Quietest first, so reading down the list turns the plugin
  * up, which puts "Never" at the top. It carries no rate: it has no frequency.
  */
 export const LEVEL_OPTIONS = Object.freeze([
@@ -247,6 +247,12 @@ export function scaleValue(raw, fallback) {
  * alone rather than translated here; `settingsDiffer` is where the panel finds
  * out what they turned into.
  */
+/** Mirrors `popupBand` in src/config.ts. */
+function popupBand(raw, alarmLevel) {
+  const level = scaleValue(raw, Math.max(1, alarmLevel - 1))
+  return level === ALARM_NEVER ? level : Math.min(level, alarmLevel)
+}
+
 export function panelSettings(configuration) {
   const c = configuration ?? {}
   const alarmLevel = scaleValue(c.alarmLevel, DEFAULTS.alarmLevel)
@@ -254,11 +260,11 @@ export function panelSettings(configuration) {
     sendAdvisoryOutlook: c.sendAdvisoryOutlook !== false,
     alarmLevel,
     // The same clamp `settingsFrom` applies, so the panel cannot show a popup
-    // level the plugin would pull back down the moment it read it.
-    popupLevel: Math.min(
-      scaleValue(c.popupLevel, Math.max(1, alarmLevel - 1)),
-      alarmLevel
-    ),
+    // level the plugin would pull back down the moment it read it -- including
+    // its exemption for ALARM_NEVER, which is the one value above the alarm
+    // that the user meant. Clamping that one would redraw a chosen "Never" as
+    // a level on reload.
+    popupLevel: popupBand(c.popupLevel, alarmLevel),
     auroraEnabled: c.auroraEnabled === true,
     auroraInterval: minutes(c.auroraInterval, DEFAULTS.auroraInterval),
     updateInterval: minutes(c.updateInterval, DEFAULTS.updateInterval)

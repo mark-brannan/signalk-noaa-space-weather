@@ -155,18 +155,7 @@ export function settingsFrom(props: any): Settings {
     auroraEnabled: p.auroraEnabled === true,
     auroraInterval: minutes(p.auroraInterval, 120),
     alarmLevel,
-    // One below the alarm is the band this had when there was only one
-    // setting, so a config saved before the split keeps the ladder it already
-    // had -- including a saved ALARM_NEVER, which used to slide G5 down into
-    // the popup band and now says so outright.
-    //
-    // Never louder than the alarm. Above it the popup band would name levels
-    // the alarm has already claimed, so the setting would be inert while still
-    // reading as a choice; below it the two are independent.
-    popupLevel: Math.min(
-      scaleValue(p.popupLevel, Math.max(NoaaScaleValues.MINOR, alarmLevel - 1)),
-      alarmLevel
-    ),
+    popupLevel: popupBand(p.popupLevel, alarmLevel),
     // `observationsInterval` and `notificationsInterval` are the two settings
     // this replaced. Both are still read so a saved config keeps its cadence
     // instead of silently snapping back to 60, and the smaller wins, since that
@@ -177,6 +166,33 @@ export function settingsFrom(props: any): Settings {
       60
     )
   }
+}
+
+/**
+ * The popup threshold, which is never louder than the alarm. Above the alarm it
+ * would name levels the alarm has already claimed, so it would be inert while
+ * still reading as a choice, and it is pulled back down.
+ *
+ * `ALARM_NEVER` is exempt, because it is the one value above the alarm that is
+ * not a mistake: the others are inert by accident, this one asks for no popup
+ * band at all. Clamping it would relabel a deliberate "Never" as whatever the
+ * alarm happened to be on the next load -- a control that does not read as what
+ * was chosen, which is the bug the two thresholds exist to fix.
+ *
+ * Nor is it only the label. Below `ALERT_FLOOR` the quiet rung follows the
+ * popup band down, so a clamped "Never" would also start listing a level the
+ * user had asked nothing of.
+ */
+function popupBand(raw: any, alarmLevel: number): number {
+  const level = scaleValue(
+    raw,
+    // One below the alarm is the band this had when there was only one
+    // setting, so a config saved before the split keeps the ladder it already
+    // had -- including a saved ALARM_NEVER, which used to slide G5 down into
+    // the popup band and now says so outright.
+    Math.max(NoaaScaleValues.MINOR, alarmLevel - 1)
+  )
+  return level === ALARM_NEVER ? level : Math.min(level, alarmLevel)
 }
 
 /** An old attention-threshold as the equivalent alarm level. */

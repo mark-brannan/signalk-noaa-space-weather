@@ -95,6 +95,15 @@ describe('stateForScaleValue', () => {
     ])
   })
 
+  it('leaves the quiet rung at the floor when there is no popup band', () => {
+    // The rung follows the popup band down so the two are never separated by a
+    // gap of `normal`. A popup of ALARM_NEVER opens no band for it to stay
+    // against, so it stays where ALERT_FLOOR puts it -- which is why the two
+    // are not interchangeable once the alarm is low enough to notice.
+    expect(stateForScaleValue(2, 3, ALARM_NEVER)).toBe('normal')
+    expect(stateForScaleValue(2, 3, 3)).toBe('alert')
+  })
+
   it('is monotonically louder as the popup level comes down', () => {
     const loud = (popupLevel: number) =>
       [1, 2, 3, 4, 5].filter((v) =>

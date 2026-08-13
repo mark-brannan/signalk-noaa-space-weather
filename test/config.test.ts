@@ -90,6 +90,27 @@ describe('popupLevel', () => {
     expect(settings.popupLevel).toBe(5)
   })
 
+  it('keeps an explicit Never whatever the alarm level is', () => {
+    // The one value above the alarm that is not a mistake: the others name a
+    // band the alarm has already taken and are inert by accident, this one asks
+    // for no popup band at all. Clamping it would redraw a chosen "Never" as a
+    // level on the next load, which is the bug the two thresholds exist to fix.
+    for (const alarmLevel of [1, 2, 3, 4, 5, ALARM_NEVER])
+      expect(
+        settingsFrom({ alarmLevel, popupLevel: ALARM_NEVER }).popupLevel
+      ).toBe(ALARM_NEVER)
+  })
+
+  it('reads its own output back unchanged, for every pair', () => {
+    // What the panel saves is what `settingsFrom` produced, so anything it
+    // rewrites on a second pass is a value the user sees change under them.
+    for (const alarmLevel of [1, 2, 3, 4, 5, ALARM_NEVER])
+      for (const popupLevel of [1, 2, 3, 4, 5, ALARM_NEVER]) {
+        const settings = settingsFrom({ alarmLevel, popupLevel })
+        expect(settingsFrom(settings)).toEqual(settings)
+      }
+  })
+
   it('resolves an out-of-range saved value against the alarm level', () => {
     for (const bad of [0, 7, 3.5, -1, 'loud', null])
       expect(settingsFrom({ alarmLevel: 5, popupLevel: bad }).popupLevel).toBe(

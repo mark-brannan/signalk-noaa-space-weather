@@ -146,7 +146,14 @@ describe('panelSettings', () => {
       // Out of range, half-typed and hostile, all of which the number and
       // select controls can produce before a save.
       { alarmLevel: 9, auroraInterval: '', updateInterval: -1 },
-      { alarmLevel: 'nonsense', auroraInterval: null }
+      { alarmLevel: 'nonsense', auroraInterval: null },
+      // Every threshold pair the two selects can produce, including the ones
+      // where the popup is quieter than the alarm and the ones where it is
+      // louder. The panel and the plugin have to resolve each the same way, or
+      // the screen describes a ladder the plugin is not running.
+      ...THRESHOLDS.flatMap((alarmLevel) =>
+        THRESHOLDS.map((popupLevel) => ({ alarmLevel, popupLevel }))
+      )
     ]
     for (const configuration of configurations) {
       const shown = panelSettings(configuration)
