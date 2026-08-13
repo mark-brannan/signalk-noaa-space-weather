@@ -1096,7 +1096,7 @@ import { heroState, kpFloorForG, uncapitalise } from './hero.js';
       const bars = [['Observed', observed], ['24h Peak', max24h], ['72h Peak', max72h]];
       const maxKp = 9;
       body.innerHTML = `
-        <div class="kp-threshold"><span>Kp 4.67 · G1 storm threshold</span></div>
+        <div class="kp-threshold"><span>Kp ${kpFloorForG(1).toFixed(2)} · G1 storm threshold</span></div>
         <div class="kp-bars">
           ${bars.map(([label, v]) => {
             const h = v === null ? 2 : Math.max(4, (v / maxKp) * 88);
