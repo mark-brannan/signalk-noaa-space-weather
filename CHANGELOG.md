@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.15.1] - 2026-08-13
+
+### Fixed
+
+- **The alarm-level dropdown quoted event rates about twice what an ordinary
+  year sees.** The labels came from NOAA's published per-cycle event counts
+  divided by eleven, which describes an average solar cycle rather than the
+  year you are in — and NOAA's long-run average includes cycles stronger than
+  any since. Storm days also cluster into a roughly five-year active stretch,
+  so a per-cycle average is loud in the peak years and wrong in the rest.
+
+  The labels now quote geomagnetic storm days in a **median** year, measured
+  from GFZ's Kp archive over the 94 complete years from 1932 to 2025 and banded
+  the way this plugin's own zones band, not the way NOAA's scale page does.
+  Levels 1 and 2 are unchanged; 3 moves from "about monthly" to "several times
+  a year", 4 from "a few times a year" to "once or twice a year", and 5 from
+  "once every few years" to "once or twice a decade".
+
+  Saying what the rate *is* meant saying what it is a rate of, so the same
+  field now names its own terms: the title reads "Sound an alarm at…" and the
+  description gives the median-year basis, notes that the rates roughly double
+  during a cycle's active stretch, and spells out the ladder the choice sets —
+  one level below shows a popup without sound, two below is listed silently.
+
+  The setting itself is untouched — same field, same five values, same
+  behaviour. Only the words changed, and a saved configuration means exactly
+  what it meant before. `scripts/measure-kp.mjs` regenerates the table in
+  [`docs/noaa-products.md`](docs/noaa-products.md) from the source archive, so
+  the numbers can be re-derived rather than trusted.
+
 ## [0.15.0] - 2026-08-13
 
 ### Changed
