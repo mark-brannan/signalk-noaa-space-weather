@@ -98,6 +98,31 @@ describe('popupLevel', () => {
   })
 })
 
+describe('the schema survives the round trip the server puts it through', () => {
+  // The server stores the schema as JSON, and the Signal K plugin CI walks it
+  // rejecting anything JSON.stringify would drop or choke on. Its reachability
+  // check is by object identity, so two properties sharing one `oneOf` array
+  // read as a cycle even though nothing is circular and stringify copes -- and
+  // that failed every platform in the matrix once both thresholds offered the
+  // same choices. Cheaper to give each property its own copy than to argue.
+  const objects = (node: any, path: string, seen = new WeakSet()): string[] => {
+    if (node === null || typeof node !== 'object') return []
+    if (seen.has(node)) return [path]
+    seen.add(node)
+    return Object.entries(node).flatMap(([key, value]) =>
+      objects(value, `${path}.${key}`, seen)
+    )
+  }
+
+  it('reaches no object twice', () => {
+    expect(objects(schema, 'schema')).toEqual([])
+  })
+
+  it('holds nothing JSON.stringify would drop', () => {
+    expect(JSON.parse(JSON.stringify(schema))).toEqual(schema)
+  })
+})
+
 describe('migrating a saved zoneAlertThreshold / minScaleAlert', () => {
   // The old setting named the lowest level worth attention and put `alarm` two
   // levels above it, so the equivalent alarm level is the old value plus two.

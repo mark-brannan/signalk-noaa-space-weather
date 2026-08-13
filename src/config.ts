@@ -20,7 +20,13 @@ export interface Settings {
 // anyone should want -- the rates say so -- but it is a defensible thing to
 // want, and clipping the range would also mean an existing config that asked
 // for it could not be re-created after the panel had touched it.
-const LEVEL_OPTIONS = [
+//
+// A function rather than one shared array, so each property gets its own copy.
+// The Signal K plugin CI walks the schema with a WeakSet and reports anything
+// it reaches twice as a circular reference -- which a shared branch is not, and
+// JSON.stringify duplicates it quite happily -- but the check belongs to the
+// registry rather than to this repo, and a fresh array costs nothing.
+const levelOptions = () => [
   { const: ALARM_NEVER, title: 'Never' },
   { const: 5, title: 'Extreme (5) — several times a decade' },
   { const: 4, title: 'Severe (4) and above — once or twice a year' },
@@ -56,7 +62,7 @@ export const schema = {
       // one silently becomes the default on a fresh install. `type` has to stay
       // too: without it the field renders as nothing at all.
       default: NoaaScaleValues.EXTREME,
-      oneOf: LEVEL_OPTIONS
+      oneOf: levelOptions()
     },
     popupLevel: {
       type: 'number',
@@ -69,7 +75,7 @@ export const schema = {
         ' storm that size should leave a trace even when the plugin is turned' +
         ' all the way down.',
       default: NoaaScaleValues.SEVERE,
-      oneOf: LEVEL_OPTIONS
+      oneOf: levelOptions()
     },
     auroraEnabled: {
       type: 'boolean',
