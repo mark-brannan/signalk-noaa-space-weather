@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.20.0] - 2026-08-13
+
+### Changed
+
+- **The two thresholds are now lines you drag across the ladder.** A threshold
+  is a boundary, so the configuration screen draws it as one: the line rests on
+  the row its band opens at, and the band is everything above it. Push a line
+  above Extreme and its band is empty — that is "Never", arrived at by running
+  out of storms rather than by picking the word out of a list.
+
+  The table that showed what the setting *did* is now the setting itself, so
+  there is nothing on the screen that is not either a decision or the result of
+  one. Drag a grip, or focus it and use the arrow keys; Home and End go straight
+  to the ends.
+
+  The dropdowns have not gone anywhere — they are what a server renders when the
+  plugin's own screen fails to load, and they still offer every level plus
+  "Never". Both controls resolve a pair of thresholds identically, so it makes
+  no difference to what gets saved which one you used.
+
 ## [0.19.0] - 2026-08-13
 
 ### Added

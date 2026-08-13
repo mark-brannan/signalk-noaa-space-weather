@@ -216,6 +216,111 @@ export function ladderFor(alarmLevel, popupLevel) {
 }
 
 /**
+ * The two boundaries, loudest first, as the ladder draws them.
+ *
+ * A threshold names the level its band opens at, so its line rests on the
+ * *bottom* edge of that level's row -- the band is everything above the line.
+ * `ALARM_NEVER` puts it above the top row instead, where the band is empty:
+ * "Never" is reached by running out of storms rather than by being a level.
+ */
+export const BOUNDARIES = Object.freeze([
+  Object.freeze({ key: 'alarmLevel', kind: 'sound' }),
+  Object.freeze({ key: 'popupLevel', kind: 'popup' })
+])
+
+/**
+ * Where a boundary's line sits: the level whose row it rests under, or null
+ * for the line above the whole ladder.
+ */
+export function lineUnder(level) {
+  return level === ALARM_NEVER ? null : level
+}
+
+/**
+ * What a grip says about itself. Both halves are literal -- neither borrows the
+ * other's words -- so a screen reader hears the same thing the ladder shows.
+ */
+export function gripLabel(kind, level) {
+  if (level === ALARM_NEVER)
+    return kind === 'sound' ? 'never sounds' : 'never pops up'
+  const verb = kind === 'sound' ? 'sounds' : 'pops up'
+  return `${verb} from ${SCALE_NAMES[level]} (${level})`
+}
+
+/**
+ * One threshold moved, with the other taken along if it has to be.
+ *
+ * Mirrors the clamp in `settingsFrom`, including its exemption: a popup of
+ * `ALARM_NEVER` is quieter than every level rather than louder than the alarm,
+ * so it neither drags the alarm up nor gets dragged down by it. Taking the
+ * alarm along would silence a plugin the user had only asked to stop popping
+ * up.
+ */
+export function withLevel(settings, key, value) {
+  const next = { ...settings, [key]: value }
+  if (next.popupLevel === ALARM_NEVER) return next
+  if (key === 'alarmLevel') next.popupLevel = Math.min(next.popupLevel, value)
+  else next.alarmLevel = Math.max(next.alarmLevel, value)
+  return next
+}
+
+/** The quietest level either threshold offers. Neither range is clipped. */
+export const MINOR = 1
+
+/**
+ * Where an arrow key puts a boundary, or null for a key the grip does not
+ * claim -- which is what lets Tab and the rest reach the form around it.
+ *
+ * Up is quieter. The line rises, the band above it loses its bottom row, and
+ * one more level stops interrupting. Home and End are the ends of the range the
+ * grip reports through `aria-valuemin` and `aria-valuemax`, so the numbers a
+ * screen reader announces and the keys that reach them agree.
+ */
+export function stepLevel(current, key) {
+  if (key === 'ArrowUp' || key === 'ArrowRight')
+    return Math.min(ALARM_NEVER, current + 1)
+  if (key === 'ArrowDown' || key === 'ArrowLeft')
+    return Math.max(MINOR, current - 1)
+  if (key === 'Home') return MINOR
+  if (key === 'End') return ALARM_NEVER
+  return null
+}
+
+/**
+ * The level whose edge a pointer is nearest, given each level's edge in the
+ * same coordinates. Snapping to the nearest rather than the one under the
+ * cursor is what lets a grip reach the line above the top row at all.
+ */
+export function nearestLevel(edges, y) {
+  let best = null
+  let bestGap = Infinity
+  for (const [level, at] of Object.entries(edges)) {
+    const gap = Math.abs(at - y)
+    if (gap < bestGap) {
+      bestGap = gap
+      best = Number(level)
+    }
+  }
+  return best
+}
+
+/**
+ * The quiet rung in words, read back off the ladder rather than derived a
+ * second time -- so the sentence cannot claim something the table under it
+ * contradicts. `ALERT_FLOOR` puts levels here that neither threshold names,
+ * which is exactly why it is worth saying out loud.
+ */
+export function quietRule(alarmLevel, popupLevel) {
+  const listed = ladderFor(alarmLevel, popupLevel)
+    .filter((row) => row.state === 'alert')
+    .map((row) => `${SCALE_NAMES[row.level]} (${row.level})`)
+    .reverse()
+  if (listed.length === 0) return 'Nothing is listed quietly.'
+  const verb = listed.length === 1 ? 'is' : 'are'
+  return `${listed.join(', ')} ${verb} listed quietly — no popup, no sound.`
+}
+
+/**
  * The dropdown line for one choice. `ALARM_NEVER` is not a NOAA level and has
  * no name in `SCALE_NAMES`, so it reads as itself rather than as a severity --
  * the whole point is that it cannot be mistaken for "alarm at the top".
