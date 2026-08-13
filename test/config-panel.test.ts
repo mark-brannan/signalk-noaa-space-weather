@@ -5,12 +5,49 @@ import {
   DAYS_PER_MONTH,
   DEFAULTS,
   OTHER_WIRE_KB,
+  STORM_DAYS_PER_YEAR,
   dailyKb,
   formatKb,
+  ladderFor,
+  methodForState,
   panelSettings,
-  settingsDiffer
+  settingsDiffer,
+  stateForScaleValue
 } from '../public/config-panel.js'
 import { schema, settingsFrom } from '../src/config'
+import {
+  NotificationStates,
+  methodForState as pluginMethodForState,
+  stateForScaleValue as pluginStateForScaleValue
+} from '../src/parse'
+
+const LEVELS = [0, 1, 2, 3, 4, 5]
+const ALARM_LEVELS = [1, 2, 3, 4, 5]
+
+/**
+ * The panel is served as plain JavaScript out of public/ and cannot import
+ * from dist/, so two rules it depends on are copies. These are what makes a
+ * copy safe: both functions are total over a domain small enough to check
+ * exhaustively, so a divergence is a test failure rather than a panel that
+ * describes something the plugin does not do.
+ */
+describe('the panel agrees with the plugin about loudness', () => {
+  it('maps every level and alarm level to the same state', () => {
+    for (const alarmLevel of ALARM_LEVELS) {
+      for (const value of LEVELS) {
+        expect(stateForScaleValue(value, alarmLevel)).toBe(
+          pluginStateForScaleValue(value, alarmLevel)
+        )
+      }
+    }
+  })
+
+  it('maps every state to the same notification methods', () => {
+    for (const state of Object.values(NotificationStates)) {
+      expect(methodForState(state)).toEqual(pluginMethodForState(state))
+    }
+  })
+})
 
 describe('the panel agrees with the schema about choices', () => {
   it('defaults an absent key to what the schema would have', () => {
@@ -137,6 +174,68 @@ describe('formatKb', () => {
     expect(formatKb(1740)).toBe('1.70 MB')
     expect(formatKb(50 * 1024)).toBe('50.0 MB')
     expect(formatKb(2 * 1024 * 1024)).toBe('2.00 GB')
+  })
+})
+
+describe('ladderFor', () => {
+  it('runs loudest first and covers every NOAA level', () => {
+    expect(ladderFor(5).map((row) => row.level)).toEqual([5, 4, 3, 2, 1])
+  })
+
+  it('places the alarm, the popup and the silent notice at the default', () => {
+    const rows = ladderFor(5)
+    const at = (level: number) => rows.find((row) => row.level === level)
+    expect(at(5).state).toBe('alarm')
+    expect(at(5).method).toEqual(['visual', 'sound'])
+    expect(at(4).state).toBe('warn')
+    expect(at(4).method).toEqual(['visual'])
+    expect(at(3).state).toBe('alert')
+    expect(at(3).method).toEqual([])
+    expect(at(2).state).toBe('normal')
+    expect(at(1).state).toBe('normal')
+  })
+
+  it('moves the whole ladder down with the alarm level', () => {
+    const rows = ladderFor(3)
+    const at = (level: number) => rows.find((row) => row.level === level)
+    expect([at(5).state, at(4).state, at(3).state]).toEqual([
+      'alarm',
+      'alarm',
+      'alarm'
+    ])
+    expect(at(2).state).toBe('warn')
+    expect(at(1).state).toBe('alert')
+  })
+
+  it('leaves no alarm level unable to sound', () => {
+    for (const alarmLevel of ALARM_LEVELS) {
+      expect(
+        ladderFor(alarmLevel).some((row) => row.method.includes('sound'))
+      ).toBe(true)
+    }
+  })
+
+  it('is monotonically louder as the alarm level is lowered', () => {
+    let previous = 0
+    for (let alarmLevel = 5; alarmLevel >= 1; alarmLevel--) {
+      const audible = ladderFor(alarmLevel).filter((row) =>
+        row.method.includes('sound')
+      ).length
+      expect(audible).toBeGreaterThanOrEqual(previous)
+      previous = audible
+    }
+  })
+
+  it('carries a rate for every level, rarer as the level rises', () => {
+    const rows = ladderFor(5)
+    for (const row of rows) {
+      expect(row.stormDaysPerYear).toBe(STORM_DAYS_PER_YEAR[row.level])
+    }
+    for (let level = 2; level <= 5; level++) {
+      expect(STORM_DAYS_PER_YEAR[level]).toBeLessThan(
+        STORM_DAYS_PER_YEAR[level - 1]
+      )
+    }
   })
 })
 

@@ -87,6 +87,42 @@ export function formatKb(kb) {
 }
 
 /**
+ * Mirrors `stateForScaleValue` in src/parse.ts, which carries the argument for
+ * why the ladder derives downward from the alarm.
+ */
+export function stateForScaleValue(value, alarmLevel) {
+  if (value <= 0) return 'nominal'
+  if (value >= alarmLevel) return 'alarm'
+  if (value === alarmLevel - 1) return 'warn'
+  if (value === alarmLevel - 2) return 'alert'
+  return 'normal'
+}
+
+/** Mirrors `methodForState` in src/parse.ts. */
+export function methodForState(state) {
+  const method = []
+  if (state === 'warn' || state === 'alarm' || state === 'emergency') {
+    method.push('visual')
+  }
+  if (state === 'alarm' || state === 'emergency') method.push('sound')
+  return method
+}
+
+/**
+ * Geomagnetic storm days in a median year at each level *and above*, from the
+ * measured table in docs/noaa-products.md. The G figures, because the dropdown
+ * quotes G and one cadence cannot label three scales; the panel says so where
+ * it shows them. Regenerate with scripts/measure-kp.mjs.
+ */
+export const STORM_DAYS_PER_YEAR = Object.freeze({
+  1: 53,
+  2: 20,
+  3: 7,
+  4: 2,
+  5: 0
+})
+
+/**
  * The alarm-level choices, mirroring the `oneOf` on `alarmLevel` in
  * src/config.ts. Quietest first, so reading down the list turns the plugin up.
  */
@@ -97,6 +133,35 @@ export const ALARM_LEVEL_OPTIONS = Object.freeze([
   { value: 2, rate: 'a couple of times a month' },
   { value: 1, rate: 'most weeks' }
 ])
+
+/** What a state does to a notification client, in the words a user would use. */
+const EFFECT = Object.freeze({
+  nominal: 'nothing',
+  normal: 'recorded only',
+  alert: 'listed, no sound',
+  warn: 'pops up, no sound',
+  alarm: 'pops up and sounds'
+})
+
+/**
+ * One row per NOAA level, loudest first, for the chosen alarm level. Loudest
+ * first because the alarm is the thing being set and the rest hang off it.
+ */
+export function ladderFor(alarmLevel) {
+  const rows = []
+  for (let level = 5; level >= 1; level--) {
+    const state = stateForScaleValue(level, alarmLevel)
+    rows.push({
+      level,
+      name: SCALE_NAMES[level],
+      state,
+      method: methodForState(state),
+      effect: EFFECT[state],
+      stormDaysPerYear: STORM_DAYS_PER_YEAR[level]
+    })
+  }
+  return rows
+}
 
 /**
  * A NOAA scale value is one of five integers; mirrors `scaleValue` in

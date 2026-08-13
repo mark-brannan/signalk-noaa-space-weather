@@ -35,6 +35,7 @@ import {
   SCALE_NAMES,
   dailyKb,
   formatKb,
+  ladderFor,
   panelSettings,
   settingsDiffer,
   DAYS_PER_MONTH
@@ -138,6 +139,64 @@ function createPanel(React) {
         label
       ),
       help && h('div', { className: 'form-text' }, help)
+    )
+
+  /** Bootstrap's own row tints, so the ladder reads in either theme. */
+  const ROW_CLASS = {
+    alarm: 'table-danger',
+    warn: 'table-warning',
+    alert: '',
+    normal: 'text-body-secondary',
+    nominal: 'text-body-secondary'
+  }
+
+  /**
+   * The whole consequence of the setting above, redrawn as it changes: one
+   * setting decides four outcomes across five levels, and read as a sentence
+   * that has to be reassembled in the head before it can be judged.
+   *
+   * Rows are geomagnetic because the rates are, and no single cadence can
+   * label all three scales -- see docs/noaa-products.md. The states and the
+   * methods do apply to all of them, which is what the note underneath says.
+   */
+  const Ladder = ({ alarmLevel }) =>
+    h(
+      'table',
+      { className: 'table table-sm align-middle small mb-2' },
+      h(
+        'thead',
+        null,
+        h(
+          'tr',
+          null,
+          h('th', { scope: 'col' }, 'Level'),
+          h('th', { scope: 'col' }, 'Notification'),
+          h('th', { scope: 'col' }, 'What you get'),
+          h('th', { scope: 'col', className: 'text-end' }, 'Days a year')
+        )
+      ),
+      h(
+        'tbody',
+        null,
+        ladderFor(alarmLevel).map((row) =>
+          h(
+            'tr',
+            { key: row.level, className: ROW_CLASS[row.state] },
+            h(
+              'th',
+              { scope: 'row', className: 'fw-semibold' },
+              `G${row.level} ${row.name}`
+            ),
+            h('td', { className: 'font-monospace' }, row.state),
+            h('td', null, row.effect),
+            h(
+              'td',
+              { className: 'text-end font-monospace' },
+              row.stormDaysPerYear
+            )
+          )
+        )
+      )
     )
 
   /**
@@ -264,25 +323,33 @@ function createPanel(React) {
           label: 'Sound an alarm at…',
           htmlFor: 'noaa-alarm-level',
           help:
-            'One level below this shows a popup but makes no sound; two below' +
-            ' is listed silently. Applies to the G, S and R scales and to Kp.'
+            'The states and methods apply to the G, S and R scales and to Kp.' +
+            ' The rates are geomagnetic storm days in a median year, measured' +
+            ' over 1932–2025; the other two scales differ, sharply at 4 and 5,' +
+            ' and every rate roughly doubles during the active stretch of a' +
+            ' solar cycle.'
         },
         h(
-          'select',
-          {
-            className: 'form-select',
-            id: 'noaa-alarm-level',
-            value: settings.alarmLevel,
-            onChange: (event) => set('alarmLevel', Number(event.target.value))
-          },
-          ALARM_LEVEL_OPTIONS.map((option) =>
-            h(
-              'option',
-              { key: option.value, value: option.value },
-              `${SCALE_NAMES[option.value]} (${option.value})` +
-                `${option.value < 5 ? ' and above' : ''} — ${option.rate}`
+          'div',
+          null,
+          h(
+            'select',
+            {
+              className: 'form-select mb-3',
+              id: 'noaa-alarm-level',
+              value: settings.alarmLevel,
+              onChange: (event) => set('alarmLevel', Number(event.target.value))
+            },
+            ALARM_LEVEL_OPTIONS.map((option) =>
+              h(
+                'option',
+                { key: option.value, value: option.value },
+                `${SCALE_NAMES[option.value]} (${option.value})` +
+                  `${option.value < 5 ? ' and above' : ''} — ${option.rate}`
+              )
             )
-          )
+          ),
+          h(Ladder, { alarmLevel: settings.alarmLevel })
         )
       ),
 

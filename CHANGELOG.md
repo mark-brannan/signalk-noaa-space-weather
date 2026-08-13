@@ -35,6 +35,19 @@ observe, so internal plumbing lands in a patch even when it adds something.
   replaced two releases ago. Saving writes all five explicitly and the notice
   clears.
 
+- **The alarm ladder is a table now, and it redraws as you choose.** One
+  setting decides four outcomes across five levels, and until now that mapping
+  was a sentence you had to reassemble in your head while looking at a
+  dropdown. Under the dropdown is a row per NOAA level: the notification state
+  it raises, whether that pops up, makes a sound or does neither, and how many
+  days a year a geomagnetic storm reaches it. Change the dropdown and the whole
+  table moves, so the consequence is visible before you commit to it.
+
+  The rows are the plugin's own behaviour, not a description of it: the table
+  is generated from the same rule `stateForScaleValue` applies, and a test
+  fails the build if the two ever disagree at any of the thirty combinations
+  they cover.
+
 ### Changed
 
 - `GET /signalk/v1/api/signalk-noaa-space-weather/status` now reports the
