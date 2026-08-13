@@ -289,6 +289,63 @@ describe('plugin module', () => {
     })
   })
 
+  describe('GET /signalk-noaa-space-weather/status (signalKApiRoutes)', () => {
+    const ROUTE = '/signalk-noaa-space-weather/status'
+
+    it('answers 503 before the plugin has been started', async () => {
+      const plugin = createPlugin(fakeApp())
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(503)
+    })
+
+    it('reports when this run of the plugin began', async () => {
+      vi.setSystemTime(new Date('2026-08-12T09:12:00.000Z'))
+      const plugin = createPlugin(fakeApp())
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start(settingsFrom({}))
+
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(200)
+      expect(response.json.startedAt).toBe('2026-08-12T09:12:00.000Z')
+
+      plugin.stop()
+    })
+
+    it('forgets the start time once stopped, so a stale one cannot be served', async () => {
+      const plugin = createPlugin(fakeApp())
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start(settingsFrom({}))
+      plugin.stop()
+
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(503)
+    })
+
+    it('moves the start time forward when the plugin is restarted', async () => {
+      const plugin = createPlugin(fakeApp())
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+
+      vi.setSystemTime(new Date('2026-08-12T09:12:00.000Z'))
+      plugin.start(settingsFrom({}))
+      const first = await router.invoke(ROUTE)
+      plugin.stop()
+
+      vi.setSystemTime(new Date('2026-08-12T14:30:00.000Z'))
+      plugin.start(settingsFrom({}))
+      const second = await router.invoke(ROUTE)
+      plugin.stop()
+
+      expect(first.json.startedAt).toBe('2026-08-12T09:12:00.000Z')
+      expect(second.json.startedAt).toBe('2026-08-12T14:30:00.000Z')
+    })
+  })
+
   describe('GET /signalk-noaa-space-weather/aurora-refresh (signalKApiRoutes)', () => {
     const ROUTE = '/signalk-noaa-space-weather/aurora-refresh'
     const POSITION = { latitude: 70, longitude: 20 }

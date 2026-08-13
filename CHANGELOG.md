@@ -5,6 +5,17 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1] - 2026-08-12
+
+### Added
+
+- **The plugin now reports when it started**, at
+  `/signalk/v1/api/signalk-noaa-space-weather/status`. Until now a webapp with
+  no values could not tell "the first fetch has not landed yet" from "this has
+  been running since breakfast and NOAA is unreachable" — Signal K keeps no
+  trace of a value that was never published, so both look like an empty page.
+  The start time is the one fact that separates them.
+
 ## [0.14.0] - 2026-08-12
 
 ### Added
