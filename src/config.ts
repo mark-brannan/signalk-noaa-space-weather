@@ -48,7 +48,7 @@ export const schema = {
     },
     auroraEnabled: {
       type: 'boolean',
-      title: 'Publish aurora visibility at the vessel position',
+      title: "Fetch NOAA's aurora forecast grid",
       // A user reading this form is being told what the setting costs, so the
       // measured numbers live here rather than in a comment. Per *fetch*, and
       // no daily figure: what a day costs depends on `auroraInterval`, and a
@@ -56,11 +56,12 @@ export const schema = {
       // for the servers that render the panel. Re-measure with
       // scripts/measure-noaa.mjs.
       description:
-        'Needs a vessel position. Off by default on bandwidth: the aurora grid' +
-        ' is about 145 KB per fetch, roughly thirty times everything else this' +
-        ' plugin downloads put together, so the interval below sets what it' +
-        ' costs a day. Real money on a metered satellite link and nothing at' +
-        ' all on marina wifi.',
+        'Draws the aurora map in this plugin\u2019s webapp, serves it as chart' +
+        ' overlay tiles, and publishes the probability at the vessel position.' +
+        ' Off by default on bandwidth: about 145 KB per fetch, roughly thirty' +
+        ' times everything else this plugin downloads put together, so the' +
+        ' interval below sets what it costs a day. Nothing is fetched until' +
+        ' the vessel has a position.',
       default: false
     },
     auroraInterval: {

@@ -460,12 +460,15 @@ function createPanel(React) {
         id: 'noaa-aurora-enabled',
         checked: settings.auroraEnabled,
         onChange: (value) => set('auroraEnabled', value),
-        label: 'Publish aurora visibility at the vessel position',
+        label: "Fetch NOAA's aurora forecast grid",
         help: h(
           'span',
           null,
-          'Needs a vessel position. Off by default on bandwidth — the aurora' +
-            ' grid is the one large payload this plugin fetches. ',
+          'Draws the aurora map in this plugin\u2019s webapp, serves it as chart' +
+            ' overlay tiles, and publishes the probability at the vessel' +
+            ' position. Off by default on bandwidth: it is the one large' +
+            ' payload this plugin fetches. Nothing is fetched until the' +
+            ' vessel has a position. ',
           h(NoaaLink, { href: AURORA_URL, text: "NOAA's aurora forecast" })
         )
       }),

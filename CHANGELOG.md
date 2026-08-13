@@ -47,8 +47,10 @@ observe, so internal plumbing lands in a patch even when it adds something.
   was a sentence you had to reassemble in your head while looking at a
   dropdown. Under the dropdown is a row per NOAA level: the notification state
   it raises, whether that pops up, makes a sound or does neither, and how many
-  days a year a geomagnetic storm reaches it. Change the dropdown and the whole
-  table moves, so the consequence is visible before you commit to it.
+  days a year a geomagnetic storm reaches it. The rows that do nothing but get
+  written down are green rather than greyed out, because quiet is the plugin
+  working, not a disabled setting. Change the dropdown and the whole table
+  moves, so the consequence is visible before you commit to it.
 
   The rows are the plugin's own behaviour, not a description of it: the table
   is generated from the same rule `stateForScaleValue` applies, and a test
@@ -69,6 +71,14 @@ observe, so internal plumbing lands in a patch even when it adds something.
   which is the better place to find out it is not working.
 
 ### Changed
+
+- **The aurora setting says what it is for.** It read "Publish aurora
+  visibility at the vessel position", which named the smallest of the three
+  things it does and led with a precondition. It now reads "Fetch NOAA's
+  aurora forecast grid", and says that the grid draws the webapp's aurora map
+  and the chart-overlay tiles as well as publishing the probability at the
+  vessel position — and that nothing is fetched at all until there is a
+  position. Same setting, same default; the schema form gets the same wording.
 
 - The configuration screen follows 0.16.0's G banding, so the level it reads
   off a Kp is the level everything else publishes, and its ladder quotes
