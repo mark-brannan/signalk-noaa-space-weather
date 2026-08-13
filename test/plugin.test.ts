@@ -315,6 +315,24 @@ describe('plugin module', () => {
       plugin.stop()
     })
 
+    it('reports the settings it is running, not the ones it was given', async () => {
+      const plugin = createPlugin(fakeApp())
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      // A superseded key and nothing else: every value the plugin runs on here
+      // is one the saved configuration never named, which is exactly the case
+      // the configuration panel cannot work out for itself.
+      plugin.start({ zoneAlertThreshold: 1 })
+
+      const response = await router.invoke(ROUTE)
+      expect(response.json.settings).toEqual(
+        settingsFrom({ zoneAlertThreshold: 1 })
+      )
+      expect(response.json.settings.alarmLevel).toBe(3)
+
+      plugin.stop()
+    })
+
     it('forgets the start time once stopped, so a stale one cannot be served', async () => {
       const plugin = createPlugin(fakeApp())
       const router = fakeRouter()

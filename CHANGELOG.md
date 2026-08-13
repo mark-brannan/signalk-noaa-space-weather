@@ -7,6 +7,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.17.0] - 2026-08-13
+
+### Added
+
+- **The plugin's configuration screen is now the plugin's own, and it costs
+  the bandwidth out for you.** Signal K lets a package replace the form the
+  server generates from its JSON schema; this release takes that up. Every
+  setting is the same setting, saving the same values — what changes is that
+  the screen can now compute, and that it is laid out for the reading rather
+  than for the schema. The weekly Advisory Outlook leads, since it is the one
+  choice that needs no arithmetic, and its label links NOAA's own page so a
+  bulletin can be read before deciding to receive them. The alarm ladder and
+  the aurora setting link NOAA's pages for the scales and the aurora forecast
+  the same way.
+
+  What it computes first is the download budget. Under the two interval fields
+  is a running total: what the observations, forecasts and alerts cost per day,
+  what the aurora grid costs per day, what the weekly and daily bulletins cost
+  on their own cadence — a floor of a few KB that neither interval moves — and
+  all of it per day and per month. It moves as you type. Set aurora to every
+  fifteen minutes and it says 13.7 MB a day and 411.5 MB a month, before you
+  save.
+
+  That number was previously a sentence — "about 1.7 MB a day" — which was true
+  at the default two-hour interval and silently wrong at every other. Anyone
+  who tightened the interval to get a fresher aurora map was reading a figure
+  eight times under what they were about to spend, on a link where that is
+  metered. The sentence is gone; the schema description now states the measured
+  per-fetch size and leaves the arithmetic to the screen that can do it.
+
+  The screen also says when the plugin is running values that were never
+  saved — a default, or an alarm level carried across from the setting it
+  replaced two releases ago. Saving writes all five explicitly and the notice
+  clears.
+
+- **The alarm ladder is a table now, and it redraws as you choose.** One
+  setting decides four outcomes across five levels, and until now that mapping
+  was a sentence you had to reassemble in your head while looking at a
+  dropdown. Under the dropdown is a row per NOAA level: the notification state
+  it raises, whether that pops up, makes a sound or does neither, and how many
+  days a year a geomagnetic storm reaches it. The rows that do nothing but get
+  written down are green rather than greyed out, because quiet is the plugin
+  working, not a disabled setting. Change the dropdown and the whole table
+  moves, so the consequence is visible before you commit to it.
+
+  The rows are the plugin's own behaviour, not a description of it: the table
+  is generated from the same rule `stateForScaleValue` applies, and a test
+  fails the build if the two ever disagree at any of the thirty combinations
+  they cover.
+
+- **The screen says what the sky is doing, and where that lands on your
+  choice.** Under the ladder: the G, S and R levels observed now, the current
+  Kp, which of them is worst, and the row that one is sitting on — "the worst
+  in force is G2, which at this setting is `alert` — listed, no popup, no
+  sound" — plus the highest Kp forecast for the next 24 hours and the storm
+  level it would reach. It moves with the dropdown too, so a level can be
+  judged against a real day rather than an abstraction.
+
+  It reads the paths the plugin already publishes and adds no fetching of its
+  own. When nothing has been published it says nothing at all rather than
+  reading as quiet — the plugin's status and last error sit a few lines above,
+  which is the better place to find out it is not working.
+
+### Changed
+
+- **The aurora setting says what it is for.** It read "Publish aurora
+  visibility at the vessel position", which named the smallest of the three
+  things it does and led with a precondition. It now reads "Fetch NOAA's
+  aurora forecast grid", and says that the grid draws the webapp's aurora map
+  and the chart-overlay tiles as well as publishing the probability at the
+  vessel position — and that nothing is fetched at all until there is a
+  position. Same setting, same default; the schema form gets the same wording.
+
+- The configuration screen follows 0.16.0's G banding, so the level it reads
+  off a Kp is the level everything else publishes, and its ladder quotes
+  0.16.1's re-measured storm-day rates — the same figures the alarm-level
+  dropdown carries.
+
+- `GET /signalk/v1/api/signalk-noaa-space-weather/status` now reports the
+  settings the plugin is running alongside its start time. These are the
+  settings after defaults and migration have been applied, which is not the
+  same thing as the saved configuration, and is what lets the screen above tell
+  the two apart.
+
+### Notes
+
+- The generated form has not been removed and is not going anywhere: a server
+  older than this mechanism, or one where the panel fails to load, still gets
+  it. `plugin.schema` remains the source of truth for defaults and for the
+  migration of superseded keys, both of which stay on the server.
+- The panel ships as plain JavaScript, with no bundler and no dependencies
+  added to this package. The admin UI loads it on every page it draws, so it
+  had to stay small.
+
 ## [0.16.1] - 2026-08-13
 
 ### Changed
