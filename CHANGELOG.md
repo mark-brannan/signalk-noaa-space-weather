@@ -25,9 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ladder would fire constantly on low-confidence data and dilute the 3-day
   alerts that are worth interrupting for.
 
-  No new setting, and a deliberately slow poll: NOAA reissues the outlook once
-  a day, so it is fetched every eight hours rather than on `updateInterval`.
-  451 B on the wire, about 1.4 KB a day.
+  No new setting, and a deliberately slow poll: NOAA issues the outlook weekly
+  as part of its Weekly Highlights bulletin, so it is fetched once a day rather
+  than on `updateInterval`. 451 B on the wire, about 3 KB a week.
 
 ## [0.13.0] - 2026-08-09
 
