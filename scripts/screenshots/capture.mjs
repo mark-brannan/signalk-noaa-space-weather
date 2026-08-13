@@ -8,6 +8,11 @@
 //   SK_USERNAME=admin SK_PASSWORD=... node scripts/screenshots/capture.mjs
 //   node scripts/screenshots/capture.mjs --url http://localhost:3100 --only webapp,aurora-map
 //
+// The default target is the dev server, because screenshots belong to the
+// change that alters the UI: capture against the published package and the PR
+// that rewrote a panel ships a picture of the old one. `--url` covers the
+// other direction when the point is to match what a registry installer sees.
+//
 // Credentials come from --username/--password, SK_USERNAME/SK_PASSWORD, or a
 // prompt; nothing is written to disk. A read-only user is enough for four of
 // the five shots — the admin UI exposes Data → Browser to any logged-in user.
@@ -30,7 +35,7 @@ const argv = parseArgs(process.argv.slice(2))
 const BASE = (
   argv.url ||
   process.env.SK_URL ||
-  'http://localhost:3001'
+  'http://localhost:3010'
 ).replace(/\/$/, '')
 
 // Each shot renders one file. `full` means fullPage; the data-browser tables
