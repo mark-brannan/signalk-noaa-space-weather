@@ -99,6 +99,8 @@ export default function (app: any): Plugin {
   /** Set on start(), read by the force-refresh route below. */
   let currentSettings: Settings | null = null
   let lastForcedRefreshAt = 0
+  /** When this run of the plugin began; served by the status route below. */
+  let startedAt: string | null = null
 
   /**
    * Tile rendering reads the same disk cache the webapp's map does, but
@@ -360,6 +362,22 @@ export default function (app: any): Plugin {
         }
       )
 
+      // When the webapp has no values, "the first fetch has not landed yet"
+      // and "this has been running all afternoon and NOAA is unreachable"
+      // look identical -- Signal K carries no trace of a value that was
+      // never published. The plugin's own start time is the only thing that
+      // separates them, and nothing else exposes it.
+      router.get(
+        '/signalk-noaa-space-weather/status',
+        (_req: any, res: any) => {
+          if (!startedAt) {
+            res.status(503).json({ error: 'Plugin is not running.' })
+            return
+          }
+          res.json({ startedAt })
+        }
+      )
+
       return router
     },
 
@@ -369,6 +387,7 @@ export default function (app: any): Plugin {
       productTimers.clear()
       const settings = settingsFrom(props)
       currentSettings = settings
+      startedAt = new Date().toISOString()
 
       for (const product of PRODUCTS) {
         if (product.enabled && !product.enabled(settings)) continue
@@ -384,6 +403,7 @@ export default function (app: any): Plugin {
     stop() {
       stopped = true
       currentSettings = null
+      startedAt = null
       productTimers.forEach((timer) => clearTimeout(timer))
       productTimers.clear()
       // Several MB of rendered tiles and the flattened grid have no reason to
