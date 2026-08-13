@@ -5,6 +5,27 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.3] - 2026-08-13
+
+### Fixed
+
+- **The webapp's aurora panel quoted the wrong payload size.** Its empty state
+  justified aurora being off by default with ~900 KB, which is the decoded
+  size; the fetch costs ~145 KB on the wire, so the bandwidth argument it was
+  making overstated itself by about six times.
+
+### Changed
+
+- **Facts that were stated in several places now have one home each.** An audit
+  found thirteen such facts, three of which had already drifted apart: the
+  number of messages in an alerts payload (documented as 88–200, actually
+  118–200 across the captured fixtures), the number of notifications a quiet
+  day raises, and a claim that the April 2025 storm produced an audible
+  notification at the default alarm level — no captured payload does, since
+  that storm peaked at an observed G4, which is visual-only until `alarmLevel`
+  is lowered to 4. Storm-frequency rates are flagged as provisional pending a
+  measured replacement rather than restated.
+
 ## [0.14.1] - 2026-08-12
 
 ### Added
