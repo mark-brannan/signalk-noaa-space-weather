@@ -281,14 +281,18 @@ function createPanel(React) {
         settings.auroraEnabled ? 'Aurora grid' : 'Aurora grid (off)',
         day.aurora
       ),
+      row(
+        settings.sendAdvisoryOutlook
+          ? 'Weekly and daily bulletins'
+          : 'Daily bulletin',
+        day.fixed
+      ),
       row('Per day', day.total, true),
       row('Per month', day.total * DAYS_PER_MONTH),
       h(
         'div',
         { className: 'form-text mt-2 mb-0' },
-        'Downloaded from NOAA, gzipped, as measured in docs/noaa-products.md.' +
-          ' Real money on a metered satellite link and nothing at all on' +
-          ' marina wifi.'
+        'Gzipped transfer sizes, measured in docs/noaa-products.md.'
       )
     )
   }

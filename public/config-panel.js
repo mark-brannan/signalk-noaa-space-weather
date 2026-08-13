@@ -47,6 +47,26 @@ export const SCALE_NAMES = Object.freeze([
 export const AURORA_WIRE_KB = 145
 export const OTHER_WIRE_KB = 5
 
+/**
+ * The two bulletins that keep their own cadence, which neither interval field
+ * moves. Sizes from the same table; cadences from src/products/.
+ *
+ * Not every fixed-cadence fetch is here: `f107` polls every four hours on its
+ * own timer too, but the measurement behind OTHER_WIRE_KB bundles it with the
+ * endpoints that do follow `updateInterval` and never priced it alone, so
+ * moving it would mean inventing a number. It stays in the row above, which
+ * overcounts it below a four-hour interval and undercounts it above one --
+ * either way by a fraction of 5 KB.
+ *
+ * The 27-day outlook is one 451 B fetch a day, always. The advisory outlook is
+ * adaptive: it sleeps up to a day, then polls every 15 minutes through a
+ * six-hour window before the weekly issuance is due, so a week costs roughly
+ * six idle fetches plus a couple of dozen in the window.
+ */
+export const OUTLOOK27_WIRE_KB = 0.44
+export const ADVISORY_WIRE_KB = 1.6
+const ADVISORY_FETCHES_PER_DAY = 30 / 7
+
 const MINUTES_PER_DAY = 24 * 60
 /** Long enough to be worth quoting, short enough that every month has one. */
 export const DAYS_PER_MONTH = 30
@@ -61,6 +81,20 @@ export function minutes(raw, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
+/**
+ * Kilobytes a day the intervals cannot change. Small, and worth a line of its
+ * own precisely because it is small: it is the part of the bill that does not
+ * fall however far the two intervals are opened up.
+ */
+export function fixedKb(settings) {
+  return (
+    OUTLOOK27_WIRE_KB +
+    (settings.sendAdvisoryOutlook
+      ? ADVISORY_FETCHES_PER_DAY * ADVISORY_WIRE_KB
+      : 0)
+  )
+}
+
 /** Kilobytes a day, split the way the two intervals split the cost. */
 export function dailyKb(settings) {
   const aurora = settings.auroraEnabled
@@ -72,7 +106,8 @@ export function dailyKb(settings) {
     (MINUTES_PER_DAY /
       minutes(settings.updateInterval, DEFAULTS.updateInterval)) *
     OTHER_WIRE_KB
-  return { aurora, other, total: aurora + other }
+  const fixed = fixedKb(settings)
+  return { aurora, other, fixed, total: aurora + other + fixed }
 }
 
 /**

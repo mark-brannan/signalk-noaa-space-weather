@@ -22,8 +22,9 @@ observe, so internal plumbing lands in a patch even when it adds something.
 
   What it computes first is the download budget. Under the two interval fields
   is a running total: what the observations, forecasts and alerts cost per day,
-  what the aurora grid costs per day, and both together per day and per month.
-  It moves as you type. Set aurora to every fifteen minutes and it says 13.6 MB
+  what the aurora grid costs per day, what the weekly and daily bulletins cost
+  on their own cadence — a floor of a few KB that neither interval moves — and
+  all of it per day and per month. It moves as you type. Set aurora to every fifteen minutes and it says 13.6 MB
   a day and 411 MB a month, before you save.
 
   That number was previously a sentence — "about 1.7 MB a day" — which was true

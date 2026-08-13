@@ -139,14 +139,33 @@ describe('dailyKb', () => {
 
   it('counts nothing for aurora while aurora is off', () => {
     expect(dailyKb(settings).aurora).toBe(0)
-    expect(dailyKb(settings).total).toBe(dailyKb(settings).other)
+    expect(dailyKb(settings).total).toBe(
+      dailyKb(settings).other + dailyKb(settings).fixed
+    )
   })
 
   it('charges one wire payload per interval per day', () => {
     const day = dailyKb({ ...settings, auroraEnabled: true })
     expect(day.other).toBeCloseTo((1440 / 60) * OTHER_WIRE_KB)
     expect(day.aurora).toBeCloseTo((1440 / 120) * AURORA_WIRE_KB)
-    expect(day.total).toBeCloseTo(day.aurora + day.other)
+    expect(day.total).toBeCloseTo(day.aurora + day.other + day.fixed)
+  })
+
+  it('does not move the bulletins when an interval is halved', () => {
+    // The whole point of the row: it is what the plugin costs however far the
+    // two intervals are opened up, so it must not scale with either.
+    const base = dailyKb(settings)
+    const faster = dailyKb({ ...settings, updateInterval: 30 })
+    expect(faster.fixed).toBe(base.fixed)
+    expect(faster.other).toBeCloseTo(base.other * 2)
+  })
+
+  it('drops the weekly bulletin when the advisory outlook is off', () => {
+    const on = dailyKb({ ...settings, sendAdvisoryOutlook: true })
+    const off = dailyKb({ ...settings, sendAdvisoryOutlook: false })
+    expect(off.fixed).toBeLessThan(on.fixed)
+    // The daily 27-day outlook is not a setting, so it never reaches zero.
+    expect(off.fixed).toBeGreaterThan(0)
   })
 
   it('doubles when an interval is halved', () => {
