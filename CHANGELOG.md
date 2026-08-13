@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.15.2] - 2026-08-13
+
+### Changed
+
+- **The README pictures the hero banner in the states a quiet day hides.** Its
+  screenshots showed the webapp as it was before 0.15.0, and the one state a
+  live server almost always has is the one that needed showing least. Four
+  crops of the banner alone now cover a storm in force, a storm forecast, the
+  quiet after one, and stale data.
+
 ## [0.15.1] - 2026-08-13
 
 ### Fixed
