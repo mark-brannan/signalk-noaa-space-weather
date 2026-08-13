@@ -128,3 +128,17 @@ explicitly, and `.github/workflows/auto-version.yml` tags and publishes whatever
 lands on `main`. So bump explicitly for anything larger than a patch, and let
 the hook cover the rest. Never create a tag locally — CI does that, and a local
 tag makes it skip the publish.
+
+**What makes a change minor is what a boat owner can observe, not which
+`CHANGELOG.md` heading it lands under.** A new Signal K path, a new product, a
+change in what gets published or how loudly — minor. A fix, or plumbing that
+only this plugin's own webapp consumes, is a patch even when it adds code and
+files under `### Added`. A new route under
+`/signalk/v1/api/signalk-noaa-space-weather/` is usually the second kind: those
+serve the bundled webapp and nothing outside the tarball can tell whether they
+exist. The exception is a route we invite other software to point at — the
+aurora tile endpoint is one — which is a capability like any other, and minor.
+
+Reviewers reach for the strict reading of semver here, where any new
+non-breaking functionality is minor. That reading counts routes nobody outside
+this package calls, and it burns a minor version on each one.
