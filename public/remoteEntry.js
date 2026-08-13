@@ -49,6 +49,10 @@ const STATUS_URL = `${API}/signalk-noaa-space-weather/status`
 // The two paths the plugin already publishes that say what the sky is doing.
 const SCALES_URL = `${API}/vessels/self/environment/noaa/swpc/scales/observations/latest`
 const KP_URL = `${API}/vessels/self/environment/noaa/swpc/kp`
+// The human-readable page behind the bulletin this setting forwards, so the
+// checkbox can show what it is offering rather than only naming it.
+const ADVISORY_OUTLOOK_URL =
+  'https://www.spaceweather.gov/products/space-weather-advisory-outlook'
 
 let React = null
 
@@ -372,6 +376,27 @@ function createPanel(React) {
             ' what is shown below, and the two will agree from then on.'
         ),
 
+      h(Check, {
+        id: 'noaa-advisory',
+        checked: settings.sendAdvisoryOutlook,
+        onChange: (value) => set('sendAdvisoryOutlook', value),
+        label: 'Send the weekly Advisory Outlook',
+        help: h(
+          'span',
+          null,
+          'One notification a week, never audible. ',
+          h(
+            'a',
+            {
+              href: ADVISORY_OUTLOOK_URL,
+              target: '_blank',
+              rel: 'noopener noreferrer'
+            },
+            'See what NOAA publishes'
+          )
+        )
+      }),
+
       h(
         Field,
         {
@@ -467,14 +492,6 @@ function createPanel(React) {
       ),
 
       h(Field, { children: h(Budget, { settings }) }),
-
-      h(Check, {
-        id: 'noaa-advisory',
-        checked: settings.sendAdvisoryOutlook,
-        onChange: (value) => set('sendAdvisoryOutlook', value),
-        label: 'Send the weekly Advisory Outlook',
-        help: 'One notification a week, never audible.'
-      }),
 
       h(
         'div',

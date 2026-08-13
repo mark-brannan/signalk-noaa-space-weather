@@ -14,8 +14,11 @@ observe, so internal plumbing lands in a patch even when it adds something.
 - **The plugin's configuration screen is now the plugin's own, and it costs
   the bandwidth out for you.** Signal K lets a package replace the form the
   server generates from its JSON schema; this release takes that up. Every
-  setting is the same setting, in the same order, saving the same values — what
-  changes is that the screen can now compute.
+  setting is the same setting, saving the same values — what changes is that
+  the screen can now compute, and that it is laid out for the reading rather
+  than for the schema. The weekly Advisory Outlook leads, since it is the one
+  choice that needs no arithmetic, and its label links NOAA's own page so a
+  bulletin can be read before deciding to receive them.
 
   What it computes first is the download budget. Under the two interval fields
   is a running total: what the observations, forecasts and alerts cost per day,
@@ -52,10 +55,9 @@ observe, so internal plumbing lands in a patch even when it adds something.
   choice.** Under the ladder: the G, S and R levels observed now, the current
   Kp, which of them is worst, and the row that one is sitting on — "the worst
   in force is G2, which at this setting is `alert` — listed, no popup, no
-  sound" — plus
-  the highest Kp forecast for the next 24 hours and the storm level it would
-  reach. It moves with the dropdown too, so a level can be judged against a
-  real day rather than an abstraction.
+  sound" — plus the highest Kp forecast for the next 24 hours and the storm
+  level it would reach. It moves with the dropdown too, so a level can be
+  judged against a real day rather than an abstraction.
 
   It reads the paths the plugin already publishes and adds no fetching of its
   own. When nothing has been published it says nothing at all rather than
