@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   STARTUP_GRACE_MS,
+  gScaleForKp,
   heroState,
+  kpFloorForG,
   timerFor,
   uncapitalise
 } from '../public/hero.js'
@@ -159,6 +161,28 @@ describe('heroState', () => {
     const result = state({ observed: { G: 0 }, peak24h: { G: 0, S: 0, R: 0 } })
     expect(result.kind).toBe('quiet')
     expect(result.peak).toBeNull()
+  })
+})
+
+describe('kpFloorForG', () => {
+  it('puts each band a third below the Kp it is named after', () => {
+    // Exported because index.html draws the chart's threshold lines from it.
+    // The page used to carry its own copy on the integers, which put the
+    // chart's "G4 starts here" rule above the level its own banner reported.
+    expect([1, 2, 3, 4, 5].map(kpFloorForG)).toEqual([
+      5 - 1 / 3,
+      6 - 1 / 3,
+      7 - 1 / 3,
+      8 - 1 / 3,
+      9 - 1 / 3
+    ])
+  })
+
+  it('agrees with the G level the banner reads off the same value', () => {
+    for (let g = 1; g <= 5; g++) {
+      expect(gScaleForKp(kpFloorForG(g)), `G${g}`).toBe(g)
+      expect(gScaleForKp(kpFloorForG(g) - 1 / 3), `below G${g}`).toBe(g - 1)
+    }
   })
 })
 

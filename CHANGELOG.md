@@ -28,8 +28,9 @@ observe, so internal plumbing lands in a patch even when it adds something.
 
   It moves published values as well as notifications: `maxNoaaScale` on the Kp
   forecast and the 27-day outlook, the Kp path's zone metadata, the G level the
-  webapp's hero banner shows, and "next storm", which now means the next Kp
-  reaching G1's floor rather than a flat Kp 5.
+  webapp's hero banner shows, the G1–G5 threshold lines on its Kp chart, and
+  "next storm", which now means the next Kp reaching G1's floor rather than a
+  flat Kp 5.
 
   The storm-day rates quoted by the alarm-level dropdown and by
   [`docs/noaa-products.md`](docs/noaa-products.md) were measured under the old

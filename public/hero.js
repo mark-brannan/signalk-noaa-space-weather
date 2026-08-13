@@ -37,7 +37,7 @@ export function uncapitalise(text) {
  * Mirrors kpFloorForG in src/parse.ts: a G band opens a third below the Kp it
  * is named after, so G4 starts at 7.667 rather than 8.
  */
-const kpFloorForG = (g) => KP_FOR_G1 + g - 1 - 1 / 3
+export const kpFloorForG = (g) => KP_FOR_G1 + g - 1 - 1 / 3
 
 /** Mirrors gScaleForKp in src/parse.ts. */
 export function gScaleForKp(kp) {
