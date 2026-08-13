@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.16.0] - 2026-08-13
+
+### Changed
+
+- **The G scale is now banded where NOAA bands it, so storms near a boundary
+  grade one level higher than before.** Kp is reported in thirds, and NOAA's
+  `G4 = Kp 8` means the whole 8 band — 8−, 8o, 8+ — which starts at 7.667. This
+  plugin banded on the integer instead, so every boundary sat a third of a step
+  high: a Kp of 8− was published as G3 here while NOAA's own page called the
+  same storm G4, and 7− was G2 here and G3 there. Bands now open a third below
+  the Kp they are named after: G1 at 4.667, G2 at 5.667, G3 at 6.667, G4 at
+  7.667, G5 at 8.667.
+
+  **This will make some installs noisier.** A third of the Kp scale moves up a
+  level, and at the default `alarmLevel` of 5 a Kp of 9− (8.667) now sounds an
+  alarm where it previously showed as a visual-only G4. Anyone who wants the old
+  loudness back has `alarmLevel`; there is no way to have NOAA's grading and
+  the old thresholds at once, and matching NOAA is the point.
+
+  It moves published values as well as notifications: `maxNoaaScale` on the Kp
+  forecast and the 27-day outlook, the Kp path's zone metadata, the G level the
+  webapp's hero banner shows, and "next storm", which now means the next Kp
+  reaching G1's floor rather than a flat Kp 5.
+
+  The storm-day rates quoted by the alarm-level dropdown and by
+  [`docs/noaa-products.md`](docs/noaa-products.md) were measured under the old
+  banding and now read low — wider bands take in more days. The labels are
+  unchanged, and the table is marked as pending a re-run of
+  `scripts/measure-kp.mjs` rather than adjusted by hand.
+
 ## [0.15.3] - 2026-08-13
 
 ### Fixed

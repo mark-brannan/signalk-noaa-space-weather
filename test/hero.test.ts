@@ -185,6 +185,18 @@ describe('timerFor', () => {
     })
   })
 
+  it('bands Kp on NOAA thirds, so 8- escalates a G3', () => {
+    // Kp 7.67 is 8-, the bottom of NOAA's Kp 8 band and so G4. The webapp
+    // mirrors kpFloorForG rather than importing it, and the two grading the
+    // same storm differently is what that mirror exists to avoid.
+    const timer = timerFor(series(7.67), 3, NOW)
+    expect(timer).toEqual({
+      kind: 'until-level',
+      level: 4,
+      at: new Date(NOW + 3 * HOUR).toISOString()
+    })
+  })
+
   it('counts to the drop when the storm only eases from here', () => {
     const timer = timerFor(series(7, 6, 4), 3, NOW)
     expect(timer).toEqual({
