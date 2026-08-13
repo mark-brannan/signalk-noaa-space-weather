@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.19.0] - 2026-08-13
+
+### Added
+
+- **Popups and alarms are now two separate settings.** "Sound an alarm at…"
+  is visible and audible; "Show a popup at…" is visible and silent, from its
+  level up to the alarm. Each names the level its own band opens at and says
+  nothing about the other.
+
+  The old single setting derived the quieter rungs from the loud one — one
+  level below it popped up, two below it was listed — which meant no label
+  could be true. Whatever the dropdown claimed, the level underneath it was
+  doing something too. The "Never" option added in 0.18.0 made that plain: it
+  left the control named after a sound it had just removed. Splitting the
+  setting fixes the wording by making it unnecessary. "Never" is now offered on
+  both, and reads as plain "Never" on each, because the other one says what
+  still happens.
+
+  Silencing the alarm also stops dragging the popup band down a level with it.
+  It stays where it was put.
+
+- **Strong (3) and above is now always listed**, however quiet the two
+  settings are. A listed event carries an empty method array: it appears in
+  the notification list and interrupts nobody. A G3 happens several times a
+  year, and there should be no setting at which one leaves no trace at all.
+
+Nothing changes for an existing configuration. A config saved before this
+release keeps the exact ladder it had, including one saved as "Never".
+
+## [0.18.0] - 2026-08-13
+
+### Added
+
+- **"Never" is now a choice on the alarm level.** Every option so far sounded
+  at some level; there was no way to say "show me everything, wake me for
+  nothing" — a reasonable position on a boat where somebody is already watching
+  the screen, or on a delivery where a 3 a.m. buzzer costs more than a missed
+  G5.
+
+  It removes the sound, not the storm. A G5 still raises a popup and a G4 is
+  still listed; only the audible state goes away. Silencing by treating every
+  level as routine would have hidden an Extreme event outright, which is not
+  what "never sound an alarm" should mean.
+
+  The dropdown reads "Never — show everything, sound nothing", deliberately not
+  as a severity. This plugin has shipped a setting that looked loud and was
+  silent before, and the label is the whole difference between that bug and
+  this feature. The configuration screen's ladder shows it like any other
+  choice: pick it and the table redraws with no `alarm` row.
+
 ## [0.17.0] - 2026-08-13
 
 ### Added
