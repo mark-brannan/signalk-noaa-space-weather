@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.15.3] - 2026-08-13
+
+### Fixed
+
+- **No icon on the admin Webapps page** — a broken image, while the App Store
+  page a click away showed it correctly. `public/icon.svg` had been made a
+  symlink to the root `icon.svg` to avoid maintaining two copies of the same
+  artwork, and npm's packlist skips symlinked files rather than following
+  them: 0.15.0's tarball shipped `public/index.html` and `public/hero.js` and
+  no icon at all, so the URL the Webapps page loads had nothing behind it.
+
+  The two paths are both still needed — the App Store resolves
+  `signalk.appIcon` server-side against the package root, the Webapps page
+  loads the top-level `appIcon` as a URL under the webapp's mount, and
+  signalk-server serves `public/` as that mount. So there is still one icon to
+  maintain, but the second copy is now generated from it by
+  `scripts/sync-icon.mjs` on `prebuild` and `prepare`, and gitignored the way
+  `dist/` is. A new icon reaches both readers by being committed.
+
+  The previous test compared the two files' contents, which a symlink passes
+  trivially — it read the root icon twice. It now also asserts the copy is a
+  regular file, and since the copy is no longer in git, the test fails on a
+  fresh clone if the generation ever comes undone.
+
 ## [0.15.2] - 2026-08-13
 
 ### Changed
