@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { schema, settingsFrom } from '../src/config'
+import { ALARM_NEVER } from '../src/parse'
 
 describe('alarmLevel', () => {
   const property: any = (schema.properties as any).alarmLevel
@@ -13,8 +14,17 @@ describe('alarmLevel', () => {
     expect(settingsFrom({ alarmLevel: 3 }).alarmLevel).toBe(3)
   })
 
-  it('offers one option per NOAA scale value, quietest first', () => {
-    expect(property.oneOf.map((o: any) => o.const)).toEqual([5, 4, 3, 2, 1])
+  it('offers never, then one option per NOAA scale value, quietest first', () => {
+    // ALARM_NEVER sits first because the list reads as a volume control: down
+    // the list is louder, and off is quieter than the quietest level.
+    expect(property.oneOf.map((o: any) => o.const)).toEqual([
+      ALARM_NEVER,
+      5,
+      4,
+      3,
+      2,
+      1
+    ])
   })
 
   it('matches by number, not string', () => {

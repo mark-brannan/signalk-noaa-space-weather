@@ -1,5 +1,5 @@
 /** Plugin settings: the JSON schema, and normalisation of what comes back. */
-import { NoaaScaleValues } from './parse.js'
+import { ALARM_NEVER, NoaaScaleValues } from './parse.js'
 
 export interface Settings {
   sendAdvisoryOutlook: boolean
@@ -32,10 +32,13 @@ export const schema = {
       // one silently becomes the default on a fresh install. `type` has to stay
       // too: without it the field renders as nothing at all.
       default: NoaaScaleValues.EXTREME,
-      // Quietest first, so reading down the list is turning the plugin up.
+      // Quietest first, so reading down the list is turning the plugin up --
+      // which puts "Never" above Extreme, since it is quieter than any of
+      // them. It carries no rate: it does not happen at a frequency.
       // "and above" is doing real work: it says which way the choice includes.
       // Rates and their provenance are in docs/noaa-products.md.
       oneOf: [
+        { const: ALARM_NEVER, title: 'Never' },
         { const: 5, title: 'Extreme (5) — several times a decade' },
         { const: 4, title: 'Severe (4) and above — once or twice a year' },
         { const: 3, title: 'Strong (3) and above — several times a year' },
@@ -93,7 +96,8 @@ export const schema = {
  */
 function scaleValue(raw: any, fallback: number): number {
   const parsed = Number(raw)
-  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 5
+  // ALARM_NEVER is one past the scale on purpose; see src/parse.ts.
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= ALARM_NEVER
     ? parsed
     : fallback
 }

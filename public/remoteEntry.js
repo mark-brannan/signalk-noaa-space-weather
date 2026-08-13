@@ -32,7 +32,7 @@
 import {
   DEFAULTS,
   ALARM_LEVEL_OPTIONS,
-  SCALE_NAMES,
+  alarmLevelLabel,
   currentConditions,
   dailyKb,
   formatKb,
@@ -443,8 +443,7 @@ function createPanel(React) {
               h(
                 'option',
                 { key: option.value, value: option.value },
-                `${SCALE_NAMES[option.value]} (${option.value})` +
-                  `${option.value < 5 ? ' and above' : ''} — ${option.rate}`
+                alarmLevelLabel(option)
               )
             )
           ),

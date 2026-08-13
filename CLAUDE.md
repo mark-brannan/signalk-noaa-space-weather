@@ -118,6 +118,14 @@ silenced the plugin. `stateForScaleValue` carries the argument; `zones.test.ts`
 pins that no alarm level is unreachable and that lowering it is monotonically
 louder.
 
+`ALARM_NEVER` is the one exception, and the difference is the label. It is a
+value one past the scale, so nothing reaches `alarm` — the same shape as the
+bug above, chosen deliberately and named "Never" in the dropdown rather than
+looking like a severity. It removes the sound, not the storm: G5 still `warn`s
+and G4 is still listed. `zones.test.ts` exempts it **by name**, next to the
+test it is an exception to, so the invariant stays readable rather than being
+quietly weakened by a loop bound.
+
 **Signal K wants SI units.** Solar wind speed in m/s (NOAA gives km/s), Bt and
 Bz in Tesla (NOAA gives nT), probabilities as 0–1 ratios with `units: "ratio"`
 (NOAA gives whole percents). Dimensionless indices such as the G/S/R levels and

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ALARM_NEVER,
   MAX_NOAA_SCALE,
   NoaaScaleValues,
   gScaleForKp,
@@ -41,11 +42,26 @@ describe('stateForScaleValue', () => {
     ])
   })
 
+  it('sounds nothing at ALARM_NEVER, and still shows the top two levels', () => {
+    // The one setting that deliberately cannot sound. It is safe only because
+    // it says so on the label: the bug the test below guards against was a
+    // choice that looked loud and was silent. G5 still pops up and G4 is still
+    // listed, so the loudest events remain visible.
+    expect(stateForScaleValue(5, ALARM_NEVER)).toBe('warn')
+    expect(stateForScaleValue(4, ALARM_NEVER)).toBe('alert')
+    expect(stateForScaleValue(3, ALARM_NEVER)).toBe('normal')
+    expect(
+      [1, 2, 3, 4, 5].map((v) => stateForScaleValue(v, ALARM_NEVER))
+    ).not.toContain('alarm')
+  })
+
   it('leaves no alarm level that cannot sound', () => {
     // The reason the setting anchors on the alarm rather than deriving upward
     // from an attention threshold. Deriving upward, a pivot of 4 could never
     // reach `alarm` and a pivot of 5 could not even reach `warn` -- the two
-    // loudest-looking choices silenced the plugin.
+    // loudest-looking choices silenced the plugin. ALARM_NEVER is exempt by
+    // name rather than by the loop bound: it is the one silent setting, and
+    // it is labelled as one.
     for (let alarmLevel = 1; alarmLevel <= 5; alarmLevel++) {
       const states = [1, 2, 3, 4, 5].map((v) =>
         stateForScaleValue(v, alarmLevel)

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.18.0] - 2026-08-13
+
+### Added
+
+- **"Never" is now a choice on the alarm level.** Every option so far sounded
+  at some level; there was no way to say "show me everything, wake me for
+  nothing" — a reasonable position on a boat where somebody is already watching
+  the screen, or on a delivery where a 3 a.m. buzzer costs more than a missed
+  G5.
+
+  It removes the sound, not the storm. A G5 still raises a popup and a G4 is
+  still listed; only the audible state goes away. Silencing by treating every
+  level as routine would have hidden an Extreme event outright, which is not
+  what "never sound an alarm" should mean.
+
+  The dropdown reads "Never — show everything, sound nothing", deliberately not
+  as a severity. This plugin has shipped a setting that looked loud and was
+  silent before, and the label is the whole difference between that bug and
+  this feature. The configuration screen's ladder shows it like any other
+  choice: pick it and the table redraws with no `alarm` row.
+
 ## [0.17.0] - 2026-08-13
 
 ### Added

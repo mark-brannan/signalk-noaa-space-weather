@@ -162,9 +162,14 @@ export const STORM_DAYS_PER_YEAR = Object.freeze({
 
 /**
  * The alarm-level choices, mirroring the `oneOf` on `alarmLevel` in
- * src/config.ts. Quietest first, so reading down the list turns the plugin up.
+ * src/config.ts. Quietest first, so reading down the list turns the plugin up,
+ * which puts "Never" at the top. It carries no rate: it has no frequency.
  */
+/** Mirrors `ALARM_NEVER` in src/parse.ts. */
+export const ALARM_NEVER = 6
+
 export const ALARM_LEVEL_OPTIONS = Object.freeze([
+  { value: ALARM_NEVER },
   { value: 5, rate: 'several times a decade' },
   { value: 4, rate: 'once or twice a year' },
   { value: 3, rate: 'several times a year' },
@@ -202,12 +207,23 @@ export function ladderFor(alarmLevel) {
 }
 
 /**
+ * The dropdown line for one choice. `ALARM_NEVER` is not a NOAA level and has
+ * no name in `SCALE_NAMES`, so it reads as itself rather than as a severity --
+ * the whole point is that it cannot be mistaken for "alarm at the top".
+ */
+export function alarmLevelLabel(option) {
+  if (option.value === ALARM_NEVER) return 'Never'
+  const andAbove = option.value < 5 ? ' and above' : ''
+  return `${SCALE_NAMES[option.value]} (${option.value})${andAbove} — ${option.rate}`
+}
+
+/**
  * A NOAA scale value is one of five integers; mirrors `scaleValue` in
  * src/config.ts so the panel cannot offer a level the plugin would discard.
  */
 export function scaleValue(raw, fallback) {
   const parsed = Number(raw)
-  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 5
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= ALARM_NEVER
     ? parsed
     : fallback
 }

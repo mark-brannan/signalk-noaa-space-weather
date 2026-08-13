@@ -25,6 +25,18 @@ export const NoaaScaleValues = Object.freeze({
   EXTREME: 5
 })
 
+/**
+ * An `alarmLevel` one past the top of the scale, which is how "never sound"
+ * is expressed: `stateForScaleValue` compares against it unchanged, so no
+ * value can ever reach `alarm`, and the two states below it still land -- G5
+ * becomes `warn` and G4 `alert`. Silencing the plugin by clamping everything
+ * to `normal` would have hidden a G5 outright; this only removes the sound.
+ *
+ * It is deliberately not a sixth NOAA level. Nothing publishes it, no zone
+ * carries it, and `NoaaScaleNames` is not indexed by it.
+ */
+export const ALARM_NEVER = 6
+
 // Index by scale value 0-5.
 export const NoaaScaleNames = Object.freeze([
   'none',

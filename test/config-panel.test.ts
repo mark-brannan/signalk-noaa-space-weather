@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   ALARM_LEVEL_OPTIONS,
+  ALARM_NEVER,
+  alarmLevelLabel,
   AURORA_WIRE_KB,
   DAYS_PER_MONTH,
   DEFAULTS,
@@ -78,12 +80,26 @@ describe('the panel agrees with the schema about choices', () => {
   })
 
   it('quotes each level at the rate the schema quotes it', () => {
-    for (const option of ALARM_LEVEL_OPTIONS) {
+    // ALARM_NEVER has no rate -- it does not happen at a frequency -- so it
+    // is the one option with nothing to check here.
+    for (const option of ALARM_LEVEL_OPTIONS.filter((o: any) => o.rate)) {
       const fromSchema = schema.properties.alarmLevel.oneOf.find(
         (candidate: any) => candidate.const === option.value
       )
       expect(fromSchema.title).toContain(option.rate)
     }
+  })
+})
+
+describe('alarmLevelLabel', () => {
+  it('names every NOAA level and never calls the last one a severity', () => {
+    const labels = ALARM_LEVEL_OPTIONS.map(alarmLevelLabel)
+    expect(labels.every((label) => !label.includes('undefined'))).toBe(true)
+    const never = alarmLevelLabel(
+      ALARM_LEVEL_OPTIONS.find((o) => o.value === ALARM_NEVER)
+    )
+    expect(never).toMatch(/^Never/)
+    expect(never).not.toMatch(/\(6\)/)
   })
 })
 
@@ -238,12 +254,24 @@ describe('ladderFor', () => {
     expect(at(1).state).toBe('alert')
   })
 
-  it('leaves no alarm level unable to sound', () => {
+  it('leaves no alarm level unable to sound, except the one that says so', () => {
     for (const alarmLevel of ALARM_LEVELS) {
       expect(
         ladderFor(alarmLevel).some((row) => row.method.includes('sound'))
       ).toBe(true)
     }
+    expect(
+      ladderFor(ALARM_NEVER).some((row) => row.method.includes('sound'))
+    ).toBe(false)
+  })
+
+  it('still shows the top two levels at ALARM_NEVER', () => {
+    // "Never" removes the sound, not the storm: a G5 has to stay visible.
+    const rows = ladderFor(ALARM_NEVER)
+    const at = (level: number) => rows.find((row) => row.level === level)
+    expect(at(5).state).toBe('warn')
+    expect(at(5).method).toEqual(['visual'])
+    expect(at(4).state).toBe('alert')
   })
 
   it('is monotonically louder as the alarm level is lowered', () => {
