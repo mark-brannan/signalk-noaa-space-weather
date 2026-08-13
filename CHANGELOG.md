@@ -5,6 +5,28 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-08-12
+
+### Added
+
+- **The 27-day outlook, under `environment.noaa.swpc.outlook_27day`.** Every
+  other forecast here stops at 72 hours; this one runs a full solar rotation at
+  one row per UTC day. Published as the peak Kp over the window, the day it
+  falls on, its G scale, the first day forecast to reach storm level, and a
+  `series` of the 27 daily rows (10.7cm flux, planetary A index, largest Kp)
+  for plotting.
+
+  **None of it carries `zones`, so none of it raises a notification.** 27 days
+  is the solar rotation period, which is the whole basis of the product: it
+  assumes the same coronal holes come back around, so it is a recurrence
+  estimate rather than a forecast with the skill of the 3-day products, at a
+  tenth of their resolution. A G1 day falls somewhere in a 27-day window
+  roughly monthly — the captured fixture has two — so putting it on the alarm
+  ladder would fire constantly on low-confidence data and dilute the 3-day
+  alerts that are worth interrupting for.
+
+  No new setting: 451 B on the wire every four hours is about 2.7 KB a day.
+
 ## [0.13.0] - 2026-08-09
 
 ### Changed
