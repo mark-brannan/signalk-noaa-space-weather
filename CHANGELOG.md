@@ -18,14 +18,17 @@ observe, so internal plumbing lands in a patch even when it adds something.
   the screen can now compute, and that it is laid out for the reading rather
   than for the schema. The weekly Advisory Outlook leads, since it is the one
   choice that needs no arithmetic, and its label links NOAA's own page so a
-  bulletin can be read before deciding to receive them.
+  bulletin can be read before deciding to receive them. The alarm ladder and
+  the aurora setting link NOAA's pages for the scales and the aurora forecast
+  the same way.
 
   What it computes first is the download budget. Under the two interval fields
   is a running total: what the observations, forecasts and alerts cost per day,
   what the aurora grid costs per day, what the weekly and daily bulletins cost
   on their own cadence — a floor of a few KB that neither interval moves — and
-  all of it per day and per month. It moves as you type. Set aurora to every fifteen minutes and it says 13.6 MB
-  a day and 411 MB a month, before you save.
+  all of it per day and per month. It moves as you type. Set aurora to every
+  fifteen minutes and it says 13.7 MB a day and 411.5 MB a month, before you
+  save.
 
   That number was previously a sentence — "about 1.7 MB a day" — which was true
   at the default two-hour interval and silently wrong at every other. Anyone

@@ -53,6 +53,12 @@ const KP_URL = `${API}/vessels/self/environment/noaa/swpc/kp`
 // checkbox can show what it is offering rather than only naming it.
 const ADVISORY_OUTLOOK_URL =
   'https://www.spaceweather.gov/products/space-weather-advisory-outlook'
+// NOAA's own explanation of the G/S/R scales the ladder is built on, and of
+// the aurora forecast behind the grid. Both are the human-facing
+// spaceweather.gov pages rather than the machine feeds under services.*.
+const NOAA_SCALES_URL = 'https://www.spaceweather.gov/noaa-scales-explanation'
+const AURORA_URL =
+  'https://www.spaceweather.gov/communities/aurora-dashboard-experimental'
 
 let React = null
 
@@ -132,6 +138,10 @@ function createPanel(React) {
       help && h('div', { className: 'form-text' }, help)
     )
 
+  /** A link out to NOAA, opened away from the admin UI. */
+  const NoaaLink = ({ href, text }) =>
+    h('a', { href, target: '_blank', rel: 'noopener noreferrer' }, text)
+
   const Check = ({ id, checked, onChange, label, help }) =>
     h(
       'div',
@@ -156,8 +166,11 @@ function createPanel(React) {
     alarm: 'table-danger',
     warn: 'table-warning',
     alert: '',
-    normal: 'text-body-secondary',
-    nominal: 'text-body-secondary'
+    // Green for the rows that do nothing but get written down. It reads as
+    // "fine" rather than as "greyed out", which is what these levels are: a
+    // storm the plugin saw and deliberately stayed quiet about.
+    normal: 'table-success',
+    nominal: 'table-success'
   }
 
   /**
@@ -389,15 +402,10 @@ function createPanel(React) {
           'span',
           null,
           'One notification a week, never audible. ',
-          h(
-            'a',
-            {
-              href: ADVISORY_OUTLOOK_URL,
-              target: '_blank',
-              rel: 'noopener noreferrer'
-            },
-            'See what NOAA publishes'
-          )
+          h(NoaaLink, {
+            href: ADVISORY_OUTLOOK_URL,
+            text: 'See what NOAA publishes'
+          })
         )
       }),
 
@@ -406,12 +414,19 @@ function createPanel(React) {
         {
           label: 'Sound an alarm at…',
           htmlFor: 'noaa-alarm-level',
-          help:
+          help: h(
+            'span',
+            null,
             'The states and methods apply to the G, S and R scales and to Kp.' +
-            ' The rates are geomagnetic storm days in a median year, measured' +
-            ' over 1932–2025; the other two scales differ, sharply at 4 and 5,' +
-            ' and every rate roughly doubles during the active stretch of a' +
-            ' solar cycle.'
+              ' The rates are geomagnetic storm days in a median year,' +
+              ' measured over 1932–2025; the other two scales differ, sharply' +
+              ' at 4 and 5, and every rate roughly doubles during the active' +
+              ' stretch of a solar cycle. ',
+            h(NoaaLink, {
+              href: NOAA_SCALES_URL,
+              text: 'How NOAA defines the scales'
+            })
+          )
         },
         h(
           'div',
@@ -446,9 +461,13 @@ function createPanel(React) {
         checked: settings.auroraEnabled,
         onChange: (value) => set('auroraEnabled', value),
         label: 'Publish aurora visibility at the vessel position',
-        help:
-          'Needs a vessel position. Off by default on bandwidth — the' +
-          ' aurora grid is the one large payload this plugin fetches.'
+        help: h(
+          'span',
+          null,
+          'Needs a vessel position. Off by default on bandwidth — the aurora' +
+            ' grid is the one large payload this plugin fetches. ',
+          h(NoaaLink, { href: AURORA_URL, text: "NOAA's aurora forecast" })
+        )
       }),
 
       h(
