@@ -101,6 +101,16 @@ describe('alarmLevelLabel', () => {
     expect(never).toMatch(/^Never/)
     expect(never).not.toMatch(/\(6\)/)
   })
+
+  it('reads the same in the panel as in the fallback form', () => {
+    // The two copies are the same dropdown to a user, who may well see the
+    // generated form -- the panel is not guaranteed to load.
+    const never = ALARM_LEVEL_OPTIONS.find((o) => o.value === ALARM_NEVER)
+    const fromSchema = schema.properties.alarmLevel.oneOf.find(
+      (candidate: any) => candidate.const === ALARM_NEVER
+    )
+    expect(alarmLevelLabel(never)).toBe(fromSchema.title)
+  })
 })
 
 describe('panelSettings', () => {

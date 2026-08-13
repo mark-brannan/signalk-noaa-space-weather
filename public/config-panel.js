@@ -212,7 +212,9 @@ export function ladderFor(alarmLevel) {
  * the whole point is that it cannot be mistaken for "alarm at the top".
  */
 export function alarmLevelLabel(option) {
-  if (option.value === ALARM_NEVER) return 'Never'
+  // Names the one exception rather than leaving the ladder to contradict the
+  // label: nothing sounds, but G5 still raises a visible warning.
+  if (option.value === ALARM_NEVER) return 'Never — visual warning for G5 only'
   const andAbove = option.value < 5 ? ' and above' : ''
   return `${SCALE_NAMES[option.value]} (${option.value})${andAbove} — ${option.rate}`
 }
