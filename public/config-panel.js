@@ -22,6 +22,7 @@
 export const DEFAULTS = Object.freeze({
   sendAdvisoryOutlook: true,
   alarmLevel: 5,
+  popupLevel: 4,
   auroraEnabled: false,
   auroraInterval: 120,
   updateInterval: 60
@@ -121,15 +122,22 @@ export function formatKb(kb) {
   return `${Math.round(kb)} KB`
 }
 
+/** Mirrors `ALERT_FLOOR` in src/parse.ts. */
+export const ALERT_FLOOR = 3
+
 /**
  * Mirrors `stateForScaleValue` in src/parse.ts, which carries the argument for
- * why the ladder derives downward from the alarm.
+ * why there are two thresholds rather than one anchor with derived rungs.
  */
-export function stateForScaleValue(value, alarmLevel) {
+export function stateForScaleValue(
+  value,
+  alarmLevel,
+  popupLevel = alarmLevel - 1
+) {
   if (value <= 0) return 'nominal'
   if (value >= alarmLevel) return 'alarm'
-  if (value === alarmLevel - 1) return 'warn'
-  if (value === alarmLevel - 2) return 'alert'
+  if (value >= popupLevel) return 'warn'
+  if (value >= Math.min(popupLevel - 1, ALERT_FLOOR)) return 'alert'
   return 'normal'
 }
 
@@ -160,15 +168,15 @@ export const STORM_DAYS_PER_YEAR = Object.freeze({
   5: 0
 })
 
-/**
- * The alarm-level choices, mirroring the `oneOf` on `alarmLevel` in
- * src/config.ts. Quietest first, so reading down the list turns the plugin up,
- * which puts "Never" at the top. It carries no rate: it has no frequency.
- */
 /** Mirrors `ALARM_NEVER` in src/parse.ts. */
 export const ALARM_NEVER = 6
 
-export const ALARM_LEVEL_OPTIONS = Object.freeze([
+/**
+ * The choices offered for both thresholds, mirroring the shared `LEVEL_OPTIONS`
+ * in src/config.ts. Quietest first, so reading down the list turns the plugin
+ * up, which puts "Never" at the top. It carries no rate: it has no frequency.
+ */
+export const LEVEL_OPTIONS = Object.freeze([
   { value: ALARM_NEVER },
   { value: 5, rate: 'several times a decade' },
   { value: 4, rate: 'once or twice a year' },
@@ -187,13 +195,14 @@ const EFFECT = Object.freeze({
 })
 
 /**
- * One row per NOAA level, loudest first, for the chosen alarm level. Loudest
- * first because the alarm is the thing being set and the rest hang off it.
+ * One row per NOAA level, loudest first, for the two chosen thresholds. Loudest
+ * first because the loudest threshold is the first thing set and the rest of
+ * the ladder hangs below it.
  */
-export function ladderFor(alarmLevel) {
+export function ladderFor(alarmLevel, popupLevel) {
   const rows = []
   for (let level = 5; level >= 1; level--) {
-    const state = stateForScaleValue(level, alarmLevel)
+    const state = stateForScaleValue(level, alarmLevel, popupLevel)
     rows.push({
       level,
       name: SCALE_NAMES[level],
@@ -210,11 +219,13 @@ export function ladderFor(alarmLevel) {
  * The dropdown line for one choice. `ALARM_NEVER` is not a NOAA level and has
  * no name in `SCALE_NAMES`, so it reads as itself rather than as a severity --
  * the whole point is that it cannot be mistaken for "alarm at the top".
+ *
+ * It needs no explanation of what still happens, which is what the split into
+ * two thresholds bought: the other dropdown says so, in its own words, on the
+ * line above or below.
  */
-export function alarmLevelLabel(option) {
-  // Names the one exception rather than leaving the ladder to contradict the
-  // label: nothing sounds, but G5 still raises a visible warning.
-  if (option.value === ALARM_NEVER) return 'Never — visual warning for G5 only'
+export function levelOptionLabel(option) {
+  if (option.value === ALARM_NEVER) return 'Never'
   const andAbove = option.value < 5 ? ' and above' : ''
   return `${SCALE_NAMES[option.value]} (${option.value})${andAbove} — ${option.rate}`
 }
@@ -238,9 +249,16 @@ export function scaleValue(raw, fallback) {
  */
 export function panelSettings(configuration) {
   const c = configuration ?? {}
+  const alarmLevel = scaleValue(c.alarmLevel, DEFAULTS.alarmLevel)
   return {
     sendAdvisoryOutlook: c.sendAdvisoryOutlook !== false,
-    alarmLevel: scaleValue(c.alarmLevel, DEFAULTS.alarmLevel),
+    alarmLevel,
+    // The same clamp `settingsFrom` applies, so the panel cannot show a popup
+    // level the plugin would pull back down the moment it read it.
+    popupLevel: Math.min(
+      scaleValue(c.popupLevel, Math.max(1, alarmLevel - 1)),
+      alarmLevel
+    ),
     auroraEnabled: c.auroraEnabled === true,
     auroraInterval: minutes(c.auroraInterval, DEFAULTS.auroraInterval),
     updateInterval: minutes(c.updateInterval, DEFAULTS.updateInterval)
@@ -337,11 +355,11 @@ export function currentConditions(scales, kp) {
 }
 
 /**
- * What a level would do at the chosen alarm level -- the same three fields the
+ * What a level would do at the chosen thresholds -- the same three fields the
  * ladder shows, for one level rather than all five, so the row a boat is
  * actually sitting on can be named.
  */
-export function verdictFor(level, alarmLevel) {
-  const state = stateForScaleValue(level, alarmLevel)
+export function verdictFor(level, alarmLevel, popupLevel) {
+  const state = stateForScaleValue(level, alarmLevel, popupLevel)
   return { state, method: methodForState(state), effect: EFFECT[state] }
 }

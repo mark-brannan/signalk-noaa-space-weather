@@ -6,8 +6,28 @@ export interface Settings {
   auroraEnabled: boolean
   auroraInterval: number
   alarmLevel: number
+  popupLevel: number
   updateInterval: number
 }
+
+// Quietest first, so reading down a list is turning the plugin up -- which puts
+// "Never" above Extreme, since it is quieter than any of them. It carries no
+// rate: it does not happen at a frequency. "and above" is doing real work: it
+// says which way the choice includes. Rates and their provenance are in
+// docs/noaa-products.md.
+//
+// Both thresholds offer the whole scale. A popup at Minor is not a setting
+// anyone should want -- the rates say so -- but it is a defensible thing to
+// want, and clipping the range would also mean an existing config that asked
+// for it could not be re-created after the panel had touched it.
+const LEVEL_OPTIONS = [
+  { const: ALARM_NEVER, title: 'Never' },
+  { const: 5, title: 'Extreme (5) — several times a decade' },
+  { const: 4, title: 'Severe (4) and above — once or twice a year' },
+  { const: 3, title: 'Strong (3) and above — several times a year' },
+  { const: 2, title: 'Moderate (2) and above — a couple of times a month' },
+  { const: 1, title: 'Minor (1) and above — most weeks' }
+]
 
 export const schema = {
   type: 'object',
@@ -18,36 +38,38 @@ export const schema = {
         'Send notifications for weekly "Advisory Outlook" (as notification state="alert")',
       default: true
     },
+    // Loudest first, so reading down the form turns the plugin down. Each of
+    // these names the level its own band opens at and says nothing about the
+    // other, which is the whole reason there are two: one threshold with the
+    // quieter rungs derived from it could not be labelled honestly, because
+    // whatever the label claimed, the level below it was doing something too.
     alarmLevel: {
       type: 'number',
       title: 'Sound an alarm at…',
       description:
-        'One level below this shows a popup (but no sound); two below is' +
-        ' listed silently. Applies to the G, S and R scales and to Kp. Rates' +
-        ' are geomagnetic-storm days in a median year — the other scales' +
-        ' differ, sharply at 4 and 5 — and roughly double during the active' +
-        ' stretch of a solar cycle.',
+        'Visible and audible, from this level up. Applies to the G, S and R' +
+        ' scales and to Kp. Rates are geomagnetic-storm days in a median year' +
+        ' — the other scales differ, sharply at 4 and 5 — and roughly double' +
+        ' during the active stretch of a solar cycle.',
       // `default` has to stay even though RJSF ignores it as a value under
       // `oneOf` -- it is what selects the initial option, and without it option
       // one silently becomes the default on a fresh install. `type` has to stay
       // too: without it the field renders as nothing at all.
       default: NoaaScaleValues.EXTREME,
-      // Quietest first, so reading down the list is turning the plugin up --
-      // which puts "Never" above Extreme, since it is quieter than any of
-      // them. It carries no rate: it does not happen at a frequency.
-      // "and above" is doing real work: it says which way the choice includes.
-      // Rates and their provenance are in docs/noaa-products.md.
-      oneOf: [
-        { const: ALARM_NEVER, title: 'Never — visual warning for G5 only' },
-        { const: 5, title: 'Extreme (5) — several times a decade' },
-        { const: 4, title: 'Severe (4) and above — once or twice a year' },
-        { const: 3, title: 'Strong (3) and above — several times a year' },
-        {
-          const: 2,
-          title: 'Moderate (2) and above — a couple of times a month'
-        },
-        { const: 1, title: 'Minor (1) and above — most weeks' }
-      ]
+      oneOf: LEVEL_OPTIONS
+    },
+    popupLevel: {
+      type: 'number',
+      title: 'Show a popup at…',
+      description:
+        'Visible but silent, from this level up to the alarm level. Cannot be' +
+        ' louder than the alarm: a popup level above it would name a band the' +
+        ' alarm has already taken, so it is pulled back down. Strong (3) and' +
+        ' above is listed without a popup whatever these two are set to — a' +
+        ' storm that size should leave a trace even when the plugin is turned' +
+        ' all the way down.',
+      default: NoaaScaleValues.SEVERE,
+      oneOf: LEVEL_OPTIONS
     },
     auroraEnabled: {
       type: 'boolean',
@@ -109,10 +131,7 @@ function minutes(raw: any, fallback: number): number {
 
 export function settingsFrom(props: any): Settings {
   const p = props ?? {}
-  return {
-    sendAdvisoryOutlook: p.sendAdvisoryOutlook !== false,
-    auroraEnabled: p.auroraEnabled === true,
-    auroraInterval: minutes(p.auroraInterval, 120),
+  const alarmLevel = scaleValue(
     // `zoneAlertThreshold` (and `minScaleAlert` before it) named the lowest
     // level worth the user's attention, and the loud states derived upward from
     // it. This anchors on the alarm and derives down instead, so a saved value
@@ -122,9 +141,25 @@ export function settingsFrom(props: any): Settings {
     // clamp to 5 -- they were the dead settings that could never sound at all,
     // and there is no honest way to preserve "silent" through a rename of the
     // thing that makes noise.
-    alarmLevel: scaleValue(
-      p.alarmLevel ?? shiftUp(p.zoneAlertThreshold ?? p.minScaleAlert),
-      NoaaScaleValues.EXTREME
+    p.alarmLevel ?? shiftUp(p.zoneAlertThreshold ?? p.minScaleAlert),
+    NoaaScaleValues.EXTREME
+  )
+  return {
+    sendAdvisoryOutlook: p.sendAdvisoryOutlook !== false,
+    auroraEnabled: p.auroraEnabled === true,
+    auroraInterval: minutes(p.auroraInterval, 120),
+    alarmLevel,
+    // One below the alarm is the band this had when there was only one
+    // setting, so a config saved before the split keeps the ladder it already
+    // had -- including a saved ALARM_NEVER, which used to slide G5 down into
+    // the popup band and now says so outright.
+    //
+    // Never louder than the alarm. Above it the popup band would name levels
+    // the alarm has already claimed, so the setting would be inert while still
+    // reading as a choice; below it the two are independent.
+    popupLevel: Math.min(
+      scaleValue(p.popupLevel, Math.max(NoaaScaleValues.MINOR, alarmLevel - 1)),
+      alarmLevel
     ),
     // `observationsInterval` and `notificationsInterval` are the two settings
     // this replaced. Both are still read so a saved config keeps its cadence

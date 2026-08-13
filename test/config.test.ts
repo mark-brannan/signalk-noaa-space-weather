@@ -49,6 +49,55 @@ describe('alarmLevel', () => {
   })
 })
 
+describe('popupLevel', () => {
+  const property: any = (schema.properties as any).popupLevel
+
+  it('defaults to 4, one below the alarm', () => {
+    expect(settingsFrom({}).popupLevel).toBe(4)
+    expect(property.default).toBe(4)
+  })
+
+  it('offers the same choices as the alarm level', () => {
+    // Both are thresholds on the same scale. Neither range is clipped: a popup
+    // at Minor is not a setting anyone should want, but it is a defensible
+    // thing to want, and clipping would also strand a config that asked for it.
+    expect(property.oneOf).toEqual((schema.properties as any).alarmLevel.oneOf)
+  })
+
+  it('uses popupLevel when present', () => {
+    expect(settingsFrom({ alarmLevel: 5, popupLevel: 2 }).popupLevel).toBe(2)
+  })
+
+  it('is never louder than the alarm', () => {
+    // Above the alarm it would name a band the alarm has already taken, so the
+    // setting would be inert while still reading as a choice.
+    expect(settingsFrom({ alarmLevel: 3, popupLevel: 5 }).popupLevel).toBe(3)
+    expect(settingsFrom({ alarmLevel: 1, popupLevel: 4 }).popupLevel).toBe(1)
+  })
+
+  it('follows a saved alarm level down when absent', () => {
+    // What the ladder did when there was only one setting, so a config saved
+    // before the split keeps the behaviour it already had.
+    expect(settingsFrom({ alarmLevel: 3 }).popupLevel).toBe(2)
+    expect(settingsFrom({ alarmLevel: 1 }).popupLevel).toBe(1)
+  })
+
+  it('gives a saved ALARM_NEVER the popup band it used to shift into', () => {
+    // 0.18 expressed "never sound" by sliding the whole ladder down one, so
+    // Extreme popped up. That is now said outright rather than derived.
+    const settings = settingsFrom({ alarmLevel: ALARM_NEVER })
+    expect(settings.alarmLevel).toBe(ALARM_NEVER)
+    expect(settings.popupLevel).toBe(5)
+  })
+
+  it('resolves an out-of-range saved value against the alarm level', () => {
+    for (const bad of [0, 7, 3.5, -1, 'loud', null])
+      expect(settingsFrom({ alarmLevel: 5, popupLevel: bad }).popupLevel).toBe(
+        4
+      )
+  })
+})
+
 describe('migrating a saved zoneAlertThreshold / minScaleAlert', () => {
   // The old setting named the lowest level worth attention and put `alarm` two
   // levels above it, so the equivalent alarm level is the old value plus two.

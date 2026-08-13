@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
-  ALARM_LEVEL_OPTIONS,
   ALARM_NEVER,
-  alarmLevelLabel,
   AURORA_WIRE_KB,
+  LEVEL_OPTIONS,
+  levelOptionLabel,
   DAYS_PER_MONTH,
   DEFAULTS,
   OTHER_WIRE_KB,
@@ -29,6 +29,7 @@ import {
 
 const LEVELS = [0, 1, 2, 3, 4, 5]
 const ALARM_LEVELS = [1, 2, 3, 4, 5]
+const THRESHOLDS = [1, 2, 3, 4, 5, ALARM_NEVER]
 
 /**
  * The panel is served as plain JavaScript out of public/ and cannot import
@@ -38,8 +39,24 @@ const ALARM_LEVELS = [1, 2, 3, 4, 5]
  * describes something the plugin does not do.
  */
 describe('the panel agrees with the plugin about loudness', () => {
-  it('maps every level and alarm level to the same state', () => {
-    for (const alarmLevel of ALARM_LEVELS) {
+  it('maps every level and pair of thresholds to the same state', () => {
+    // Both thresholds, over their whole range including ALARM_NEVER and the
+    // pairs the clamp would never produce: the panel holds a copy of the rule,
+    // and a copy that only matches on the reachable half is not a copy.
+    for (const alarmLevel of THRESHOLDS) {
+      for (const popupLevel of THRESHOLDS) {
+        for (const value of LEVELS) {
+          expect(
+            stateForScaleValue(value, alarmLevel, popupLevel),
+            `value ${value}, alarm ${alarmLevel}, popup ${popupLevel}`
+          ).toBe(pluginStateForScaleValue(value, alarmLevel, popupLevel))
+        }
+      }
+    }
+  })
+
+  it('derives the same popup level when only the alarm is given', () => {
+    for (const alarmLevel of THRESHOLDS) {
       for (const value of LEVELS) {
         expect(stateForScaleValue(value, alarmLevel)).toBe(
           pluginStateForScaleValue(value, alarmLevel)
@@ -73,16 +90,20 @@ describe('the panel agrees with the schema about choices', () => {
     )
   })
 
-  it('offers exactly the alarm levels the schema offers, in the same order', () => {
-    expect(ALARM_LEVEL_OPTIONS.map((option) => option.value)).toEqual(
-      schema.properties.alarmLevel.oneOf.map((option: any) => option.const)
-    )
+  it('offers exactly the levels the schema offers, in the same order', () => {
+    // Both thresholds draw on the same list, in both copies.
+    for (const key of ['alarmLevel', 'popupLevel']) {
+      expect(
+        LEVEL_OPTIONS.map((option) => option.value),
+        key
+      ).toEqual(schema.properties[key].oneOf.map((option: any) => option.const))
+    }
   })
 
   it('quotes each level at the rate the schema quotes it', () => {
     // ALARM_NEVER has no rate -- it does not happen at a frequency -- so it
     // is the one option with nothing to check here.
-    for (const option of ALARM_LEVEL_OPTIONS.filter((o: any) => o.rate)) {
+    for (const option of LEVEL_OPTIONS.filter((o: any) => o.rate)) {
       const fromSchema = schema.properties.alarmLevel.oneOf.find(
         (candidate: any) => candidate.const === option.value
       )
@@ -91,25 +112,28 @@ describe('the panel agrees with the schema about choices', () => {
   })
 })
 
-describe('alarmLevelLabel', () => {
+describe('levelOptionLabel', () => {
   it('names every NOAA level and never calls the last one a severity', () => {
-    const labels = ALARM_LEVEL_OPTIONS.map(alarmLevelLabel)
+    const labels = LEVEL_OPTIONS.map(levelOptionLabel)
     expect(labels.every((label) => !label.includes('undefined'))).toBe(true)
-    const never = alarmLevelLabel(
-      ALARM_LEVEL_OPTIONS.find((o) => o.value === ALARM_NEVER)
+    const never = levelOptionLabel(
+      LEVEL_OPTIONS.find((o) => o.value === ALARM_NEVER)
     )
     expect(never).toMatch(/^Never/)
     expect(never).not.toMatch(/\(6\)/)
   })
 
-  it('reads the same in the panel as in the fallback form', () => {
-    // The two copies are the same dropdown to a user, who may well see the
+  it('reads the same in the panel as in both fallback dropdowns', () => {
+    // The copies are the same dropdowns to a user, who may well see the
     // generated form -- the panel is not guaranteed to load.
-    const never = ALARM_LEVEL_OPTIONS.find((o) => o.value === ALARM_NEVER)
-    const fromSchema = schema.properties.alarmLevel.oneOf.find(
-      (candidate: any) => candidate.const === ALARM_NEVER
-    )
-    expect(alarmLevelLabel(never)).toBe(fromSchema.title)
+    for (const key of ['alarmLevel', 'popupLevel']) {
+      for (const option of LEVEL_OPTIONS) {
+        const fromSchema = schema.properties[key].oneOf.find(
+          (candidate: any) => candidate.const === option.value
+        )
+        expect(levelOptionLabel(option), key).toBe(fromSchema.title)
+      }
+    }
   })
 })
 
