@@ -4,8 +4,7 @@
  * This module is only the plugin definition and lifecycle. Each NOAA product
  * owns its own paths, metadata and parsing under src/products/, parsing itself
  * is pure and lives in src/parse.ts, and all I/O goes through src/noaa/client
- * (in) and src/publisher (out). Adding a data source means adding one product
- * module and one entry in PRODUCTS below.
+ * (in) and src/publisher (out).
  */
 import { Settings, schema, settingsFrom } from './config.js'
 import { createClient } from './noaa/client.js'
@@ -52,9 +51,8 @@ const NOT_READY_BASE_MS = 5000
 const NOT_READY_MAX_MS = 5 * 60 * 1000
 /**
  * Floor between manual "refresh now" requests from the webapp. The aurora
- * payload is ~145 KB and the whole reason it defaults to a two-hour interval
- * is to bound that cost -- a button a user can mash has to bound it too,
- * independent of whatever interval is configured.
+ * interval defaults to two hours to bound what that payload costs, so a button
+ * a user can mash has to bound it too, independent of the configured interval.
  */
 const FORCE_REFRESH_COOLDOWN_MS = 60 * 1000
 /**
