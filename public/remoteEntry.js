@@ -46,6 +46,7 @@ import {
   settingsDiffer,
   stepLevel,
   verdictFor,
+  withLevel,
   DAYS_PER_MONTH
 } from './config-panel.js'
 
@@ -214,10 +215,17 @@ function createPanel(React) {
           borderColor: EDGE[kind],
           color: EDGE[kind],
           cursor: 'grab',
+          // The grip straddles the line, so half of it hangs into the next row.
+          // Table row backgrounds paint in document order and would cover that
+          // half; a positioned element with a z-index paints above all of them.
+          zIndex: 2,
+          // Otherwise a vertical drag on a touchscreen scrolls the page, and
+          // the browser cancels the pointer sequence out from under the drag.
+          touchAction: 'none',
           // A lane per kind, so two lines landing on one row sit side by side
           // instead of on top of each other, and neither grip moves sideways
           // as it moves up and down.
-          left: kind === 'sound' ? 0 : '5rem',
+          left: kind === 'sound' ? '0.25rem' : '5.25rem',
           // Centred on the line, which is the row edge it is drawn against.
           ...(above
             ? { top: 0, transform: 'translateY(-50%)' }
@@ -289,20 +297,22 @@ function createPanel(React) {
     return h(
       'table',
       { className: 'table table-sm align-middle small mb-2' },
+      // The instruction goes in the caption rather than in the gutter's own
+      // header, where it would set that column's width from its longest word
+      // and wrap the whole header row to two lines.
+      h(
+        'caption',
+        { className: 'caption-top pt-0' },
+        'Drag a line, or focus one and use the arrow keys.'
+      ),
       h(
         'thead',
         null,
         h(
           'tr',
           null,
-          // The gutter the grips sit in. It is headed by the instruction
-          // rather than by a noun, because an empty column above two things
-          // that look draggable is exactly where a reader looks first.
-          h(
-            'th',
-            { scope: 'col', style: { width: '11rem' } },
-            'Drag, or use arrow keys'
-          ),
+          // The gutter the grips sit in: wide enough for two lanes of pill.
+          h('th', { scope: 'col', style: { width: '11rem' } }),
           h('th', { scope: 'col' }, 'Level'),
           h('th', { scope: 'col' }, 'Notification'),
           h('th', { scope: 'col' }, 'What you get'),
@@ -512,14 +522,7 @@ function createPanel(React) {
      */
     const setLevel = useCallback((key, value) => {
       setSaved(false)
-      setSettings((previous) => {
-        const next = { ...previous, [key]: value }
-        if (next.popupLevel === ALARM_NEVER) return next
-        if (key === 'alarmLevel')
-          next.popupLevel = Math.min(next.popupLevel, value)
-        else next.alarmLevel = Math.max(next.alarmLevel, value)
-        return next
-      })
+      setSettings((previous) => withLevel(previous, key, value))
     }, [])
 
     const onSubmit = useCallback(
