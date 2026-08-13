@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.16.1] - 2026-08-13
+
+### Changed
+
+- **The alarm-level dropdown's top option now says "several times a decade"
+  where it said "once or twice a decade".** 0.16.0 moved the G bands onto
+  NOAA's Kp thirds but could not re-count the storm days behind the labels, so
+  every rate in `docs/noaa-products.md` was still the one measured under the
+  old integer banding. Counted again over the same 94 years of GFZ's archive,
+  the median year holds 72 G1+ days rather than 53, 27 G2+ rather than 20, 10
+  G3+ rather than 7, and 3 G4+ rather than 2.
+
+  G5 moved furthest, because the third of the scale it gained — Kp 9− at
+  8.667 — is where most extreme days actually are: 34 of the 94 years have a
+  G5 day, against 17 under the old banding. The median year still has none,
+  which is why the label counts in decades rather than years, but "once or
+  twice" was about three times too quiet for the level this plugin now alarms
+  on by default.
+
+  The other four labels still describe their new numbers and are unchanged.
+  Nothing about the setting itself moved — same field, same five values, same
+  behaviour at each of them.
+
 ## [0.16.0] - 2026-08-13
 
 ### Changed
