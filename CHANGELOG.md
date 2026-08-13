@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.15.0] - 2026-08-13
+
+### Changed
+
+- **The webapp's hero banner no longer calls a day "quiet" when something
+  happened on it.** It said "space weather is quiet -- no storm scale has
+  reached strong" whether the last 24 hours had been genuinely empty or had
+  carried a G2, which reads as "nothing happened" when the honest claim was
+  only "nothing crossed our threshold". It now reads NOAA's 24-hour observed
+  maximum -- already published, never displayed -- and says what the peak was.
+
+  The banner also stopped folding the forecast into the present. A G3 expected
+  tomorrow used to render exactly like a G3 happening now. Those are separate
+  states, and the one still coming wins: quiet-now-with-a-storm-ahead says so,
+  and counts down to it.
+
+  Two storms at once are both reported. The worst leads, ties break G before R
+  before S -- by what the level costs a boat, not alphabetically -- and every
+  other scale at level 3 or above adds its own line, so a G4 with an S4
+  alongside no longer hides the polar HF blackout. The effects come from NOAA's
+  own scale descriptions, per level, so a G5 and a G3 no longer read alike.
+
+- **The hero's countdown always counts something real.** It showed an amber
+  em-dash whenever no storm was forecast, which reads as an alarm rather than
+  as an absence, and it counted toward the next storm even while one was
+  already running. It now counts to whatever changes next: the level above the
+  one in force, the drop back down, or the forecast storm ahead. With nothing
+  forecast it reads 00:00 against "no storm inbound", and when there is no
+  forecast at all it says so in the same colour as stale data -- not knowing is
+  not an all-clear.
+
+- **An empty page now distinguishes "starting up" from "stopped working"**,
+  using the plugin's own start time. Stale data says plainly that this is not
+  an all-clear.
+
+- **The Kp chart marks where measurement ends and prediction begins**, with a
+  dotted divider and UTC day boundaries. The divider was already there and
+  solid, which made it read as part of the plot.
+
+- **The top row is a little less top-heavy**: the hero takes seven columns
+  rather than eight, and the advisory teaser is trimmed to two lines, taking
+  60px off the page. The trim is measured rather than a CSS line clamp, whose
+  single-glyph ellipsis is one cell wide in this tile's monospace font and
+  vanishes; three periods do not.
+
 ## [0.14.3] - 2026-08-13
 
 ### Fixed
