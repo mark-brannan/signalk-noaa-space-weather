@@ -110,18 +110,18 @@ export function methodForState(state) {
 
 /**
  * Geomagnetic storm days in a median year at each level *and above*, from the
- * measured table in docs/noaa-products.md. That table was counted under the
- * integer banding the plugin used before it adopted NOAA's thirds, so it reads
- * low until the re-measure that doc asks for lands; the dropdown labels quote
- * the same figures and move with it. The G figures, because the dropdown
- * quotes G and one cadence cannot label three scales; the panel says so where
- * it shows them. Regenerate with scripts/measure-kp.mjs.
+ * measured table in docs/noaa-products.md, re-counted under NOAA's banding. The
+ * alarm-level dropdown quotes the same figures, so both move together.
+ *
+ * The G figures, because the dropdown quotes G and one cadence cannot label
+ * three scales; the panel says so where it shows them. Regenerate with
+ * scripts/measure-kp.mjs.
  */
 export const STORM_DAYS_PER_YEAR = Object.freeze({
-  1: 53,
-  2: 20,
-  3: 7,
-  4: 2,
+  1: 72,
+  2: 27,
+  3: 10,
+  4: 3,
   5: 0
 })
 
@@ -130,7 +130,7 @@ export const STORM_DAYS_PER_YEAR = Object.freeze({
  * src/config.ts. Quietest first, so reading down the list turns the plugin up.
  */
 export const ALARM_LEVEL_OPTIONS = Object.freeze([
-  { value: 5, rate: 'once or twice a decade' },
+  { value: 5, rate: 'several times a decade' },
   { value: 4, rate: 'once or twice a year' },
   { value: 3, rate: 'several times a year' },
   { value: 2, rate: 'a couple of times a month' },

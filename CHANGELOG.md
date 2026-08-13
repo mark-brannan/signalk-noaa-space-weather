@@ -64,10 +64,9 @@ observe, so internal plumbing lands in a patch even when it adds something.
 ### Changed
 
 - The configuration screen follows 0.16.0's G banding, so the level it reads
-  off a Kp is the level everything else publishes. Its storm-day rates are the
-  same ones the alarm-level dropdown quotes, and carry the same caveat: they
-  were counted under the old integer banding and read low until
-  [`docs/noaa-products.md`](docs/noaa-products.md)'s pending re-measure lands.
+  off a Kp is the level everything else publishes, and its ladder quotes
+  0.16.1's re-measured storm-day rates — the same figures the alarm-level
+  dropdown carries.
 
 - `GET /signalk/v1/api/signalk-noaa-space-weather/status` now reports the
   settings the plugin is running alongside its start time. These are the
