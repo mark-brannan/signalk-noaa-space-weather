@@ -119,6 +119,28 @@ Stage by path. Never `git add -A`.
 If a request arrives that is outside the current PR's topic, say so and propose
 a separate PR rather than quietly folding it in.
 
+### The red `github-advanced-security` check is not yours
+
+**Temporary. Delete this section when
+[#67](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/67)
+closes.**
+
+Every PR with anything scannable carries a failing `github-advanced-security`
+check whose output is **empty** — no title, no summary, no text. It is a
+GitHub-managed dynamic workflow with no file under `.github/workflows/`, so
+nothing in this repo affects it, and it is not a required check: it has never
+blocked a merge and cannot.
+
+Read the job log rather than assuming, because the whole point is to tell this
+apart from a real finding. The known signature is `CAPIError: 400 The requested
+model is not supported` — the scanner asks for a model the account's Copilot
+plan no longer carries, so it fails whenever it has actual work to do, and the
+green runs are the ones that found nothing to scan. #67 carries the evidence.
+If that is what the log says, note it in one line and move on.
+
+**Anything else in that check is real.** A different error, or a run with
+output attached, is the scanner working. Read it.
+
 ### Versions: this repo is the exception
 
 Upstream says never to touch version numbers, because a maintainer sets them at
