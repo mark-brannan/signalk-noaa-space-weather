@@ -44,11 +44,12 @@ observe, so internal plumbing lands in a patch even when it adds something.
   "too old" to whoever is navigating by it.
 
 - **A refused fetch says which refusal it hit** — how many seconds are left on
-  the cooldown, waiting for a GPS fix, not logged in, NOAA unreachable — where
-  all four used to read "Refresh failed". Being told to wait for a position is
-  the difference between a fault and a countdown, and a fetch that never left
-  the server no longer costs the minute either: NOAA is asked for nothing until
-  the vessel has a position, so there is nothing for the cooldown to bound.
+  the cooldown, waiting for a GPS fix, not logged in, the plugin not running,
+  an error from NOAA — where all five used to read "Refresh failed". Being told
+  to wait for a position is the difference between a fault and a countdown, and
+  a fetch that never left the server no longer costs the minute either: NOAA is
+  asked for nothing until the vessel has a position, so there is nothing for the
+  cooldown to bound.
   A fetch that came back with nothing usable now reports that as a failure,
   instead of quietly reporting success over the reading that was already there.
 
