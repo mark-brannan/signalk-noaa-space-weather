@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import createPlugin, { notReadyDelayMs } from '../src/index'
 import { settingsFrom } from '../src/config'
 import { AURORA_BASE } from '../src/paths'
+import { ValueUpdate } from '../src/parse'
+import { Meta } from '../src/publisher'
 import { writeAuroraCache } from '../src/cache/auroraCache'
 import { writeAdvisoryCache } from '../src/cache/advisoryCache'
 import { fixtureJson } from './fixtures'
@@ -83,22 +85,25 @@ function metaPaths(deltas: Delta[]): string[] {
   )
 }
 
+interface Update {
+  meta?: Meta[]
+  values?: ValueUpdate[]
+}
+
 /** The metadata published for one path, or undefined. */
-function metaFor(deltas: Delta[], path: string): any {
+function metaFor(deltas: Delta[], path: string) {
   return deltas
-    .flatMap((delta) =>
-      delta.updates.flatMap((update: any) => update.meta ?? [])
-    )
-    .find((meta: any) => meta.path === path)?.value
+    .flatMap((delta) => delta.updates as Update[])
+    .flatMap((update) => update.meta ?? [])
+    .find((meta) => meta.path === path)?.value
 }
 
 /** The last value published on one path, or undefined. */
-function valueFor(deltas: Delta[], path: string): any {
+function valueFor(deltas: Delta[], path: string) {
   return deltas
-    .flatMap((delta) =>
-      delta.updates.flatMap((update: any) => update.values ?? [])
-    )
-    .filter((value: any) => value.path === path)
+    .flatMap((delta) => delta.updates as Update[])
+    .flatMap((update) => update.values ?? [])
+    .filter((value) => value.path === path)
     .pop()?.value
 }
 
@@ -416,15 +421,18 @@ describe('plugin module', () => {
       // hours of timers, so every other product polls too, and handing each of
       // them 0.88 MB to parse costs seconds under the QEMU armv7 job for a
       // payload none of them can use anyway.
-      fetchMock = vi.fn(async (url: any) =>
-        auroraUrl(url)
-          ? new Response(AURORA_BODY, { status: 200 })
-          : new Response('[]', { status: 200 })
+      stubFetch(async () => new Response(AURORA_BODY, { status: 200 }))
+    }
+
+    /** `respond` serves the aurora URL; everything else gets an empty body. */
+    function stubFetch(respond: () => Promise<Response>) {
+      fetchMock = vi.fn(async (url: unknown) =>
+        auroraUrl(url) ? respond() : new Response('[]', { status: 200 })
       )
       vi.stubGlobal('fetch', fetchMock)
     }
 
-    const auroraUrl = (url: any) =>
+    const auroraUrl = (url: unknown) =>
       String(url).includes('ovation_aurora_latest')
 
     /** Aurora fetches only, so a count is not confused by the other products. */
@@ -520,6 +528,72 @@ describe('plugin module', () => {
       // Deferred, not cancelled.
       await vi.advanceTimersByTimeAsync(120 * 60 * 1000)
       expect(auroraFetches()).toBe(3)
+
+      plugin.stop()
+    })
+
+    it('joins a scheduled fetch already in flight rather than starting a second', async () => {
+      let release: () => void = () => {}
+      const inFlight = new Promise<void>((resolve) => (release = resolve))
+      stubFetch(async () => {
+        await inFlight
+        return new Response(AURORA_BODY, { status: 200 })
+      })
+      const plugin = createPlugin(fakeApp(dataDir, POSITION))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({ auroraEnabled: true })
+
+      await vi.advanceTimersByTimeAsync(10_000) // the scheduled run, now waiting on NOAA
+      expect(auroraFetches()).toBe(1)
+
+      // Deferring the next run cannot help here: the timer has already fired.
+      // Two requests for the same grid would race to write the same cache file.
+      const pressed = router.invoke(ROUTE)
+      release()
+      expect((await pressed).status).toBe(200)
+      expect(auroraFetches()).toBe(1)
+
+      plugin.stop()
+    })
+
+    it('counts a scheduled fetch against the cooldown, not just a press', async () => {
+      stubSuccessfulFetch()
+      const plugin = createPlugin(fakeApp(dataDir, POSITION))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({ auroraEnabled: true })
+
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(auroraFetches()).toBe(1)
+
+      // Pressing seconds after a scheduled fetch would buy the same grid
+      // again, which is what the cooldown is there to stop.
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(429)
+      expect(auroraFetches()).toBe(1)
+
+      plugin.stop()
+    })
+
+    it('does not report a refresh that produced nothing as a success', async () => {
+      writeAuroraCache(dataDir, { coordinates: [[1, 2, 3]] })
+      const stale = readFileSync(join(dataDir, 'aurora-grid.json'), 'utf8')
+      // Well-formed JSON carrying no usable grid: `refresh()` logs and returns,
+      // without throwing and without writing anything.
+      stubFetch(async () => new Response('{"nope":true}', { status: 200 }))
+      const plugin = createPlugin(fakeApp(dataDir, POSITION))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({})
+
+      const response = await router.invoke(ROUTE)
+      // Answering 200 with the previous grid would report a refresh that did
+      // not happen, over a reading that has not moved.
+      expect(response.status).toBe(502)
+      expect(readFileSync(join(dataDir, 'aurora-grid.json'), 'utf8')).toBe(
+        stale
+      )
 
       plugin.stop()
     })

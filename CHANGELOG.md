@@ -30,7 +30,11 @@ observe, so internal plumbing lands in a patch even when it adds something.
   "observed 21:40" on a tile that will never update again reads as live.
 
 - **A manual fetch restarts the aurora interval** rather than being spent on top
-  of it. A press a minute before the tick used to buy the 145 KB payload twice.
+  of it, and a press while a scheduled fetch is already running waits for that
+  one instead of starting a second. A press near the tick used to buy the
+  145 KB payload twice. The minimum spacing between fetches is now measured
+  from the last fetch rather than the last press, so a scheduled one holds it
+  down too.
 
 - **A refused fetch says which refusal it hit** — how many seconds are left on
   the cooldown, waiting for a GPS fix, not logged in, NOAA unreachable — where
@@ -38,6 +42,8 @@ observe, so internal plumbing lands in a patch even when it adds something.
   the difference between a fault and a countdown, and a fetch that never left
   the server no longer costs the minute either: NOAA is asked for nothing until
   the vessel has a position, so there is nothing for the cooldown to bound.
+  A fetch that came back with nothing usable now reports that as a failure,
+  instead of quietly reporting success over the reading that was already there.
 
 ## [0.20.0] - 2026-08-13
 

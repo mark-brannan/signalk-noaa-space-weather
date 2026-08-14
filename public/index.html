@@ -1427,7 +1427,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
       case 'cooldown': return failure.retryAfterSeconds ? `Wait ${failure.retryAfterSeconds}s` : 'Too soon'
       case 'no-position': return 'No position'
       case 'stopped': return 'Plugin stopped'
-      case 'upstream': return 'NOAA unreachable'
+      case 'upstream': return 'NOAA error'
       default: return 'Fetch failed'
     }
   }

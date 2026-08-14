@@ -199,10 +199,19 @@ that and none are optional:
 - A successful manual fetch defers the next scheduled run by a full interval.
   The payload has just been bought; a refresh a minute before the tick must not
   buy it twice, which is the same argument the two-hour default rests on.
-- The cooldown is the only bound on this route, and `'not-ready'` refunds it:
-  the position check is ahead of the fetch, so nothing went to NOAA and there
-  is nothing to bound. That case lands on a boat still waiting for its first
-  fix, which is the worst one to make wait another minute.
+  Deferring cannot cover a run whose timer has already fired, so `refreshOnce`
+  holds one refresh per product and a second caller joins it rather than
+  starting its own.
+- The cooldown counts fetches, not presses — a scheduled one holds it down too
+  — and `'not-ready'` refunds it: the position check is ahead of the fetch, so
+  nothing went to NOAA and there is nothing to bound. That case lands on a boat
+  still waiting for its first fix, which is the worst one to make wait another
+  minute.
+- A `refresh()` that returns without publishing is not a success. It returns
+  normally when the payload carried no usable grid, so the route compares the
+  cache's `fetchedAt` across the call and answers 502 when nothing new landed;
+  otherwise the button reports a refresh that did not happen, over a reading
+  that has not moved.
 
 The webapp may never turn its own polling into a NOAA fetch — the map draws
 from cache, the poll reads Signal K, and only a press reaches NOAA.
