@@ -4,7 +4,10 @@ import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import createPlugin, { notReadyDelayMs } from '../src/index'
 import { settingsFrom } from '../src/config'
-import { writeAuroraCache } from '../src/cache/auroraCache'
+import { AURORA_BASE } from '../src/paths'
+import { ValueUpdate } from '../src/parse'
+import { Meta } from '../src/publisher'
+import { readAuroraCache, writeAuroraCache } from '../src/cache/auroraCache'
 import { writeAdvisoryCache } from '../src/cache/advisoryCache'
 import { fixtureJson } from './fixtures'
 
@@ -82,6 +85,28 @@ function metaPaths(deltas: Delta[]): string[] {
   )
 }
 
+interface Update {
+  meta?: Meta[]
+  values?: ValueUpdate[]
+}
+
+/** The metadata published for one path, or undefined. */
+function metaFor(deltas: Delta[], path: string) {
+  return deltas
+    .flatMap((delta) => delta.updates as Update[])
+    .flatMap((update) => update.meta ?? [])
+    .find((meta) => meta.path === path)?.value
+}
+
+/** The last value published on one path, or undefined. */
+function valueFor(deltas: Delta[], path: string) {
+  return deltas
+    .flatMap((delta) => delta.updates as Update[])
+    .flatMap((update) => update.values ?? [])
+    .filter((value) => value.path === path)
+    .pop()?.value
+}
+
 describe('plugin module', () => {
   let fetchMock: ReturnType<typeof vi.fn>
 
@@ -131,14 +156,16 @@ describe('plugin module', () => {
       expect(plugin.signalKApiRoutes(router)).toBe(router)
     })
 
-    it('answers 404 with a helpful message when nothing is cached yet', async () => {
+    it('answers 404 with an explanation when nothing is cached yet', async () => {
       const plugin = createPlugin(fakeApp(dataDir))
       const router = fakeRouter()
       plugin.signalKApiRoutes(router)
 
       const response = await router.invoke(ROUTE)
       expect(response.status).toBe(404)
-      expect(response.json.error).toMatch(/enable aurora/i)
+      // An empty cache is not an error the caller can read a stack trace from,
+      // so this route owes it a sentence about what would fill it.
+      expect(response.json.error.length).toBeGreaterThan(0)
     })
 
     it('serves back exactly what the aurora product cached', async () => {
@@ -215,6 +242,20 @@ describe('plugin module', () => {
       expect([...response.sent.subarray(0, 8)]).toEqual([
         137, 80, 78, 71, 13, 10, 26, 10
       ])
+    })
+
+    it('dates the tile by the fetch behind it, not by the request', async () => {
+      const { router } = serving(BAND)
+      const cachedAt = readAuroraCache(dataDir)!.fetchedAt
+      const response = await router.invoke(ROUTE, { z: '2', x: '1', y: '0' })
+
+      // A chart plotter has no equivalent of the webapp's "Cached 21:40", and
+      // with the schedule off the grid moves only when somebody presses the
+      // button -- so the age has to be on the wire. Second resolution: an
+      // HTTP date carries no milliseconds.
+      expect(Date.parse(response.headers['Last-Modified'])).toBe(
+        Math.floor(Date.parse(cachedAt) / 1000) * 1000
+      )
     })
 
     it('returns the identical buffer on a repeat request', async () => {
@@ -389,9 +430,28 @@ describe('plugin module', () => {
       // carrying only `json()`, which broke the moment the client started
       // reading the body as text to survive a torn payload. The double should
       // not encode which accessor the client happens to use.
-      fetchMock = vi.fn(async () => new Response(AURORA_BODY, { status: 200 }))
+      //
+      // Only the aurora URL gets the aurora body. The tests below advance
+      // hours of timers, so every other product polls too, and handing each of
+      // them 0.88 MB to parse costs seconds under the QEMU armv7 job for a
+      // payload none of them can use anyway.
+      stubFetch(async () => new Response(AURORA_BODY, { status: 200 }))
+    }
+
+    /** `respond` serves the aurora URL; everything else gets an empty body. */
+    function stubFetch(respond: () => Promise<Response>) {
+      fetchMock = vi.fn(async (url: unknown) =>
+        auroraUrl(url) ? respond() : new Response('[]', { status: 200 })
+      )
       vi.stubGlobal('fetch', fetchMock)
     }
+
+    const auroraUrl = (url: unknown) =>
+      String(url).includes('ovation_aurora_latest')
+
+    /** Aurora fetches only, so a count is not confused by the other products. */
+    const auroraFetches = () =>
+      fetchMock.mock.calls.filter((call) => auroraUrl(call[0])).length
 
     it('refuses before the plugin has started', async () => {
       const plugin = createPlugin(fakeApp(dataDir, POSITION))
@@ -402,14 +462,176 @@ describe('plugin module', () => {
       expect(response.status).toBe(503)
     })
 
-    it('refuses when aurora is disabled in configuration', async () => {
-      const plugin = createPlugin(fakeApp(dataDir, POSITION))
+    it('fetches on demand while the recurring fetch is switched off', async () => {
+      stubSuccessfulFetch()
+      const app = fakeApp(dataDir, POSITION)
+      const plugin = createPlugin(app)
       const router = fakeRouter()
       plugin.signalKApiRoutes(router)
       plugin.start({}) // auroraEnabled defaults to false
 
       const response = await router.invoke(ROUTE)
-      expect(response.status).toBe(400)
+      expect(response.status).toBe(200)
+      expect(response.json.grid.coordinates.length).toBeGreaterThan(0)
+      // The setting says what the plugin may spend on its own initiative. A
+      // press is not the plugin's own initiative.
+      expect(auroraFetches()).toBe(1)
+      expect(valueFor(app.deltas, `${AURORA_BASE}.probability`)).toBeTypeOf(
+        'number'
+      )
+      plugin.stop()
+    })
+
+    it('describes the aurora paths before publishing the first on-demand value', async () => {
+      stubSuccessfulFetch()
+      const app = fakeApp(dataDir, POSITION)
+      const plugin = createPlugin(app)
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({})
+
+      // start() only describes the products it schedules, so without this the
+      // probability arrives as a bare number: no units, no zones, no name.
+      expect(metaPaths(app.deltas)).not.toContain(`${AURORA_BASE}.probability`)
+      await router.invoke(ROUTE)
+
+      const meta = metaFor(app.deltas, `${AURORA_BASE}.probability`)
+      expect(meta.units).toBe('ratio')
+      expect(meta.zones.length).toBeGreaterThan(0)
+      plugin.stop()
+    })
+
+    it('starts no schedule of its own when fetched on demand', async () => {
+      stubSuccessfulFetch()
+      const plugin = createPlugin(fakeApp(dataDir, POSITION))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({})
+
+      expect((await router.invoke(ROUTE)).status).toBe(200)
+      const afterPress = auroraFetches()
+      // Twice the default aurora interval. An on-demand fetch that quietly
+      // signed the owner up for a recurring 145 KB would be the opposite of
+      // what turning the setting off asked for.
+      await vi.advanceTimersByTimeAsync(4 * 60 * 60 * 1000)
+      expect(auroraFetches()).toBe(afterPress)
+
+      plugin.stop()
+    })
+
+    it('restarts the interval after a manual fetch instead of buying it twice', async () => {
+      stubSuccessfulFetch()
+      const plugin = createPlugin(fakeApp(dataDir, POSITION))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({ auroraEnabled: true, auroraInterval: 120 })
+
+      await vi.advanceTimersByTimeAsync(10_000) // the initial fetch
+      expect(auroraFetches()).toBe(1)
+
+      await vi.advanceTimersByTimeAsync(119 * 60 * 1000)
+      expect((await router.invoke(ROUTE)).status).toBe(200)
+      expect(auroraFetches()).toBe(2)
+
+      // The scheduled run was a minute away. The data it would fetch has just
+      // been fetched, so the clock restarts rather than spending the payload
+      // twice a minute apart.
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000)
+      expect(auroraFetches()).toBe(2)
+
+      // Deferred, not cancelled.
+      await vi.advanceTimersByTimeAsync(120 * 60 * 1000)
+      expect(auroraFetches()).toBe(3)
+
+      plugin.stop()
+    })
+
+    it('joins a scheduled fetch already in flight rather than starting a second', async () => {
+      let release: () => void = () => {}
+      const inFlight = new Promise<void>((resolve) => (release = resolve))
+      stubFetch(async () => {
+        await inFlight
+        return new Response(AURORA_BODY, { status: 200 })
+      })
+      const plugin = createPlugin(fakeApp(dataDir, POSITION))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({ auroraEnabled: true })
+
+      await vi.advanceTimersByTimeAsync(10_000) // the scheduled run, now waiting on NOAA
+      expect(auroraFetches()).toBe(1)
+
+      // Deferring the next run cannot help here: the timer has already fired.
+      // Two requests for the same grid would race to write the same cache file.
+      const pressed = router.invoke(ROUTE)
+      release()
+      expect((await pressed).status).toBe(200)
+      expect(auroraFetches()).toBe(1)
+
+      plugin.stop()
+    })
+
+    it('counts a scheduled fetch against the cooldown, not just a press', async () => {
+      stubSuccessfulFetch()
+      const plugin = createPlugin(fakeApp(dataDir, POSITION))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({ auroraEnabled: true })
+
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(auroraFetches()).toBe(1)
+
+      // Pressing seconds after a scheduled fetch would buy the same grid
+      // again, which is what the cooldown is there to stop.
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(429)
+      expect(auroraFetches()).toBe(1)
+
+      plugin.stop()
+    })
+
+    it('does not report a refresh that produced nothing as a success', async () => {
+      writeAuroraCache(dataDir, { coordinates: [[1, 2, 3]] })
+      const stale = readFileSync(join(dataDir, 'aurora-grid.json'), 'utf8')
+      // Well-formed JSON carrying no usable grid: `refresh()` logs and returns,
+      // without throwing and without writing anything.
+      stubFetch(async () => new Response('{"nope":true}', { status: 200 }))
+      const plugin = createPlugin(fakeApp(dataDir, POSITION))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({})
+
+      const response = await router.invoke(ROUTE)
+      // Answering 200 with the previous grid would report a refresh that did
+      // not happen, over a reading that has not moved.
+      expect(response.status).toBe(502)
+      expect(readFileSync(join(dataDir, 'aurora-grid.json'), 'utf8')).toBe(
+        stale
+      )
+
+      plugin.stop()
+    })
+
+    it('does not charge the cooldown for a request that never reached NOAA', async () => {
+      stubSuccessfulFetch()
+      const app = fakeApp(dataDir, undefined)
+      let position: typeof POSITION | undefined = undefined
+      app.getSelfPath = vi.fn((path: string) =>
+        path === 'navigation.position.value' ? position : undefined
+      )
+      const plugin = createPlugin(app)
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({})
+
+      expect((await router.invoke(ROUTE)).status).toBe(409)
+      expect(auroraFetches()).toBe(0)
+
+      // The fix arrives, and the boat that has been waiting for it is not then
+      // made to wait out a cooldown for traffic it never sent.
+      position = POSITION
+      expect((await router.invoke(ROUTE)).status).toBe(200)
+
       plugin.stop()
     })
 

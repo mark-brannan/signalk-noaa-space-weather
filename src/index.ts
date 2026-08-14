@@ -50,9 +50,16 @@ const INITIAL_DELAY_MS = 5000
 const NOT_READY_BASE_MS = 5000
 const NOT_READY_MAX_MS = 5 * 60 * 1000
 /**
- * Floor between manual "refresh now" requests from the webapp. The aurora
- * interval defaults to two hours to bound what that payload costs, so a button
- * a user can mash has to bound it too, independent of the configured interval.
+ * Floor between aurora fetches a manual "refresh now" is allowed to start. The
+ * aurora interval defaults to two hours to bound what that payload costs, so a
+ * button a user can mash has to bound it too, independent of the configured
+ * interval.
+ *
+ * Measured against the last fetch rather than the last press, so a scheduled
+ * fetch holds it down as well — a press seconds after one would buy the same
+ * grid twice. One number for both cases: it is the same NOAA traffic whether
+ * or not a schedule is running, and a second, longer floor for the unscheduled
+ * case would be a rule nobody could predict from the setting they changed.
  */
 const FORCE_REFRESH_COOLDOWN_MS = 60 * 1000
 /**
@@ -62,6 +69,9 @@ const FORCE_REFRESH_COOLDOWN_MS = 60 * 1000
  * next to everything else the server is doing.
  */
 const TILE_CACHE_LIMIT = 256
+
+/** What a product's refresh resolves to; see the Product interface. */
+type RefreshResult = Awaited<ReturnType<Product['refresh']>>
 
 /** Geometric backoff, capped both by NOT_READY_MAX_MS and the product's own interval. */
 export function notReadyDelayMs(attempt: number, intervalMs: number): number {
@@ -94,9 +104,20 @@ export default function (app: any): Plugin {
   let stopped = false
   /** Consecutive 'not-ready' results per product, for the backoff. */
   const notReadyAttempts = new Map<string, number>()
+  /** Refreshes currently awaiting NOAA, so a second caller joins rather than
+   * starting its own. See `refreshOnce`. */
+  const inFlight = new Map<string, Promise<RefreshResult>>()
+  /** When each product's most recent fetch began, whoever started it. */
+  const lastRefreshStartedAt = new Map<string, number>()
   /** Set on start(), read by the force-refresh route below. */
   let currentSettings: Settings | null = null
-  let lastForcedRefreshAt = 0
+  /**
+   * start() publishes a product's metadata only for the products it schedules,
+   * so an on-demand fetch of an unscheduled aurora has to publish its own —
+   * otherwise the probability lands on a path with no units, no zones and no
+   * display name, which is a bare number in the data browser.
+   */
+  let auroraMetaPublished = false
   /** When this run of the plugin began; served by the status route below. */
   let startedAt: string | null = null
 
@@ -140,19 +161,80 @@ export default function (app: any): Plugin {
 
   function schedule(product: Product, settings: Settings, delayMs: number) {
     if (stopped) return
+    // Clear first: a manual refresh can reschedule a product whose own run is
+    // still in flight, and that run will reschedule itself when it resolves.
+    // Without this the product would be left holding two live timers, only one
+    // of which this map can ever cancel.
+    const existing = productTimers.get(product.name)
+    if (existing) clearTimeout(existing)
     productTimers.set(
       product.name,
       setTimeout(() => run(product, settings), delayMs)
     )
   }
 
+  /**
+   * Restart a scheduled product's clock, after something else has just fetched
+   * for it. A manual refresh a minute before the tick would otherwise buy the
+   * payload twice, and what that payload costs is the whole reason the aurora
+   * interval defaults to two hours. A no-op for a product that is not
+   * scheduled, which is the case this exists to serve.
+   *
+   * A manual refresh that joined a scheduled run makes this replace the timer
+   * that run has just set, with the same delay it just used. Two reschedules
+   * for one outcome, and cheaper than the bookkeeping it would take to notice.
+   */
+  function deferNextRun(product: Product, settings: Settings) {
+    if (!productTimers.has(product.name)) return
+    schedule(product, settings, intervalFor(product, settings))
+  }
+
+  /**
+   * A product's refresh, at most one at a time, recording when the fetch behind
+   * it began.
+   *
+   * Two things need that. A manual refresh must not start a second fetch
+   * alongside a scheduled one already awaiting NOAA — the same payload twice,
+   * racing to write the same cache file — so it joins the one in flight
+   * instead; `deferNextRun` cannot help there, because by then the timer has
+   * already fired. And the manual route's cooldown is about NOAA traffic
+   * rather than about button presses, so a scheduled fetch has to hold it down
+   * too: a press seconds after a scheduled fetch would otherwise buy the same
+   * grid again.
+   */
+  function refreshOnce(product: Product, settings: Settings) {
+    const joined = inFlight.get(product.name)
+    if (joined) return joined
+
+    const previousStartedAt = lastRefreshStartedAt.get(product.name)
+    lastRefreshStartedAt.set(product.name, Date.now())
+
+    const attempt: Promise<RefreshResult> = product
+      .refresh({ client, publisher, settings, stopped: () => stopped })
+      .then((result) => {
+        // 'not-ready' is decided before anything goes out — the aurora product
+        // checks for a position first — so it is not a fetch, and must not
+        // hold down a cooldown that exists to bound NOAA traffic.
+        if (result === 'not-ready') {
+          if (previousStartedAt === undefined)
+            lastRefreshStartedAt.delete(product.name)
+          else lastRefreshStartedAt.set(product.name, previousStartedAt)
+        }
+        return result
+      })
+      .finally(() => {
+        if (inFlight.get(product.name) === attempt)
+          inFlight.delete(product.name)
+      })
+    inFlight.set(product.name, attempt)
+    return attempt
+  }
+
   function run(product: Product, settings: Settings) {
-    const ctx = { client, publisher, settings, stopped: () => stopped }
     // One failing product must never take down the others, and an unhandled
     // rejection here would reach the server. Every branch below reschedules
     // itself — there is no setInterval backing this up.
-    product
-      .refresh(ctx)
+    refreshOnce(product, settings)
       .then((result) => {
         if (result === 'not-ready') {
           const attempt = notReadyAttempts.get(product.name) ?? 0
@@ -209,8 +291,9 @@ export default function (app: any): Plugin {
           if (!cached) {
             res.status(404).json({
               error:
-                'No aurora data cached yet. Enable aurora in the plugin' +
-                ' configuration and wait for the next fetch cycle.'
+                'No aurora data cached yet. Fetch one on demand from this' +
+                " plugin's webapp, or turn on automatic aurora updates in the" +
+                ' plugin configuration.'
             })
             return
           }
@@ -259,10 +342,14 @@ export default function (app: any): Plugin {
 
           const source = auroraGridForTiles()
           if (!source) {
+            // A chart plotter has no button to offer, so this one points at
+            // the setting rather than at the webapp's on-demand fetch: an
+            // overlay that only refreshes when somebody opens a browser is
+            // not an overlay anyone should be navigating by.
             res.status(404).json({
               error:
-                'No aurora data cached yet. Enable aurora in the plugin' +
-                ' configuration and wait for the next fetch cycle.'
+                'No aurora data cached yet. Turn on automatic aurora updates' +
+                ' in the plugin configuration.'
             })
             return
           }
@@ -291,6 +378,18 @@ export default function (app: any): Plugin {
           // cheaply across a refresh instead of guessing at an age.
           res.setHeader('ETag', `"${source.key}-${cacheKey}"`)
           res.setHeader('Cache-Control', 'public, max-age=300')
+          // How old the grid behind the tile is. Every other reader of this
+          // cache says so -- the webapp's map prints it, and the tile says
+          // when updates are off -- but a chart plotter has only what is on
+          // the wire, and the ETag carries the same instant as a token no
+          // client may parse. It matters more now that leaving the schedule
+          // off is a supported way to run: the cache then moves only when
+          // somebody presses the button. Reported, not enforced; what counts
+          // as too old belongs to whoever is navigating by it.
+          const fetchedAt = Date.parse(source.key)
+          if (Number.isFinite(fetchedAt)) {
+            res.setHeader('Last-Modified', new Date(fetchedAt).toUTCString())
+          }
           res.send(png)
         }
       )
@@ -301,39 +400,52 @@ export default function (app: any): Plugin {
       // into a busy loop. GET rather than POST for the same reason the read
       // above is GET: this namespace gates PUT/POST/DELETE behind auth, and
       // this route needs no more privilege than the data it is refreshing.
+      //
+      // Works whether or not aurora is scheduled. `auroraEnabled` says what
+      // the plugin may spend on its own initiative; it does not say the data
+      // can never be had. Turning the recurring fetch off and then having to
+      // turn it back on, wait out an interval and turn it off again is four
+      // steps to answer one question, and it leaves a recurring cost behind
+      // if the last step is forgotten.
       router.get(
         '/signalk-noaa-space-weather/aurora-refresh',
         async (_req: any, res: any) => {
-          if (!currentSettings) {
+          const settings = currentSettings
+          if (!settings) {
             res.status(503).json({ error: 'Plugin is not running.' })
             return
           }
-          if (!currentSettings.auroraEnabled) {
-            res.status(400).json({
-              error: 'Aurora is disabled in the plugin configuration.'
-            })
-            return
+          // A fetch already in flight is not traffic this request would add:
+          // it joins that one below rather than being refused for it. Only a
+          // fetch this request would *start* is the cooldown's business.
+          if (!inFlight.has(aurora.name)) {
+            const sinceLast =
+              Date.now() - (lastRefreshStartedAt.get(aurora.name) ?? 0)
+            if (sinceLast < FORCE_REFRESH_COOLDOWN_MS) {
+              const retryAfterS = Math.ceil(
+                (FORCE_REFRESH_COOLDOWN_MS - sinceLast) / 1000
+              )
+              res.setHeader('Retry-After', String(retryAfterS))
+              res.status(429).json({
+                error: `Refreshed too recently; try again in ${retryAfterS}s.`
+              })
+              return
+            }
           }
-          const sinceLast = Date.now() - lastForcedRefreshAt
-          if (sinceLast < FORCE_REFRESH_COOLDOWN_MS) {
-            const retryAfterS = Math.ceil(
-              (FORCE_REFRESH_COOLDOWN_MS - sinceLast) / 1000
-            )
-            res.setHeader('Retry-After', String(retryAfterS))
-            res.status(429).json({
-              error: `Refreshed too recently; try again in ${retryAfterS}s.`
-            })
-            return
+
+          if (!auroraMetaPublished && aurora.metadata) {
+            publisher.meta(aurora.metadata(settings))
+            auroraMetaPublished = true
           }
-          lastForcedRefreshAt = Date.now()
+
+          // What the cache holds before the fetch, to tell a refresh that
+          // produced something from one that only returned. Every entry
+          // carries the instant it was written, so an unchanged `fetchedAt`
+          // means nothing new was written under this request.
+          const before = readAuroraCache(publisher.dataDirPath())
 
           try {
-            const result = await aurora.refresh({
-              client,
-              publisher,
-              settings: currentSettings,
-              stopped: () => stopped
-            })
+            const result = await refreshOnce(aurora, settings)
             if (result === 'not-ready') {
               res.status(409).json({
                 error: 'No vessel position available to refresh against yet.'
@@ -346,16 +458,20 @@ export default function (app: any): Plugin {
           }
 
           const cached = readAuroraCache(publisher.dataDirPath())
-          if (!cached) {
-            // The fetch above succeeded (no throw, not 'not-ready') but
-            // wrote nothing readable back -- best-effort cache write must
-            // have failed. The scheduled probability publish still went out.
+          // `refresh()` returns without throwing when the payload carried no
+          // usable grid, and its cache write is best effort. Either way
+          // nothing new landed, and answering 200 with the previous grid would
+          // report a refresh that did not happen -- on the webapp, a button
+          // that says it worked over a reading that has not moved.
+          if (!cached || cached.fetchedAt === before?.fetchedAt) {
             res.status(502).json({
-              error:
-                'Refreshed, but the result could not be read back from cache.'
+              error: 'Refreshed, but no new aurora grid came back from NOAA.'
             })
             return
           }
+
+          notReadyAttempts.delete(aurora.name)
+          deferNextRun(aurora, settings)
           res.json(cached)
         }
       )
@@ -393,12 +509,14 @@ export default function (app: any): Plugin {
       const settings = settingsFrom(props)
       currentSettings = settings
       startedAt = new Date().toISOString()
+      auroraMetaPublished = false
 
       for (const product of PRODUCTS) {
         if (product.enabled && !product.enabled(settings)) continue
 
         if (product.metadata) {
           publisher.meta(product.metadata(settings))
+          if (product === aurora) auroraMetaPublished = true
         }
 
         schedule(product, settings, INITIAL_DELAY_MS)

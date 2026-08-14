@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.21.0] - 2026-08-14
+
+### Changed
+
+- **The aurora button works with automatic updates switched off.** That setting
+  now governs the recurring fetch and nothing else: it says what the plugin may
+  spend on its own initiative, and pressing a button is not the plugin's own
+  initiative. Leave the two-hourly fetch off and ask for a reading on the night
+  you want one — the probability, the map and the chart overlay tiles all come
+  from that single fetch, the same as they would from a scheduled one.
+
+  Before this, the button was there and enabled and could not succeed, and the
+  map's **Retry** re-read the same empty cache for as long as anyone was willing
+  to press it. The only route to one aurora reading was to turn the recurring
+  fetch on, wait out an interval, and turn it off again.
+
+- **The aurora tile says which kind of "nothing yet" it is showing** — waiting
+  for a schedule, waiting for somebody to ask, or a plugin that is not running.
+  The three used to render as the same sentence, and only one of them was ever
+  true. When a reading did come from a press, the tile now says so, because
+  "observed 21:40" on a tile that will never update again reads as live.
+
+- **A manual fetch restarts the aurora interval** rather than being spent on top
+  of it, and a press while a scheduled fetch is already running waits for that
+  one instead of starting a second. A press near the tick used to buy the
+  145 KB payload twice. The minimum spacing between fetches is now measured
+  from the last fetch rather than the last press, so a scheduled one holds it
+  down too.
+
+- **Chart overlay tiles now say how old the oval is**, as a `Last-Modified`
+  header taken from the fetch behind them. The webapp always showed it; a chart
+  plotter had nothing, and with automatic updates off the grid moves only when
+  somebody asks for one, so it can be days old without anything being wrong.
+  Reported rather than enforced — the plugin serves what it has and leaves
+  "too old" to whoever is navigating by it.
+
+- **A refused fetch says which refusal it hit** — how many seconds are left on
+  the cooldown, waiting for a GPS fix, not logged in, the plugin not running,
+  an error from NOAA — where all five used to read "Refresh failed". Being told
+  to wait for a position is the difference between a fault and a countdown, and
+  a fetch that never left the server no longer costs the minute either: NOAA is
+  asked for nothing until the vessel has a position, so there is nothing for the
+  cooldown to bound.
+  A fetch that came back with nothing usable now reports that as a failure,
+  instead of quietly reporting success over the reading that was already there.
+
 ## [0.20.0] - 2026-08-13
 
 ### Changed
