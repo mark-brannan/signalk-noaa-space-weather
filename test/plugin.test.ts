@@ -601,7 +601,7 @@ describe('plugin module', () => {
     it('does not charge the cooldown for a request that never reached NOAA', async () => {
       stubSuccessfulFetch()
       const app = fakeApp(dataDir, undefined)
-      let position: any = undefined
+      let position: typeof POSITION | undefined = undefined
       app.getSelfPath = vi.fn((path: string) =>
         path === 'navigation.position.value' ? position : undefined
       )

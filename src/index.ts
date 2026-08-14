@@ -179,6 +179,10 @@ export default function (app: any): Plugin {
    * payload twice, and what that payload costs is the whole reason the aurora
    * interval defaults to two hours. A no-op for a product that is not
    * scheduled, which is the case this exists to serve.
+   *
+   * A manual refresh that joined a scheduled run makes this replace the timer
+   * that run has just set, with the same delay it just used. Two reschedules
+   * for one outcome, and cheaper than the bookkeeping it would take to notice.
    */
   function deferNextRun(product: Product, settings: Settings) {
     if (!productTimers.has(product.name)) return
