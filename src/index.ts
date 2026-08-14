@@ -53,6 +53,10 @@ const NOT_READY_MAX_MS = 5 * 60 * 1000
  * Floor between manual "refresh now" requests from the webapp. The aurora
  * interval defaults to two hours to bound what that payload costs, so a button
  * a user can mash has to bound it too, independent of the configured interval.
+ *
+ * One number for both cases. It is the same NOAA traffic whether or not a
+ * schedule is also running, and a second, longer floor for the unscheduled
+ * case would be a rule nobody could predict from the setting they changed.
  */
 const FORCE_REFRESH_COOLDOWN_MS = 60 * 1000
 /**
@@ -97,6 +101,13 @@ export default function (app: any): Plugin {
   /** Set on start(), read by the force-refresh route below. */
   let currentSettings: Settings | null = null
   let lastForcedRefreshAt = 0
+  /**
+   * start() publishes a product's metadata only for the products it schedules,
+   * so an on-demand fetch of an unscheduled aurora has to publish its own —
+   * otherwise the probability lands on a path with no units, no zones and no
+   * display name, which is a bare number in the data browser.
+   */
+  let auroraMetaPublished = false
   /** When this run of the plugin began; served by the status route below. */
   let startedAt: string | null = null
 
@@ -140,10 +151,28 @@ export default function (app: any): Plugin {
 
   function schedule(product: Product, settings: Settings, delayMs: number) {
     if (stopped) return
+    // Clear first: a manual refresh can reschedule a product whose own run is
+    // still in flight, and that run will reschedule itself when it resolves.
+    // Without this the product would be left holding two live timers, only one
+    // of which this map can ever cancel.
+    const existing = productTimers.get(product.name)
+    if (existing) clearTimeout(existing)
     productTimers.set(
       product.name,
       setTimeout(() => run(product, settings), delayMs)
     )
+  }
+
+  /**
+   * Restart a scheduled product's clock, after something else has just fetched
+   * for it. A manual refresh a minute before the tick would otherwise buy the
+   * payload twice, and what that payload costs is the whole reason the aurora
+   * interval defaults to two hours. A no-op for a product that is not
+   * scheduled, which is the case this exists to serve.
+   */
+  function deferNextRun(product: Product, settings: Settings) {
+    if (!productTimers.has(product.name)) return
+    schedule(product, settings, intervalFor(product, settings))
   }
 
   function run(product: Product, settings: Settings) {
@@ -209,8 +238,9 @@ export default function (app: any): Plugin {
           if (!cached) {
             res.status(404).json({
               error:
-                'No aurora data cached yet. Enable aurora in the plugin' +
-                ' configuration and wait for the next fetch cycle.'
+                'No aurora data cached yet. Fetch one on demand from this' +
+                " plugin's webapp, or turn on automatic aurora updates in the" +
+                ' plugin configuration.'
             })
             return
           }
@@ -259,10 +289,14 @@ export default function (app: any): Plugin {
 
           const source = auroraGridForTiles()
           if (!source) {
+            // A chart plotter has no button to offer, so this one points at
+            // the setting rather than at the webapp's on-demand fetch: an
+            // overlay that only refreshes when somebody opens a browser is
+            // not an overlay anyone should be navigating by.
             res.status(404).json({
               error:
-                'No aurora data cached yet. Enable aurora in the plugin' +
-                ' configuration and wait for the next fetch cycle.'
+                'No aurora data cached yet. Turn on automatic aurora updates' +
+                ' in the plugin configuration.'
             })
             return
           }
@@ -301,17 +335,19 @@ export default function (app: any): Plugin {
       // into a busy loop. GET rather than POST for the same reason the read
       // above is GET: this namespace gates PUT/POST/DELETE behind auth, and
       // this route needs no more privilege than the data it is refreshing.
+      //
+      // Works whether or not aurora is scheduled. `auroraEnabled` says what
+      // the plugin may spend on its own initiative; it does not say the data
+      // can never be had. Turning the recurring fetch off and then having to
+      // turn it back on, wait out an interval and turn it off again is four
+      // steps to answer one question, and it leaves a recurring cost behind
+      // if the last step is forgotten.
       router.get(
         '/signalk-noaa-space-weather/aurora-refresh',
         async (_req: any, res: any) => {
-          if (!currentSettings) {
+          const settings = currentSettings
+          if (!settings) {
             res.status(503).json({ error: 'Plugin is not running.' })
-            return
-          }
-          if (!currentSettings.auroraEnabled) {
-            res.status(400).json({
-              error: 'Aurora is disabled in the plugin configuration.'
-            })
             return
           }
           const sinceLast = Date.now() - lastForcedRefreshAt
@@ -325,16 +361,29 @@ export default function (app: any): Plugin {
             })
             return
           }
+          const previousForcedRefreshAt = lastForcedRefreshAt
+          // Claimed before the await, not after: two requests arriving in the
+          // same tick must not both get through the check above.
           lastForcedRefreshAt = Date.now()
+
+          if (!auroraMetaPublished && aurora.metadata) {
+            publisher.meta(aurora.metadata(settings))
+            auroraMetaPublished = true
+          }
 
           try {
             const result = await aurora.refresh({
               client,
               publisher,
-              settings: currentSettings,
+              settings,
               stopped: () => stopped
             })
             if (result === 'not-ready') {
+              // The position check is ahead of the fetch, so nothing went to
+              // NOAA and the cooldown has nothing to bound. Charging for it
+              // would make a boat that is still waiting on its first GPS fix
+              // wait a further minute for a request that never left the server.
+              lastForcedRefreshAt = previousForcedRefreshAt
               res.status(409).json({
                 error: 'No vessel position available to refresh against yet.'
               })
@@ -344,6 +393,9 @@ export default function (app: any): Plugin {
             res.status(502).json({ error: `Aurora refresh failed: ${err}` })
             return
           }
+
+          notReadyAttempts.delete(aurora.name)
+          deferNextRun(aurora, settings)
 
           const cached = readAuroraCache(publisher.dataDirPath())
           if (!cached) {
@@ -393,12 +445,14 @@ export default function (app: any): Plugin {
       const settings = settingsFrom(props)
       currentSettings = settings
       startedAt = new Date().toISOString()
+      auroraMetaPublished = false
 
       for (const product of PRODUCTS) {
         if (product.enabled && !product.enabled(settings)) continue
 
         if (product.metadata) {
           publisher.meta(product.metadata(settings))
+          if (product === aurora) auroraMetaPublished = true
         }
 
         schedule(product, settings, INITIAL_DELAY_MS)
