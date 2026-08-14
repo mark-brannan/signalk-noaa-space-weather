@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.21.1] - 2026-08-14
+
+### Fixed
+
+- **Saving from the configuration screen clears out settings that no longer
+  exist.** It used to write its own keys over whatever was already in the file,
+  so a config that had been through a few releases kept every key it had ever
+  been saved with — `notificationVisual`, `minScaleAlert`,
+  `observationsInterval` and the rest sitting alongside the ones in force, with
+  nothing to say which was which. It now writes the six current settings and
+  nothing else. Nothing about what the plugin runs changes: all six are written
+  explicitly, so an old key that was being migrated had already been superseded
+  by the value next to it.
+
 ## [0.21.0] - 2026-08-14
 
 ### Changed
