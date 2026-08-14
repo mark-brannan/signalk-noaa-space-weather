@@ -7,7 +7,7 @@ import { settingsFrom } from '../src/config'
 import { AURORA_BASE } from '../src/paths'
 import { ValueUpdate } from '../src/parse'
 import { Meta } from '../src/publisher'
-import { writeAuroraCache } from '../src/cache/auroraCache'
+import { readAuroraCache, writeAuroraCache } from '../src/cache/auroraCache'
 import { writeAdvisoryCache } from '../src/cache/advisoryCache'
 import { fixtureJson } from './fixtures'
 
@@ -242,6 +242,20 @@ describe('plugin module', () => {
       expect([...response.sent.subarray(0, 8)]).toEqual([
         137, 80, 78, 71, 13, 10, 26, 10
       ])
+    })
+
+    it('dates the tile by the fetch behind it, not by the request', async () => {
+      const { router } = serving(BAND)
+      const cachedAt = readAuroraCache(dataDir)!.fetchedAt
+      const response = await router.invoke(ROUTE, { z: '2', x: '1', y: '0' })
+
+      // A chart plotter has no equivalent of the webapp's "Cached 21:40", and
+      // with the schedule off the grid moves only when somebody presses the
+      // button -- so the age has to be on the wire. Second resolution: an
+      // HTTP date carries no milliseconds.
+      expect(Date.parse(response.headers['Last-Modified'])).toBe(
+        Math.floor(Date.parse(cachedAt) / 1000) * 1000
+      )
     })
 
     it('returns the identical buffer on a repeat request', async () => {

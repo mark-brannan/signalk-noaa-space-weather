@@ -105,6 +105,8 @@ Add that in [`@signalk/charts-plugin`](https://github.com/SignalK/charts-plugin)
 
 Tiles are drawn on demand from the same cached fetch the webapp reads — enabling this costs no extra NOAA traffic — and are re-rendered automatically when a new grid arrives. Zoom is capped at 8 because the source grid is 1°; beyond that there is nothing more to show.
 
+Each tile carries `Last-Modified` from the fetch behind it, so a client can tell how old the oval is. That matters with `auroraEnabled` off, where the grid only moves when someone asks for one: the plugin serves the last one it has and lets you judge it, rather than picking an expiry on your behalf.
+
 ### Planned
 
 * Registering the overlay as a Signal K `charts` resource, so it appears in Freeboard-SK with no chart-source configuration at all

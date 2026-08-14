@@ -378,6 +378,18 @@ export default function (app: any): Plugin {
           // cheaply across a refresh instead of guessing at an age.
           res.setHeader('ETag', `"${source.key}-${cacheKey}"`)
           res.setHeader('Cache-Control', 'public, max-age=300')
+          // How old the grid behind the tile is. Every other reader of this
+          // cache says so -- the webapp's map prints it, and the tile says
+          // when updates are off -- but a chart plotter has only what is on
+          // the wire, and the ETag carries the same instant as a token no
+          // client may parse. It matters more now that leaving the schedule
+          // off is a supported way to run: the cache then moves only when
+          // somebody presses the button. Reported, not enforced; what counts
+          // as too old belongs to whoever is navigating by it.
+          const fetchedAt = Date.parse(source.key)
+          if (Number.isFinite(fetchedAt)) {
+            res.setHeader('Last-Modified', new Date(fetchedAt).toUTCString())
+          }
           res.send(png)
         }
       )

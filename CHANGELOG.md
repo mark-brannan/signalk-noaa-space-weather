@@ -36,6 +36,13 @@ observe, so internal plumbing lands in a patch even when it adds something.
   from the last fetch rather than the last press, so a scheduled one holds it
   down too.
 
+- **Chart overlay tiles now say how old the oval is**, as a `Last-Modified`
+  header taken from the fetch behind them. The webapp always showed it; a chart
+  plotter had nothing, and with automatic updates off the grid moves only when
+  somebody asks for one, so it can be days old without anything being wrong.
+  Reported rather than enforced — the plugin serves what it has and leaves
+  "too old" to whoever is navigating by it.
+
 - **A refused fetch says which refusal it hit** — how many seconds are left on
   the cooldown, waiting for a GPS fix, not logged in, NOAA unreachable — where
   all four used to read "Refresh failed". Being told to wait for a position is
