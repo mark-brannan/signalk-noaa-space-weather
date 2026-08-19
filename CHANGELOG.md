@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.22.0] - 2026-08-19
+
+### Changed
+
+- **The 27-day outlook moved under the Kp forecast**, from
+  `environment.noaa.swpc.outlook_27day.*` to
+  `environment.noaa.swpc.kp.forecast.outlook27.*`. The six leaf names are
+  unchanged; only the base moved. **Anything pointed at the old paths — a KIP
+  gauge, a Grafana query, a Node-RED flow — reads nothing until it is pointed
+  at the new ones.** They are not aliased: they were published from 0.14.0 to
+  0.21.0 and are gone rather than deprecated.
+
+  The outlook is the same index as `kp.forecast.max24h` and `max72h`, one
+  horizon further out, and asking what the worst Kp coming is should not
+  require knowing which NOAA product answered. It gets its own node under that
+  forecast rather than more siblings beside them, because the two are not the
+  same kind of data — one is a 3-hourly sample, the other a whole-day maximum
+  from a recurrence estimate. Side by side they would read as interchangeable,
+  and their two `series` invite being spliced into one array, which
+  misrepresents both. A named node makes reading the outlook as a continuation
+  of the 3-day forecast a deliberate act rather than an accident.
+
+  Nothing else about the product changed: still no `zones` on any of it, still
+  no notification, still one poll a day.
+
 ## [0.21.0] - 2026-08-14
 
 ### Changed
