@@ -190,8 +190,8 @@ agent's card is routinely blocked on the maintainer's, and two files would show
 each list clear while the work sits deadlocked.
 
 - One line per card: a link, and the action in the imperative. Add `blocked:`
-  and what by only when it is. The link is the part that is never optional —
-  a card nobody but its author can resolve is not a card.
+  and the dependency only when the card is blocked. The link is the part that
+  is never optional — a card nobody but its author can resolve is not a card.
 - Cards die when done. This is a work-in-progress list, not a log — `git log`
   and `CHANGELOG.md` already keep the history.
 - Keep each section short. A list nobody can hold in their head is a second
