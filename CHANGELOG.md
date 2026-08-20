@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.22.0] - 2026-08-20
+
+### Changed
+
+- **The 27-day outlook moved under the Kp forecast.** Its six paths are now
+  `environment.noaa.swpc.kp.forecast.outlook27.*` instead of
+  `environment.noaa.swpc.outlook_27day.*`. The outlook is the same index and
+  the same G mapping as the Kp forecast at a third horizon, so a consumer
+  asking what the worst Kp coming is should not have to know which NOAA
+  product answered. It is a branch under `forecast` rather than a sibling of
+  `max24h` and `max72h`, because a whole-day maximum from a recurrence
+  forecast is not interchangeable with a 3-hourly value. The old paths are
+  gone with no alias: they shipped in 0.14.0 flagged as pre-release, and
+  nothing in the plugin or its webapp reads them.
+
 ## [0.21.1] - 2026-08-14
 
 ### Fixed
