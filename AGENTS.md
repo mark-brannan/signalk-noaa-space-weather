@@ -6,7 +6,7 @@ so a contribution here arrives in the shape the upstream project expects —
 where this repo has to differ, the difference is called out rather than left
 to be discovered.
 
-`CLAUDE.md` is the companion: it holds what this codebase *is* (architecture,
+`CLAUDE.md` is the companion: it holds what this codebase _is_ (architecture,
 the non-obvious constraints, local development, releasing). This file holds how
 to behave. Read both.
 
@@ -144,7 +144,7 @@ output attached, is the scanner working. Read it.
 ### Versions: this repo is the exception
 
 Upstream says never to touch version numbers, because a maintainer sets them at
-publish time. **Here, the version on `main` *is* the release trigger.**
+publish time. **Here, the version on `main` _is_ the release trigger.**
 `.husky/pre-commit` auto-patch-bumps when nothing on the branch has set one
 explicitly, and `.github/workflows/auto-version.yml` tags and publishes whatever
 lands on `main`. So bump explicitly for anything larger than a patch, and let
@@ -172,3 +172,44 @@ its plumbing."
 Reviewers reach for the strict reading of semver here, where any new
 non-breaking functionality is minor. That reading counts routes nobody outside
 this package calls, and it burns a minor version on each one.
+
+## Open loops live in `kanban.md`
+
+Facts have homes already — `docs/noaa-products.md` for measurements, an issue
+for anything with a question in it. **Loose ends have not had one**, and the
+ones that cannot become a commit are the worst off: a stale review-bot
+learning, an account setting, a decision only the maintainer can make. Those
+used to fall out of the end of a session as prose, which is the same as losing
+them — by then the session has been compacted and the comment link, the
+timestamp and the exact wording are already gone.
+
+So: **an open loop is written to `kanban.md` when it is found, never at the end
+of a session.** One file, two sections, because the useful edges cross between
+them — an agent's card is routinely blocked on the maintainer's, and two files
+would show each list clear while the work sits deadlocked.
+
+- One line per card: a link, the action in the imperative, and `blocked:` and
+  what by, if it is.
+- Cards die when done. This is a work-in-progress list, not a log — `git log`
+  and `CHANGELOG.md` already keep the history.
+- Keep each section short. A list nobody can hold in their head is a second
+  place to lose things, so finish or delete before adding.
+- Sections and checkboxes, not a table. A markdown table stops being readable
+  the first time a line wraps.
+
+If a loop is not worth a card, it is not worth telling the maintainer about
+either. That is the point of the file, not a side effect of it.
+
+### End with a prompt, not a status bullet
+
+A closing summary that reads "the vague thing is borked, your call" costs a
+read and returns nothing actionable. It also cannot be acted on a week later,
+which is when it is actually read.
+
+So when a session ends with work still to do, end with **the follow-up prompt
+that would start it** — ready to paste, naming the branch, PR or file it acts
+on. Anything the maintainer must do personally is a `kanban.md` card and is
+referenced by link. Nothing else goes in a closing message.
+
+Both forms have to survive the session: written so somebody who was not in it
+can act on them.
