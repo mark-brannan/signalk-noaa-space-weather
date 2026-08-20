@@ -134,6 +134,16 @@
     .hero .sub { font-size: 0.8rem; }
     .hero .countdown { font-size: clamp(1.4rem, 8vw, 2rem); }
     .hero .countdown .unit { font-size: 0.56rem; margin-top: 2px; }
+
+    /* Below the breakpoint, the headline and countdown compete for the same
+       row on a knife's edge: whether the flex box wraps or shrinks depends on
+       exact text length, and at ~320-420px it was shrinking the countdown to
+       the point of overflowing the tile's `overflow: hidden` and vanishing
+       entirely -- confirmed by screenshotting both this branch and main at
+       320/375/420/500px with real hero text. Forcing the stack removes the
+       ambiguity instead of chasing the exact width it tips over at. */
+    .tile.hero { flex-direction: column; align-items: flex-start; }
+    .hero .countdown { text-align: left; }
   }
 
   .chip {
