@@ -20,7 +20,7 @@ observe, so internal plumbing lands in a patch even when it adds something.
   `max24h` and `max72h`, because a whole-day maximum from a recurrence
   forecast is not interchangeable with a 3-hourly value. The old paths are
   gone with no alias: they shipped in 0.14.0 flagged as pre-release, and
-  nothing in the plugin or its webapp read them.
+  nothing in the plugin or its webapp reads them.
 
 ## [0.21.1] - 2026-08-14
 

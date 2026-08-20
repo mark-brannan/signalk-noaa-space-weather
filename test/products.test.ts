@@ -283,6 +283,27 @@ describe('outlook27 product', () => {
     for (const path of h.paths()) expect(described).toContain(path)
   })
 
+  it('shares the Kp forecast subtree without colliding with it', async () => {
+    // The outlook hangs off the Kp forecast so that all three horizons answer
+    // "what is the worst Kp coming" from one place. That only holds while the
+    // two products' leaves stay disjoint, and four of them -- maxNoaaScale,
+    // nextStormTime, nextStormKp and series -- are spelled identically in
+    // both, separated only by the `outlook27` node. Drop that node and they
+    // overwrite the 3-hourly forecast with a recurrence estimate.
+    const kpPaths = kp.metadata!(settingsFrom({})).map((m) => m.path)
+    const h = stubbed()
+    await outlook27.refresh(h.ctx as any)
+
+    expect(h.paths().length).toBeGreaterThan(0)
+    for (const path of h.paths()) {
+      expect(
+        path.startsWith('environment.noaa.swpc.kp.forecast.outlook27.'),
+        path
+      ).toBe(true)
+      expect(kpPaths, path).not.toContain(path)
+    }
+  })
+
   it('polls no more than once a day, whatever the settings say', () => {
     // Bandwidth: the outlook is issued weekly, so anything faster than daily
     // is paid for and thrown away. Pinned as a floor rather than an equality
