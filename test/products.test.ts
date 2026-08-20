@@ -232,19 +232,23 @@ describe('outlook27 product', () => {
     await outlook27.refresh(h.ctx as any)
 
     expect(h.errors).toEqual([])
-    expect(h.valueAt('environment.noaa.swpc.outlook_27day.maxKp')).toBe(5)
-    expect(h.valueAt('environment.noaa.swpc.outlook_27day.maxKpTime')).toBe(
-      '2026-08-11T00:00:00.000Z'
+    expect(h.valueAt('environment.noaa.swpc.kp.forecast.outlook27.maxKp')).toBe(
+      5
     )
-    expect(h.valueAt('environment.noaa.swpc.outlook_27day.maxNoaaScale')).toBe(
-      1
-    )
-    expect(h.valueAt('environment.noaa.swpc.outlook_27day.nextStormTime')).toBe(
-      '2026-08-11T00:00:00.000Z'
-    )
-    expect(h.valueAt('environment.noaa.swpc.outlook_27day.nextStormKp')).toBe(5)
     expect(
-      h.valueAt('environment.noaa.swpc.outlook_27day.series')
+      h.valueAt('environment.noaa.swpc.kp.forecast.outlook27.maxKpTime')
+    ).toBe('2026-08-11T00:00:00.000Z')
+    expect(
+      h.valueAt('environment.noaa.swpc.kp.forecast.outlook27.maxNoaaScale')
+    ).toBe(1)
+    expect(
+      h.valueAt('environment.noaa.swpc.kp.forecast.outlook27.nextStormTime')
+    ).toBe('2026-08-11T00:00:00.000Z')
+    expect(
+      h.valueAt('environment.noaa.swpc.kp.forecast.outlook27.nextStormKp')
+    ).toBe(5)
+    expect(
+      h.valueAt('environment.noaa.swpc.kp.forecast.outlook27.series')
     ).toHaveLength(27)
   })
 
