@@ -6,7 +6,7 @@ so a contribution here arrives in the shape the upstream project expects —
 where this repo has to differ, the difference is called out rather than left
 to be discovered.
 
-`CLAUDE.md` is the companion: it holds what this codebase _is_ (architecture,
+`CLAUDE.md` is the companion: it holds what this codebase *is* (architecture,
 the non-obvious constraints, local development, releasing). This file holds how
 to behave. Read both.
 
@@ -144,7 +144,7 @@ output attached, is the scanner working. Read it.
 ### Versions: this repo is the exception
 
 Upstream says never to touch version numbers, because a maintainer sets them at
-publish time. **Here, the version on `main` _is_ the release trigger.**
+publish time. **Here, the version on `main` *is* the release trigger.**
 `.husky/pre-commit` auto-patch-bumps when nothing on the branch has set one
 explicitly, and `.github/workflows/auto-version.yml` tags and publishes whatever
 lands on `main`. So bump explicitly for anything larger than a patch, and let
