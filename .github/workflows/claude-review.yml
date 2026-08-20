@@ -34,6 +34,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      # This runner has no dotfiles: AGENTS.md's "Open loops" section points
+      # at ~/.claude/CLAUDE.md's standing orders (mark-brannan/dotfiles#15),
+      # which is exactly the file that doesn't exist here without this step.
+      # Best-effort only -- a stale or unreachable dotfiles fetch shouldn't
+      # fail the review, it should just leave the reviewer without the extra
+      # context, same as it had before this step existed.
+      - name: Sync standing orders from dotfiles
+        run: |
+          mkdir -p "$HOME/.claude/rules"
+          curl -fsSL https://raw.githubusercontent.com/mark-brannan/dotfiles/main/.claude/CLAUDE.md \
+            -o "$HOME/.claude/CLAUDE.md" \
+            || echo "::warning::couldn't fetch dotfiles CLAUDE.md, reviewing without it"
+          curl -fsSL https://raw.githubusercontent.com/mark-brannan/dotfiles/main/.claude/rules/code.md \
+            -o "$HOME/.claude/rules/code.md" \
+            || echo "::warning::couldn't fetch dotfiles rules/code.md, reviewing without it"
+
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
