@@ -29,3 +29,21 @@ jobs:
       # alongside the current one is the regression guard for it.
       enable-signalk-integration: true
       signalk-server-versions: '["2.23.0", "latest"]'
+
+  # Separate from plugin-ci rather than folded into its build-command, because
+  # the registry reads that command and runs it under a 60 second cap covering
+  # install, build and test together. A second tsc pass is worth having, but
+  # not out of that budget -- and it is platform-independent, so once is enough.
+  typecheck:
+    name: Typecheck (src + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
