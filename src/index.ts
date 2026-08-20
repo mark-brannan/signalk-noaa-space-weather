@@ -12,12 +12,14 @@ import { readAuroraCache } from './cache/auroraCache.js'
 import { readAdvisoryCache } from './cache/advisoryCache.js'
 import { createPublisher } from './publisher.js'
 import { advisory } from './products/advisory.js'
+import { aIndex } from './products/aIndex.js'
 import { aurora } from './products/aurora.js'
 import { alerts } from './products/alerts.js'
 import { f107 } from './products/f107.js'
 import { kp } from './products/kp.js'
 import { outlook27 } from './products/outlook27.js'
 import { scales } from './products/scales.js'
+import { sunspot } from './products/sunspot.js'
 import { solarWind } from './products/solarWind.js'
 import { Product } from './products/types.js'
 import {
@@ -33,6 +35,8 @@ const PRODUCTS: Product[] = [
   outlook27,
   solarWind,
   f107,
+  aIndex,
+  sunspot,
   aurora,
   advisory,
   alerts
