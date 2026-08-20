@@ -7,21 +7,15 @@ Delete it when it is done.
 
 ## Yours
 
-- [ ] Delete the stale CodeRabbit learning from
-      [PR #91](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/91#discussion_r3819899195)
-      at https://app.coderabbit.ai/learnings — the entry stamped
-      `2026-08-20T08:33:57Z` on `src/products/aIndex.ts:57-67`, beginning
-      "products intentionally republish unchanged values". It is wrong, it
-      contradicts `AGENTS.md`'s publish-on-change rule, and the corrected
-      learning stamped `08:37:29Z` replaced it. CodeRabbit cannot remove its
-      own learning; only the UI can.
-- [ ] Add the closing-message rule to `~/.claude/CLAUDE.md` so it applies to
-      every repo, not just this one. Text to paste is in
-      [PR #95](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/95).
-      Agents here run in ephemeral containers, so a global file written from a
-      session is gone with the container — this one has to be done on a real
-      machine.
+- [ ] Delete the CodeRabbit learning stamped `2026-08-20T08:33:57Z` on
+      `src/products/aIndex.ts` at https://app.coderabbit.ai/learnings — it
+      contradicts the `08:37:29Z` one that replaced it
+      ([why](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/91#discussion_r3819922174))
+- [ ] Paste the closing-message rule from
+      [#95](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/95)
+      into `~/.claude/CLAUDE.md` on a real machine — agents here run in
+      ephemeral containers
 
 ## Claude's
 
-- [ ] Nothing in flight.
+Nothing in flight.

@@ -176,17 +176,18 @@ this package calls, and it burns a minor version on each one.
 ## Open loops live in `kanban.md`
 
 Facts have homes already — `docs/noaa-products.md` for measurements, an issue
-for anything with a question in it. **Loose ends have not had one**, and the
-ones that cannot become a commit are the worst off: a stale review-bot
-learning, an account setting, a decision only the maintainer can make. Those
-used to fall out of the end of a session as prose, which is the same as losing
-them — by then the session has been compacted and the comment link, the
-timestamp and the exact wording are already gone.
+for anything with a question in it. `kanban.md` is the home for loose ends, and
+especially for the ones that cannot become a commit: a stale review-bot
+learning, an account setting, a decision only the maintainer can make.
 
-So: **an open loop is written to `kanban.md` when it is found, never at the end
-of a session.** One file, two sections, because the useful edges cross between
-them — an agent's card is routinely blocked on the maintainer's, and two files
-would show each list clear while the work sits deadlocked.
+**Write the card when the loop is found, never at the end of a session.** By
+the end of a long one the context has been compacted, so the comment link, the
+timestamp and the exact wording are gone and what is left is unactionable.
+Discovery is the last moment the evidence still exists.
+
+One file, two sections, because the useful edges cross between them — an
+agent's card is routinely blocked on the maintainer's, and two files would show
+each list clear while the work sits deadlocked.
 
 - One line per card: a link, the action in the imperative, and `blocked:` and
   what by, if it is.
