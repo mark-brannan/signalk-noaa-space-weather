@@ -2,7 +2,8 @@
 
 Work in flight, and only that. Facts go to `docs/`, questions go to an issue,
 history goes to `git log` — see [AGENTS.md](AGENTS.md#open-loops-live-in-kanbanmd)
-for the rules. A card carries a link, the action, and what it is blocked by.
+for the rules. A card carries a link, the action, and — when it applies — what it is
+blocked by.
 Delete it when it is done.
 
 ## Yours
