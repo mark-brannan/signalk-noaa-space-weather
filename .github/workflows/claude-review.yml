@@ -37,18 +37,32 @@ jobs:
       # This runner has no dotfiles: AGENTS.md's "Open loops" section points
       # at ~/.claude/CLAUDE.md's standing orders (mark-brannan/dotfiles#15),
       # which is exactly the file that doesn't exist here without this step.
-      # Best-effort only -- a stale or unreachable dotfiles fetch shouldn't
-      # fail the review, it should just leave the reviewer without the extra
-      # context, same as it had before this step existed.
+      # Pinned to the commit that merged #15, not `main` -- a later dotfiles
+      # commit (or a compromised one) must not be able to silently change
+      # what this reviewer treats as its own instructions. Bump the SHA
+      # through a reviewed change here when the standing orders move.
+      #
+      # Best-effort and all-or-nothing: fetch into a temp dir with timeouts
+      # and only install once both files land, so a stalled request can't
+      # eat the job's 20-minute budget and a partial fetch can't leave one
+      # file updated and the other stale. Either both files land or neither
+      # does -- the reviewer just runs without the extra context.
       - name: Sync standing orders from dotfiles
         run: |
-          mkdir -p "$HOME/.claude/rules"
-          curl -fsSL https://raw.githubusercontent.com/mark-brannan/dotfiles/main/.claude/CLAUDE.md \
-            -o "$HOME/.claude/CLAUDE.md" \
-            || echo "::warning::couldn't fetch dotfiles CLAUDE.md, reviewing without it"
-          curl -fsSL https://raw.githubusercontent.com/mark-brannan/dotfiles/main/.claude/rules/code.md \
-            -o "$HOME/.claude/rules/code.md" \
-            || echo "::warning::couldn't fetch dotfiles rules/code.md, reviewing without it"
+          dotfiles_sha=bcf104bc877bb14d11cd8fea1eabdd3b04d65289
+          raw_base="https://raw.githubusercontent.com/mark-brannan/dotfiles/$dotfiles_sha/.claude"
+          tmp_dir="$(mktemp -d)"
+          if curl --fail --silent --show-error --location --connect-timeout 10 --max-time 60 \
+               "$raw_base/CLAUDE.md" -o "$tmp_dir/CLAUDE.md" &&
+             curl --fail --silent --show-error --location --connect-timeout 10 --max-time 60 \
+               "$raw_base/rules/code.md" -o "$tmp_dir/code.md"; then
+            mkdir -p "$HOME/.claude/rules"
+            mv "$tmp_dir/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+            mv "$tmp_dir/code.md" "$HOME/.claude/rules/code.md"
+          else
+            echo "::warning::couldn't fetch dotfiles standing orders, reviewing without them"
+          fi
+          rm -rf "$tmp_dir"
 
       - uses: anthropics/claude-code-action@v1
         with:
