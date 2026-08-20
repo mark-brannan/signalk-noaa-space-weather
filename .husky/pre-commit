@@ -19,7 +19,7 @@
 # A skipped bump is safe downstream. .github/workflows/auto-version.yml sees
 # package.json's version already matching the latest tag, logs "Already
 # tagged; nothing to publish" and exits without triggering publish.yml.
-NO_PUBLISH_IMPACT='^(\.github/|\.husky/|\.gitignore|\.prettierrc|\.editorconfig|scripts/|test/|examples/|docs/|CLAUDE\.md|AGENTS\.md|vitest\.config\.ts)'
+NO_PUBLISH_IMPACT='^(\.github/|\.husky/|\.gitignore|\.prettierrc|\.editorconfig|scripts/|test/|examples/|docs/|CLAUDE\.md|AGENTS\.md|kanban\.md|vitest\.config\.ts)'
 STAGED=$(git diff --cached --name-only)
 if [ -n "$STAGED" ] && ! echo "$STAGED" | grep -qvE "$NO_PUBLISH_IMPACT"; then
   exit 0
