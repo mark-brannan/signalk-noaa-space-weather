@@ -182,6 +182,17 @@ learning, an account setting, a decision only the maintainer can make.
 
 The card contract, writing one at discovery instead of at wrap-up, and closing
 a session with a paste-ready prompt instead of a status bullet are standing
-orders now — see `~/.claude/CLAUDE.md`'s "Open loops" section
-([dotfiles#15](https://github.com/mark-brannan/dotfiles/pull/15)). Nothing
-repo-specific to add beyond where the board lives.
+orders now, in `~/.claude/CLAUDE.md`'s "Open loops" section
+([dotfiles#15](https://github.com/mark-brannan/dotfiles/pull/15), merged).
+
+That file lives on the maintainer's machine, not in this checkout, so an
+agent working this repo has it only if something put it there.
+`.github/workflows/claude-review.yml` does that for the one session that
+runs on every PR — it fetches `~/.claude/CLAUDE.md` from `dotfiles@main`
+before the reviewer starts, the same gap the old card-in-`kanban.md` version
+of this rule existed to cover for that session specifically. A session
+started some other way (Claude Code web or mobile, a fresh checkout with no
+such step) doesn't get it for free, and nothing in this repo can promise it
+does — that mechanism belongs to whatever launched the session, not to this
+file. If you're missing it, that's the gap to close, not a reason to restate
+the rules here.

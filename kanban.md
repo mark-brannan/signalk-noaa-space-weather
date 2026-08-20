@@ -12,6 +12,10 @@ what it is blocked by. Delete it when it is done.
       into all three Claude Code environments — only the web UI can set it, and
       `Default (with tailscale)` currently has no seed, so sessions there get
       no `~/.claude/CLAUDE.md`
+- [ ] Decide how a session that isn't `claude-review.yml` (Claude Code web,
+      mobile, a plain checkout) gets `~/.claude/CLAUDE.md` — an
+      environment-level sync only you can configure
+      ([context](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/97#discussion_r3823818406))
 
 ## Claude's
 
