@@ -313,8 +313,9 @@ Dated fixtures are captured into `examples/`.
 (89° to −89°, step −2°) by 90 longitude columns (−178° to 178°, step 4°) —
 8100 points, each the highest-affected frequency in MHz. Wire 3.3 KB, decoded
 41.5 KB, gzip. Conditional GET: content changed and a new ETag at both +150s
-and +300s — same "never a 304" behaviour as everything else in this file, and
-it changes faster than the 15-minute cadence watch above would even resolve.
+and +300s — no 304 was returned at either measured gap, matching the
+realistic-interval behaviour documented above, and it changes faster than the
+15-minute cadence watch above would even resolve.
 Fixture: `examples/drap-global-frequencies.2026_08_20.txt`.
 
 ### WWV geophysical alert (#84)
@@ -368,7 +369,7 @@ expected, since the series is still being appended to at 1-minute cadence.
 **Consequence.** The `-6-hour` variant is the right poll target, as the issue
 guessed: `-1-day` is ~4× the bytes for the same latest value, `-3-day` is
 ~12×. A Signal K path publishes only the newest record per channel, so the
-window only needs to be wide enough to seed a webapp sparkline, not to answer
+window only needs to be wide enough to seed a web app sparkline, not to answer
 "what is it now" — that argues for `-6-hour` over either wider variant.
 Fixtures are `examples/xrays-6-hour.2026_08_20.json` and
 `examples/integral-protons-6-hour.2026_08_20.json`; the `-1-day`/`-3-day`
