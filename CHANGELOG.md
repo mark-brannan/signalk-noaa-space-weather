@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.22.1] - 2026-08-20
+
+### Changed
+
+- **The test suite is type-checked.** `tsconfig.json` excludes `test/` because
+  the build compiles `src/` into `dist/`, and vitest transpiles without
+  checking types, so nothing checked them at all: a test double that had
+  drifted from the interface it stands in for only showed up as an `undefined`
+  at runtime. `npm run typecheck` covers `src/` and `test/` together and runs
+  as its own CI job. No change to what the plugin publishes or how it behaves.
+
 ## [0.22.0] - 2026-08-20
 
 ### Changed
