@@ -7,6 +7,13 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Enable **private vulnerability reporting** (Settings → Code security), so
+      the advisory link in
+      [SECURITY.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/SECURITY.md)
+      and the Code of Conduct's enforcement contact both work — only a repo
+      admin can turn it on
+      ([#106](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/106))
+
 - [ ] Paste the cloud-environment setup blob from
       [dotfiles RUNBOOK](https://github.com/mark-brannan/dotfiles/blob/main/RUNBOOK.md#create-a-cloud-environment)
       into all three Claude Code environments — only the web UI can set it, and
