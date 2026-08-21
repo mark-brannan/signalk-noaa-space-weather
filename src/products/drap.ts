@@ -78,6 +78,25 @@ export const drap: Product = {
       return
     }
 
+    // A boat sitting in one spot commonly reads the same grid cell across
+    // several polls even while the wider grid keeps moving (the grid itself
+    // changes fast -- docs/noaa-products.md -- but one cell need not).
+    // Skip the republish rather than re-broadcasting an unmoved reading to
+    // every connected client, the same rule aIndex.ts and sunspot.ts apply.
+    const frequencyHz = frequencyMHz * MHZ_TO_HZ
+    const publishedFrequency = publisher.selfPath(
+      `${DRAP_BASE}.highest_affected_frequency.value`
+    )
+    const publishedValidTime = publisher.selfPath(
+      `${DRAP_BASE}.validTime.value`
+    )
+    if (
+      publishedFrequency === frequencyHz &&
+      publishedValidTime === grid.validTime
+    ) {
+      return
+    }
+
     publisher.debug(
       'D-RAP %s MHz at %s, %s',
       frequencyMHz,
@@ -87,10 +106,7 @@ export const drap: Product = {
 
     publisher.values(
       [
-        {
-          path: `${DRAP_BASE}.highest_affected_frequency`,
-          value: frequencyMHz * MHZ_TO_HZ
-        },
+        { path: `${DRAP_BASE}.highest_affected_frequency`, value: frequencyHz },
         { path: `${DRAP_BASE}.validTime`, value: grid.validTime }
       ],
       grid.validTime ?? new Date().toISOString()

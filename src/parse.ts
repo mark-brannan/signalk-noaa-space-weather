@@ -1556,6 +1556,10 @@ export function drapFrequencyAt(
   const lonIndex = nearestIndex(grid.longitudes, longitude, angularDistance)
   if (latIndex === -1 || lonIndex === -1) return null
 
+  // parseDrapGrid already guarantees every cell is finite, but this function
+  // takes a DrapGrid rather than the raw text -- "never publish NaN" holds
+  // for any grid a caller hands in, not only ones that went through the
+  // parser.
   const value = grid.frequenciesMHz[latIndex]?.[lonIndex]
   return Number.isFinite(value) ? value : null
 }

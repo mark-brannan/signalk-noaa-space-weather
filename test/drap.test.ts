@@ -15,8 +15,16 @@ function harness(position: any, response?: string) {
     value(path: string, value: any) {
       published.push({ path, value })
     },
-    selfPath: (p: string) =>
-      p === 'navigation.position.value' ? position : undefined,
+    selfPath: (p: string) => {
+      if (p === 'navigation.position.value') return position
+      // Answers what this harness has already published, the same way
+      // products.test.ts's shared harness does, so the dedup check in
+      // drap.ts sees what a server would show it.
+      const match = p.match(/^(.+)\.value$/)
+      return match
+        ? published.find((v) => v.path === match[1])?.value
+        : undefined
+    },
     status: () => {},
     fail: () => {},
     error: (m: string) => errors.push(m),
@@ -95,5 +103,14 @@ describe('D-RAP product', () => {
     await drap.refresh(h.ctx as any)
     expect(h.published).toEqual([])
     expect(h.errors.length).toBe(1)
+  })
+
+  it('does not rebroadcast a reading that has not moved', async () => {
+    const h = harness({ latitude: 41, longitude: -178 }, fixture(REAL))
+    await drap.refresh(h.ctx as any)
+    await drap.refresh(h.ctx as any)
+
+    expect(h.errors).toEqual([])
+    expect(h.published.length).toBe(2) // one refresh's worth: frequency + validTime
   })
 })
