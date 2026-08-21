@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.26.0] - 2026-08-21
+
+### Added
+
+- **GOES X-ray and proton flux.** `environment.noaa.swpc.xray_flux` (W/m²,
+  the 0.1-0.8nm channel the flare class is defined on) and
+  `environment.noaa.swpc.proton_flux` (the >=10 MeV channel the S scale is
+  defined on, converted from NOAA's pfu to m⁻².s⁻¹.sr⁻¹). The R and S scale
+  levels already published only the bucketed severity; this is the raw
+  number behind them, so a history tool such as Grafana can show whether a
+  flare-driven blackout is building or already decaying, and give days of
+  lead on a polar cap absorption event.
+
 ## [0.25.0] - 2026-08-21
 
 ### Changed

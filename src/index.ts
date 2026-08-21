@@ -16,6 +16,7 @@ import { aIndex } from './products/aIndex.js'
 import { aurora } from './products/aurora.js'
 import { alerts } from './products/alerts.js'
 import { f107 } from './products/f107.js'
+import { goesFlux } from './products/goesFlux.js'
 import { kp } from './products/kp.js'
 import { outlook27 } from './products/outlook27.js'
 import { scales } from './products/scales.js'
@@ -35,6 +36,7 @@ const PRODUCTS: Product[] = [
   outlook27,
   solarWind,
   f107,
+  goesFlux,
   aIndex,
   sunspot,
   aurora,
