@@ -15,6 +15,7 @@ import { advisory } from './products/advisory.js'
 import { aIndex } from './products/aIndex.js'
 import { aurora } from './products/aurora.js'
 import { alerts } from './products/alerts.js'
+import { drap } from './products/drap.js'
 import { f107 } from './products/f107.js'
 import { goesFlux } from './products/goesFlux.js'
 import { kp } from './products/kp.js'
@@ -40,6 +41,7 @@ const PRODUCTS: Product[] = [
   aIndex,
   sunspot,
   aurora,
+  drap,
   advisory,
   alerts
 ]
