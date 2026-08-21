@@ -162,8 +162,8 @@ function standDown(publisher: Publisher, path: string, value: any, now: Date) {
  *
  * Signal K has no way to delete a path, so a notification that is simply
  * dropped from the next poll stays raised in the model and in every client
- * that has ever seen it. It has to be actively stood down. Same shape as the
- * advisory product's weekly hand-off.
+ * that has ever seen it. It has to be actively stood down. Same shape as
+ * `clearShortIdPaths` in the advisory product.
  */
 function clearWithdrawn(
   publisher: Publisher,

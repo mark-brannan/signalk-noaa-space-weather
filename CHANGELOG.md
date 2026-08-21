@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.25.0] - 2026-08-21
+
+### Changed
+
+- **The weekly Advisory Outlook now stays on one path.** It used to publish to
+  `notifications.noaa.swpc.advisory_outlook.<bulletin number>`, so every Monday
+  the notification a client was watching went quiet and a sibling appeared at a
+  new path. It now publishes to `notifications.noaa.swpc.advisory_outlook`
+  itself, with the bulletin number carried in the value's `shortId` field. The
+  per-bulletin paths raised by earlier versions are stood down to `normal` on
+  the first refresh after upgrading.
+
 ## [0.24.1] - 2026-08-21
 
 ### Added
