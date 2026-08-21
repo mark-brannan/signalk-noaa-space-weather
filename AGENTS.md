@@ -188,8 +188,8 @@ orders now, in `~/.claude/CLAUDE.md`'s "Open loops" section
 That file lives on the maintainer's machine, not in this checkout, so an
 agent working this repo has it only if something put it there.
 `.github/workflows/claude-review.yml` does that for the one session that
-runs on every PR — it fetches `~/.claude/CLAUDE.md` from `dotfiles@main`
-before the reviewer starts, the same gap the old card-in-`kanban.md` version
+runs on every PR — it fetches `~/.claude/CLAUDE.md` from a pinned commit in
+`dotfiles` before the reviewer starts, the same gap the old card-in-`kanban.md` version
 of this rule existed to cover for that session specifically. A session
 started some other way (Claude Code web or mobile, a fresh checkout with no
 such step) doesn't get it for free, and nothing in this repo can promise it
