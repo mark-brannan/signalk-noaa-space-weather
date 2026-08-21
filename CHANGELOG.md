@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.24.1] - 2026-08-21
+
+### Added
+
+- **Community health files.** `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`
+  (Contributor Covenant 2.1), `SECURITY.md`, GitHub issue forms for bugs and
+  feature requests, and a pull request template. The bug form asks for the
+  plugin version, server version, hardware and log up front, which is what
+  makes a report actionable. Security reports go through a private GitHub
+  advisory rather than a public issue.
+- The README now says where to take a bug, an idea, a patch or a vulnerability,
+  and names the licence in the body rather than only in `LICENSE`.
+
 ## [0.24.0] - 2026-08-20
 
 ### Changed
