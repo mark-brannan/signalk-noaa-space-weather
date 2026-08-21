@@ -119,6 +119,45 @@ Stage by path. Never `git add -A`.
 If a request arrives that is outside the current PR's topic, say so and propose
 a separate PR rather than quietly folding it in.
 
+### Draft is a working state, not a resting state
+
+A draft blocks the review automation. CodeRabbit and `.github/workflows/claude-review.yml`
+both skip drafts, so a PR parked in draft has had **no** review at all — and
+the maintainer ends up the first reader instead of the last.
+
+So open as draft if you like, but **mark it ready the moment the session's own
+work is done**: the branch is pushed, it builds, `npm run format:check` and
+`npm test` pass. Marking ready is the agent's call, not something to hand
+upward — a PR waiting on a human to flip it is waiting for nothing.
+
+Ready is not the end of the turn. Keep driving after it: CI failures,
+review-bot findings and merge conflicts are all yours to fix, round after
+round, until every check is green and every automated review thread is
+answered or resolved. A red check is never handed over as a status report.
+
+The one red check that is not yours is the one
+[The red `github-advanced-security` check is not yours](#the-red-github-advanced-security-check-is-not-yours)
+documents, and the bar for adding to that list is the evidence that section
+carries — an identified cause outside this repo, not a check that merely looks
+unrelated.
+
+### Tell the maintainer once, when it is actually their turn
+
+They sign off last. Everything that can finish without them — CI, the review
+bots, a rebase onto a moved `main` — finishes first.
+
+So no "CI is running", no "two jobs left", no asking whether to fix a failure
+you can diagnose yourself, and no reminders to look at something you are still
+working on. That traffic is toil: it costs a read and returns nothing they can
+act on.
+
+Send one message when the PR is green, the automated reviews have run and been
+dealt with, and nothing is outstanding — that message is what tells them it's
+their turn. Two situations pull it earlier, and both end in a decision only
+they can make: a genuine blocker you cannot resolve, or a design question
+where guessing wrong would mean redoing the work. Lay out the options and ask;
+don't narrate.
+
 ### The red `github-advanced-security` check is not yours
 
 **Temporary. Delete this section when
