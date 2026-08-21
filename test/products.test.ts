@@ -262,6 +262,23 @@ describe('GOES flux product', () => {
     expect(h.published).toEqual([])
     expect(h.errors.length).toBe(1)
   })
+
+  it('does not rebroadcast channels that have not moved', async () => {
+    const responses = {
+      '/json/goes/primary/xrays-6-hour.json': fixtureJson(
+        'xrays-6-hour.2026_08_20.json'
+      ),
+      '/json/goes/primary/integral-protons-6-hour.json': fixtureJson(
+        'integral-protons-6-hour.2026_08_20.json'
+      )
+    }
+    const h = harness(responses)
+    await goesFlux.refresh(h.ctx)
+    await goesFlux.refresh(h.ctx)
+
+    expect(h.errors).toEqual([])
+    expect(h.published.length).toBe(1)
+  })
 })
 
 describe('f107 product', () => {

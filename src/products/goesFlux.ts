@@ -56,16 +56,24 @@ export const goesFlux: Product = {
     if (stopped()) return
 
     const flux = parseGoesFlux(xrayJson, protonJson)
-    const values: ValueUpdate[] = []
-    if (flux.xrayFlux !== null)
-      values.push({ path: XRAY_FLUX_BASE, value: flux.xrayFlux })
-    if (flux.protonFlux !== null)
-      values.push({ path: PROTON_FLUX_BASE, value: flux.protonFlux })
-
-    if (values.length === 0) {
+    if (flux.xrayFlux === null && flux.protonFlux === null) {
       publisher.error('GOES flux payloads contained no recognised fields')
       return
     }
+
+    // Each channel polls on its own cadence (X-ray ~1 min, proton ~5 min),
+    // so a channel that hasn't moved since the last publish is common, not
+    // an edge case -- skip it rather than re-broadcasting the same reading
+    // to every connected client on every poll.
+    const publishedXray = publisher.selfPath(`${XRAY_FLUX_BASE}.value`)
+    const publishedProton = publisher.selfPath(`${PROTON_FLUX_BASE}.value`)
+    const values: ValueUpdate[] = []
+    if (flux.xrayFlux !== null && flux.xrayFlux !== publishedXray)
+      values.push({ path: XRAY_FLUX_BASE, value: flux.xrayFlux })
+    if (flux.protonFlux !== null && flux.protonFlux !== publishedProton)
+      values.push({ path: PROTON_FLUX_BASE, value: flux.protonFlux })
+
+    if (values.length === 0) return
     publisher.debug('GOES flux values: %j', values)
     // Two independent channels on different cadences (X-ray ~1 min, proton
     // ~5 min) sharing one publish call -- the X-ray timestamp wins because
