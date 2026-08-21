@@ -14,9 +14,9 @@ observe, so internal plumbing lands in a patch even when it adds something.
 - **Community health files.** `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`
   (Contributor Covenant 2.1), `SECURITY.md`, GitHub issue forms for bugs and
   feature requests, and a pull request template. The bug form asks for the
-  plugin version, server version, hardware and log up front, because those are
-  what every previous report has had to be chased for. Security reports go
-  through a private GitHub advisory rather than a public issue.
+  plugin version, server version, hardware and log up front, which is what
+  makes a report actionable. Security reports go through a private GitHub
+  advisory rather than a public issue.
 - The README now says where to take a bug, an idea, a patch or a vulnerability,
   and names the licence in the body rather than only in `LICENSE`.
 
