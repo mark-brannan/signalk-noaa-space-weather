@@ -151,11 +151,12 @@ you can diagnose yourself, and no reminders to look at something you are still
 working on. That traffic is toil: it costs a read and returns nothing they can
 act on.
 
-Send one message, when the PR is green, the automated reviews have run and
-been dealt with, and nothing is outstanding. The exceptions are narrow and both
-end in a decision only they can make: a genuine blocker you cannot resolve, or
-a design question where guessing wrong would mean redoing the work. Lay out the
-options and ask; don't narrate.
+Send one message when the PR is green, the automated reviews have run and been
+dealt with, and nothing is outstanding — that message is what tells them it's
+their turn. Two situations pull it earlier, and both end in a decision only
+they can make: a genuine blocker you cannot resolve, or a design question
+where guessing wrong would mean redoing the work. Lay out the options and ask;
+don't narrate.
 
 ### The red `github-advanced-security` check is not yours
 
