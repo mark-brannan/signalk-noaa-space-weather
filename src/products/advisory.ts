@@ -2,6 +2,7 @@
 import { ADVISORY_BASE } from '../paths.js'
 import {
   NotificationStates,
+  isRaised,
   methodForState,
   parseAdvisoryOutlook
 } from '../parse.js'
@@ -143,7 +144,7 @@ export const advisory: Product = {
 }
 
 /**
- * Stand down the per-bulletin notifications this plugin raised before 0.24.0
+ * Stand down the per-bulletin notifications this plugin raised before 0.25.0
  * (`notifications.noaa.swpc.advisory_outlook.SWO25-034`).
  *
  * Every week minted a fresh path, so a client that subscribed to one stopped
@@ -161,7 +162,7 @@ function clearShortIdPaths(publisher: Publisher, now: Date) {
     // no `id` of ours now that ADVISORY_BASE is itself the notification.
     const value = entry?.value
     if (!value?.id) continue
-    if (value.state === NotificationStates.NORMAL) continue
+    if (!isRaised(value)) continue
     publisher.debug('Clearing the stale per-bulletin path %s', leaf)
     publisher.value(
       `${ADVISORY_BASE}.${leaf}`,

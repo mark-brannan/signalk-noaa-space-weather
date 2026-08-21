@@ -5,7 +5,8 @@ import {
   ALERT_MAX_AGE_MS,
   AlertNotification,
   NotificationStates,
-  currentAlertNotifications
+  currentAlertNotifications,
+  isRaised
 } from '../parse.js'
 import { Meta, Publisher } from '../publisher.js'
 import { Product } from './types.js'
@@ -130,22 +131,6 @@ function publishAlert(publisher: Publisher, alert: AlertNotification): boolean {
     alert.issued.toISOString()
   )
   return true
-}
-
-/**
- * Whether a raised notification still has something to stand down.
- *
- * A non-empty method matters even at `normal`, and is not a hypothetical: the
- * screenshot on issue #45 is a `normal` notification carrying visual+sound,
- * which is why it was making noise about a three-week-old message. Treating
- * `state === normal` as "already quiet" would leave exactly the reported case
- * untouched.
- */
-function isRaised(value: any): boolean {
-  return (
-    value.state !== NotificationStates.NORMAL ||
-    (Array.isArray(value.method) && value.method.length > 0)
-  )
 }
 
 /** `{ ...value, quiet }` -- keeps the message so a client can still read it. */

@@ -174,6 +174,28 @@ describe('advisory product', () => {
     ).toHaveLength(1)
   })
 
+  it('stands down a legacy path left quiet but still asking for a sound', async () => {
+    // Issue #45's screenshot: `normal` with a non-empty method still makes
+    // noise, so state alone does not mean "already stood down".
+    const h = harness(fixture(REAL), {
+      [ADVISORY_BASE]: {
+        'SWO25-034': {
+          value: {
+            id: 'space_weather_advisory_outlookSWO25-034',
+            state: NotificationStates.NORMAL,
+            method: ['visual', 'sound']
+          }
+        }
+      }
+    })
+    await advisory.refresh(h.ctx as any)
+
+    const cleared = h.published.find(
+      (p) => p.path === `${ADVISORY_BASE}.SWO25-034`
+    )
+    expect(cleared.value.method).toEqual([])
+  })
+
   it('is on by default', () => {
     expect(advisory.enabled!(settingsFrom({}))).toBe(true)
     expect(
