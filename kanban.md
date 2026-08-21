@@ -7,10 +7,12 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
-- [ ] Paste the closing-message rule from
-      [#95](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/95)
-      into `~/.claude/CLAUDE.md` on a real machine — agents here run in
-      ephemeral containers
+- [ ] Paste the cloud-environment setup blob from
+      [dotfiles RUNBOOK](https://github.com/mark-brannan/dotfiles/blob/main/RUNBOOK.md#create-a-cloud-environment)
+      into all three Claude Code environments — only the web UI can set it, and
+      `Default (with tailscale)` currently has no seed, so sessions there get
+      no `~/.claude/CLAUDE.md`; blocked by
+      [dotfiles#28](https://github.com/mark-brannan/dotfiles/pull/28)
 
 ## Claude's
 
