@@ -868,6 +868,19 @@ describe('parseDrapGrid', () => {
     expect(crlf?.validTime).toBe('2026-08-20T04:42:00.000Z')
     expect(crlf?.frequenciesMHz).toEqual(parseDrapGrid(lf)?.frequenciesMHz)
   })
+
+  it('rejects a grid caught mid-rewrite, short of the documented 90x90 shape', () => {
+    // NOAA rewrites this file in place; a read can land after only some of
+    // the data rows have been written. Every row present is still internally
+    // consistent (right width, finite values), so only a shape check catches
+    // it -- otherwise drapFrequencyAt would silently snap to the nearest
+    // surviving row instead of the one NOAA actually measured.
+    const full = fixture('drap-global-frequencies.2026_08_20.txt')
+    const lines = full.split('\n')
+    const dataStart = lines.findIndex((line) => /^\s*-?\d+\s*\|/.test(line))
+    const truncated = lines.slice(0, dataStart + 45).join('\n')
+    expect(parseDrapGrid(truncated)).toBeNull()
+  })
 })
 
 describe('drapFrequencyAt', () => {

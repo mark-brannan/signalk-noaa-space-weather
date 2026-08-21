@@ -1532,6 +1532,14 @@ export function parseDrapGrid(rawText: string): DrapGrid | null {
   if (!longitudes || rows.length === 0) return null
   if (rows.some((row) => row.length !== longitudes!.length)) return null
   if (rows.some((row) => row.some((v) => !Number.isFinite(v)))) return null
+  // A read landing mid-write (docs/noaa-products.md) can catch this text
+  // grid mid-rewrite: every row that arrived is internally consistent, but
+  // there are fewer of them than NOAA's documented 90x90 shape. Accepting
+  // that grid would let nearestIndex silently snap to the nearest surviving
+  // row/column -- a wrong answer with no signal it's wrong, the same failure
+  // auroraCell avoids by returning null on an inexact match rather than
+  // approximating.
+  if (latitudes.length !== 90 || longitudes.length !== 90) return null
 
   return { validTime, latitudes, longitudes, frequenciesMHz: rows }
 }
