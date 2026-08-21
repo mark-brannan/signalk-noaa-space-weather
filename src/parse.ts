@@ -1501,7 +1501,11 @@ export interface DrapGrid {
 const DRAP_LON_ROW = /^\s*-?\d+(?:\s+-?\d+)+\s*$/
 const DRAP_DATA_ROW = /^\s*(-?\d+)\s*\|\s*(.+)$/
 
-export function parseDrapGrid(text: string): DrapGrid | null {
+export function parseDrapGrid(rawText: string): DrapGrid | null {
+  // A checkout with CRLF line endings (git on Windows) leaves a trailing \r
+  // on every line; unstripped it lands inside the last numeric column and
+  // fails the Number.isFinite check below for the entire grid.
+  const text = rawText.replace(/\r\n/g, '\n')
   const validMatch = text.match(
     /Product Valid At\s*:\s*(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\s*UTC/
   )

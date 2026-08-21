@@ -854,6 +854,16 @@ describe('parseDrapGrid', () => {
     expect(parseDrapGrid('nothing to see here')).toBeNull()
     expect(parseDrapGrid('')).toBeNull()
   })
+
+  it('reads a CRLF payload the same as LF', () => {
+    // A Windows checkout serves this fixture with \r\n line endings; a
+    // trailing \r landing inside the last numeric column used to fail
+    // Number.isFinite for the whole grid.
+    const lf = fixture('drap-global-frequencies.2026_08_20.txt')
+    const crlf = parseDrapGrid(lf.replace(/\n/g, '\r\n'))
+    expect(crlf?.validTime).toBe('2026-08-20T04:42:00.000Z')
+    expect(crlf?.frequenciesMHz).toEqual(parseDrapGrid(lf)?.frequenciesMHz)
+  })
 })
 
 describe('drapFrequencyAt', () => {
