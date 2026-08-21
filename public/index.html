@@ -426,7 +426,6 @@
       <div class="bar-countdown" id="heroCountdown">&mdash;<span class="unit" id="heroCountdownLabel">&nbsp;</span></div>
     </div>
     <div class="statusbar-meta">
-      <div class="field"><span class="label">Vessel</span><span class="val" id="vesselName">—</span></div>
       <div class="field"><span class="label">Local</span><span class="val" id="clock">&mdash;</span></div>
       <div class="indices" id="hfIndices"></div>
     </div>
@@ -1577,9 +1576,9 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   async function refresh() {
     document.getElementById('clock').textContent = fmtClock();
 
-    let scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare, advisory, status, f107, aIndex, sunspot;
+    let scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, xrayFlare, advisory, status, f107, aIndex, sunspot;
     try {
-      [scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare, advisory, status, f107, aIndex, sunspot] = await Promise.all([
+      [scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, xrayFlare, advisory, status, f107, aIndex, sunspot] = await Promise.all([
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/latest'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/24_hours_maximums'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/forecast'),
@@ -1587,7 +1586,6 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/solar_wind'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/aurora'),
         getJson('/signalk/v1/api/vessels/self/navigation/position'),
-        getJson('/signalk/v1/api/vessels/self/name'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/xray_flare'),
         getJson('/signalk/v1/api/signalk-noaa-space-weather/advisory-outlook'),
         getJson('/signalk/v1/api/signalk-noaa-space-weather/status'),
@@ -1631,9 +1629,6 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     renderWind(wind);
     renderKp(kp);
     renderAdvisory(advisory);
-
-    const vesselName = leafValue(name);
-    document.getElementById('vesselName').textContent = vesselName || 'Unnamed vessel';
 
     // Position reads as the aurora map's extent now ("+/-25 degrees latitude
     // around <here>"), which is the only thing the webapp ever did with it.
