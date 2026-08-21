@@ -215,42 +215,23 @@ this package calls, and it burns a minor version on each one.
 ## Open loops live in `kanban.md`
 
 Facts have homes already — `docs/noaa-products.md` for measurements, an issue
-for anything with a question in it. `kanban.md` is the home for loose ends, and
-especially for the ones that cannot become a commit: a stale review-bot
+for anything with a question in it. `kanban.md` is this project's board, and
+the home for loose ends that cannot become a commit: a stale review-bot
 learning, an account setting, a decision only the maintainer can make.
 
-**Write the card when the loop is found, never at the end of a session.** By
-the end of a long one the context has been compacted, so the comment link, the
-timestamp and the exact wording are gone and what is left is unactionable.
-Discovery is the last moment the evidence still exists.
+The card contract, writing one at discovery instead of at wrap-up, and closing
+a session with a paste-ready prompt instead of a status bullet are standing
+orders now, in `~/.claude/CLAUDE.md`'s "Open loops" section
+([dotfiles#15](https://github.com/mark-brannan/dotfiles/pull/15), merged).
 
-One file, two sections, because the useful edges cross between them — an
-agent's card is routinely blocked on the maintainer's, and two files would show
-each list clear while the work sits deadlocked.
-
-- One line per card: a link, and the action in the imperative. Add `blocked:`
-  and the dependency only when the card is blocked. The link is the part that
-  is never optional — a card nobody but its author can resolve is not a card.
-- Cards die when done. This is a work-in-progress list, not a log — `git log`
-  and `CHANGELOG.md` already keep the history.
-- Keep each section short. A list nobody can hold in their head is a second
-  place to lose things, so finish or delete before adding.
-- Sections and checkboxes, not a table. A markdown table stops being readable
-  the first time a line wraps.
-
-If a loop is not worth a card, it is not worth telling the maintainer about
-either. That is the point of the file, not a side effect of it.
-
-### End with a prompt, not a status bullet
-
-A closing summary that reads "the vague thing is borked, your call" costs a
-read and returns nothing actionable. It also cannot be acted on a week later,
-which is when it is actually read.
-
-So when a session ends with work still to do, end with **the follow-up prompt
-that would start it** — ready to paste, naming the branch, PR or file it acts
-on. Anything the maintainer must do personally is a `kanban.md` card and is
-referenced by link. Nothing else goes in a closing message.
-
-Both forms have to survive the session: written so somebody who was not in it
-can act on them.
+That file lives on the maintainer's machine, not in this checkout, so an
+agent working this repo has it only if something put it there.
+`.github/workflows/claude-review.yml` does that for the one session that
+runs for non-draft PRs from this repository — it fetches `~/.claude/CLAUDE.md` from a pinned commit in
+`dotfiles` before the reviewer starts, the same gap the old card-in-`kanban.md` version
+of this rule existed to cover for that session specifically. A session
+started some other way (Claude Code web or mobile, a fresh checkout with no
+such step) doesn't get it for free, and nothing in this repo can promise it
+does — that mechanism belongs to whatever launched the session, not to this
+file. If you're missing it, that's the gap to close, not a reason to restate
+the rules here.
