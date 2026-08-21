@@ -408,8 +408,8 @@ somewhere the server doesn't look; symlink it into
 npm run dev:webapp        # http://127.0.0.1:8731, or pass a port
 ```
 
-`scripts/mock-webapp.mjs` serves `public/` byte-for-byte and answers the
-eleven Signal K paths `refresh()` polls with fabricated data, so the real
+`scripts/mock-webapp.mjs` serves `public/` with a state switcher appended and
+answers the ten Signal K paths it understands with fabricated data, so the real
 `heroState`/`renderTimer`/`renderKp` decide what renders. A strip at the
 bottom of the page switches between five states: quiet, G3 forecast, G4+S4,
 stale, and no-data-since-start. Four of those are impractical to reach

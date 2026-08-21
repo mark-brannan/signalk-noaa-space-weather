@@ -3,12 +3,13 @@
 //
 //   node scripts/mock-webapp.mjs [port]     # default 8731
 //
-// The webapp is served byte-for-byte as it ships. Everything fake is on this
-// side of the wire: the eleven paths refresh() polls are answered here, so
-// what renders is the real heroState/renderTimer/renderKp against data whose
-// shape this file has to keep honest. A state switcher is appended to the
-// page; it sets a cookie and reloads, which is why the webapp itself needs to
-// know nothing about any of this.
+// index.html ships unmodified except for a state switcher appended to it.
+// Everything fake is on the wire: the ten paths ROUTES understands are
+// answered here (anything else refresh() polls, e.g. the HF indices, falls
+// through to the same 404 a real server gives an unpublished path), so what
+// renders is the real heroState/renderTimer/renderKp against data whose shape
+// this file has to keep honest. The switcher sets a cookie and reloads, which
+// is why the webapp itself needs to know nothing about any of this.
 //
 // The states are the five things the header has to be able to say. They exist
 // because most of them are awkward to reach against a live server -- a real
@@ -32,6 +33,15 @@ const PORT = Number(process.argv[2] || 8731)
 const iso = (offsetMin) => new Date(Date.now() + offsetMin * 60000).toISOString()
 const leaf = (value, offsetMin = -6) => ({ value, timestamp: iso(offsetMin), $source: 'mock' })
 
+// Matches NOAA's own ":Issued:" line (e.g. "2026 Aug 18 0341 UTC") so the
+// mock advisory's header and its parsed `issued` field can share one instant.
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const fmtIssued = (offsetMin) => {
+  const d = new Date(Date.now() + offsetMin * 60000)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getUTCFullYear()} ${MONTHS[d.getUTCMonth()]} ${pad(d.getUTCDate())} ${pad(d.getUTCHours())}${pad(d.getUTCMinutes())} UTC`
+}
+
 /**
  * A Kp forecast from now to +72h, three-hourly, peaking where told. The
  * timer reads this and nothing else, so `peakInMin` is what actually decides
@@ -51,13 +61,14 @@ function series({ peakKp, peakInMin, base = 2 }) {
   return out
 }
 
+const ADVISORY_ISSUED_MIN = -1140
 const ADVISORY = {
   idLine: 'Product: Weekly Highlights and 27-Day Forecast',
-  issued: iso(-1140),
+  issued: iso(ADVISORY_ISSUED_MIN),
   teaser: 'Solar activity is expected to be at very low to low levels, with a chance for M-class flares.',
   text: [
     ':Product: Weekly Highlights and 27-Day Forecast',
-    ':Issued: 2026 Aug 18 0341 UTC',
+    `:Issued: ${fmtIssued(ADVISORY_ISSUED_MIN)}`,
     '# Prepared by the U.S. Dept. of Commerce, NOAA, Space Weather Prediction Center',
     '',
     'Solar activity is expected to be at very low to low levels, with a chance',
