@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.23.0] - 2026-08-20
+
+### Added
+
+- **The two indices an HF operator was still missing.** The estimated
+  planetary A index publishes at `environment.noaa.swpc.a_index`, from NOAA's
+  WWV geophysical alert bulletin, and the SESC sunspot number at
+  `environment.noaa.swpc.sunspot_number`, from the daily solar indices table.
+  With the 10.7cm flux and Kp the plugin already had, that completes the phrase
+  every club bulletin, contest forecast and WWV broadcast states conditions in:
+  SFI, A, K, SSN.
+
+  A is the linearised daily average of the 3-hourly K, and stays high after K
+  has dropped — a disturbed field, degraded high-latitude paths, noisy bands.
+  SSN is the slow one: whether the high bands open at all this month.
+
+  Neither carries `zones`, so neither can raise a notification. Both describe a
+  day that has largely already happened, and everything they would raise the Kp
+  forecast and the alerts have already raised sooner and louder.
+
+  Both are dimensionless, so neither carries `units`. Together they cost about
+  7 KB a day on the wire; there is no setting for either, for the reason
+  `docs/noaa-products.md` gives.
+
+- **The webapp status bar shows the phrase**: `SFI · A · K · SSN`, with each
+  term left as a gap when its reading has not arrived rather than shifting the
+  others along. K keeps the one decimal the Kp panel shows rather than WWV's
+  spoken integer, so a Kp of 4.7 cannot read as the G1 storm it isn't.
+
 ## [0.22.1] - 2026-08-20
 
 ### Changed
