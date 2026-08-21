@@ -29,6 +29,7 @@
     "typecheck": "tsc -p tsconfig.test.json",
     "watch": "npm run build -- -w",
     "test": "vitest run",
+    "dev:webapp": "node scripts/mock-webapp.mjs",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "prepublishOnly": "npm run build && npm test",
     "prepare": "node scripts/sync-icon.mjs && (husky || true)"
