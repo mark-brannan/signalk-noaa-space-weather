@@ -181,14 +181,20 @@
 
   /* The header compacts one step earlier than the grid does. The 800x480
      kiosk is the size this variant was drawn for, and at 800px the bar --
-     now carrying the countdown as well -- cannot hold vessel and local time
-     on the same row: measured, the lead group alone wants ~465px and the two
-     meta fields another ~315px against ~745px of content width. It wrapped
-     to two rows, which is the height the variant exists to save. So the
-     meta fields go, and verdict and advisory stop sharing a row at the same
-     width rather than squeezing the advisory to a ~278px column. */
+     now carrying the countdown as well -- cannot hold vessel, local time and
+     the HF indices on the same row: measured, the lead group alone wants
+     ~465px and the two meta fields another ~315px against ~745px of content
+     width. It wrapped to two rows, which is the height the variant exists to
+     save. Of the two meta fields, only one is worth that row: the HF indices
+     are the reading a radio operator came to this page for, and the clock is
+     a duplicate of the one already in every browser chrome. So the clock
+     goes and the indices move to their own row instead of vanishing with it
+     -- issue #36 dropped both, which silently threw away the more useful
+     one. */
   @media (max-width: 900px) {
-    .statusbar-meta { display: none; }
+    .statusbar-meta { flex-basis: 100%; }
+    .statusbar-meta .field { display: none; }
+    .statusbar .indices { flex-wrap: wrap; }
     .statusbar-sep { display: none; }
     /* Wraps rather than clips: the title and the clock are both nowrap, so
        below roughly 500px they cannot share a row and the countdown has to
