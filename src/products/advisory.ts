@@ -92,7 +92,8 @@ export const advisory: Product = {
     }
 
     const { idLine, shortId, issued, outlookTeaser } = outlook
-    const existing = publisher.selfPath(`${ADVISORY_BASE}.value`)
+    const existing = publisher.selfPath(`${ADVISORY_BASE}.value`) as
+      { shortId?: string } | undefined
 
     const current = {
       id: ID,
@@ -154,10 +155,14 @@ export const advisory: Product = {
  * the old code.
  */
 function clearShortIdPaths(publisher: Publisher, now: Date) {
-  const existing = publisher.selfPath(ADVISORY_BASE)
+  // `selfPath` is untyped, and the leaf holds its own `value`/`meta` keys
+  // alongside whatever legacy children are left, so the entries are only
+  // known to maybe carry a notification.
+  const existing = publisher.selfPath(ADVISORY_BASE) as
+    Record<string, { value?: { id?: string } } | undefined> | undefined
   if (!existing) return
 
-  for (const [leaf, entry] of Object.entries(existing as Record<string, any>)) {
+  for (const [leaf, entry] of Object.entries(existing)) {
     // Skips `value`, `meta` and the rest of the leaf's own keys, which carry
     // no `id` of ours now that ADVISORY_BASE is itself the notification.
     const value = entry?.value

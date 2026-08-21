@@ -47,7 +47,7 @@ describe('advisory product', () => {
       rmSync(dir, { recursive: true, force: true })
   })
 
-  function harness(text: string, model: Record<string, any> = {}) {
+  function harness(text: string, model: Record<string, unknown> = {}) {
     const published: any[] = []
     const errors: string[] = []
     const dataDir = mkdtempSync(join(tmpdir(), 'advisory-cache-'))
