@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.24.0] - 2026-08-20
+
+### Changed
+
+- **The webapp's statusbar carries the verdict.** The severity chip and the
+  countdown moved out of the hero tile and into the bar, and what was left of
+  the hero merged with the advisory into one tile. On a 1280 viewport the Kp
+  panel now starts at 226px rather than 289px; on the 800x480 kiosk the bar is
+  one row of 42px rather than two of 69px. The header compacts at 900px rather
+  than 760px, because 800 is the width this was drawn for and the bar cannot
+  hold the countdown and the local time on one row there.
+- **The vessel name is gone from the webapp**, and `navigation.position`'s
+  sibling `name` path is no longer read at all. Position moved to the aurora
+  tile, where it reads as that map's extent ("+/-25 degrees latitude around
+  47.6578, -122.3773") -- centring the map was the only thing the page ever
+  did with it.
+
+### Added
+
+- **`npm run dev:webapp`** serves `public/` against fabricated Signal K data
+  with a state switcher, so the webapp's five hero states -- including a G4
+  storm and "no data since the plugin started" -- can be worked on without a
+  server. Dev-only: no dependencies and nothing imports it.
+
 ## [0.23.0] - 2026-08-20
 
 ### Added
