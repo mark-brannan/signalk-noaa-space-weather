@@ -100,12 +100,16 @@
     letter-spacing: 0.06em; text-transform: uppercase; margin: 0; color: var(--text);
     white-space: nowrap;
   }
-  .statusbar-lead { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  /* Stretched to the bar's full width now that it's the only child --
+     justify-content:space-between on .statusbar has nothing left to space
+     between a single item, so the countdown pins itself to the far edge
+     with margin-left:auto instead. */
+  .statusbar-lead { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; }
   .statusbar-sep { width: 1px; align-self: stretch; min-height: 1.4em; background: var(--grid); }
   /* The same element and the same renderTimer as the old hero clock, at bar
      scale: digits and label share one baseline instead of stacking. */
   .bar-countdown {
-    display: flex; align-items: baseline; gap: 9px; white-space: nowrap;
+    display: flex; align-items: baseline; gap: 9px; white-space: nowrap; margin-left: auto;
     font-family: var(--font-mono); font-weight: 700; font-size: 1.25rem;
     font-variant-numeric: tabular-nums; color: var(--amber); line-height: 1;
     text-shadow: 0 0 24px color-mix(in srgb, var(--amber) 45%, transparent);
@@ -177,8 +181,8 @@
      not worth the responsive complexity they cost). Still wraps below the
      width where the title and countdown can't share a row. */
   @media (max-width: 900px) {
-    .statusbar-lead { flex: 1; gap: 9px; flex-wrap: wrap; }
-    .bar-countdown { margin-left: auto; font-size: 1.05rem; gap: 7px; }
+    .statusbar-lead { gap: 9px; flex-wrap: wrap; }
+    .bar-countdown { font-size: 1.05rem; gap: 7px; }
     .bar-countdown .unit { font-size: 0.58rem; letter-spacing: 0.1em; }
     .hero { grid-template-columns: 1fr; gap: 10px; }
     .hero-rule { height: 1px; align-self: auto; }
