@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.27.0] - 2026-08-21
+
+### Added
+
+- **D-RAP highest affected frequency.**
+  `environment.noaa.swpc.drap.highest_affected_frequency` (Hz), sampled from
+  NOAA's D-Region Absorption Predictions grid at the vessel's own position —
+  the highest HF frequency currently degraded by 1dB or more, the same
+  "value at the vessel" treatment the aurora probability gets. The map
+  overlay the same issue proposes is a larger, separate piece of work and
+  is not part of this change.
+
 ## [0.26.0] - 2026-08-21
 
 ### Added

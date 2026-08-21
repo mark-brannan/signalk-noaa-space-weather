@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   NoaaScaleValues,
+  drapFrequencyAt,
   firstJsonValue,
   getAlertLevel,
   parse27DayOutlook,
   parseAdvisoryOutlook,
   parseAlert,
   parseDailySolarIndices,
+  parseDrapGrid,
   parseF107,
   parseGoesFlux,
   parseGeophysicalAlert,
@@ -830,6 +832,55 @@ describe('parseGoesFlux', () => {
         expect(value === null || Number.isFinite(value)).toBe(true)
       }
     }
+  })
+})
+
+describe('parseDrapGrid', () => {
+  it('reads the valid time and grid dimensions from a captured payload', () => {
+    const grid = parseDrapGrid(
+      fixture('drap-global-frequencies.2026_08_20.txt')
+    )
+    expect(grid?.validTime).toBe('2026-08-20T04:42:00.000Z')
+    expect(grid?.latitudes.length).toBe(90)
+    expect(grid?.longitudes.length).toBe(90)
+    expect(grid?.latitudes[0]).toBe(89)
+    expect(grid?.longitudes[0]).toBe(-178)
+    for (const row of grid!.frequenciesMHz) {
+      expect(row.length).toBe(90)
+    }
+  })
+
+  it('returns null on input with no grid', () => {
+    expect(parseDrapGrid('nothing to see here')).toBeNull()
+    expect(parseDrapGrid('')).toBeNull()
+  })
+})
+
+describe('drapFrequencyAt', () => {
+  const grid = parseDrapGrid(fixture('drap-global-frequencies.2026_08_20.txt'))
+
+  it('reads the exact grid point for an on-grid position', () => {
+    expect(drapFrequencyAt(grid, 41, -178)).toBeCloseTo(2.9, 5)
+  })
+
+  it('snaps to the nearest grid point for an off-grid position', () => {
+    // 41N/-178E is the nearest defined point to 40.9N/-176.9E.
+    expect(drapFrequencyAt(grid, 40.9, -176.9)).toBeCloseTo(2.9, 5)
+  })
+
+  it('wraps longitude across the -180/180 boundary', () => {
+    // -179.9 is close to the -178 column on the circle (1.9 degrees), not
+    // 358.1 degrees away as an unwrapped difference would compute it.
+    expect(drapFrequencyAt(grid, 89, -179.9)).toBeCloseTo(
+      grid!.frequenciesMHz[0][0],
+      5
+    )
+  })
+
+  it('returns null with no grid or a non-finite position', () => {
+    expect(drapFrequencyAt(null, 0, 0)).toBeNull()
+    expect(drapFrequencyAt(grid, NaN, 0)).toBeNull()
+    expect(drapFrequencyAt(grid, 0, NaN)).toBeNull()
   })
 })
 
