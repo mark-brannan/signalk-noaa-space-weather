@@ -193,6 +193,7 @@ describe('advisory product', () => {
     const cleared = h.published.find(
       (p) => p.path === `${ADVISORY_BASE}.SWO25-034`
     )
+    expect(cleared.value.state).toBe(NotificationStates.NORMAL)
     expect(cleared.value.method).toEqual([])
   })
 
