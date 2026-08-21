@@ -29,7 +29,7 @@ observe, so internal plumbing lands in a patch even when it adds something.
 - **`npm run dev:webapp`** serves `public/` against fabricated Signal K data
   with a state switcher, so the webapp's five hero states -- including a G4
   storm and "no data since the plugin started" -- can be worked on without a
-  server. Dev-only: no dependencies and nothing imports it.
+  Signal K server running. Dev-only: no dependencies and nothing imports it.
 
 ## [0.23.0] - 2026-08-20
 
