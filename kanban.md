@@ -7,6 +7,17 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Decide how a release gets published: `main` is `0.29.0` and so is the
+      latest tag `v0.29.0`, so `auto-version.yml` reports success and
+      publishes nothing on every merge. Harmless for the docs and tooling
+      landed so far; not harmless for
+      [#135](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/135),
+      which changes what the webapp's banner says and carries an
+      `[Unreleased]` changelog entry. Either bump explicitly before merging it
+      or land
+      [#136](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/136),
+      which needs a GitHub ruleset call only you can make
+
 - [ ] Enable **private vulnerability reporting** (Settings → Code security), so
       the advisory link in
       [SECURITY.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/SECURITY.md)
@@ -57,9 +68,12 @@ what it is blocked by. Delete it when it is done.
       and #133's cron adds more; fail a test on any file `test/fixtures.ts`
       does not list, rather than pruning by hand again
       ([audit](https://claude.ai/code/artifact/6150bdd6-8257-43fe-992c-e24263e340c7))
-- [ ] Rebase [#124](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/124)
-      onto `main` and address its open review comments (#123, which it used to
-      sit on, has landed)
+- [ ] Merge [#124](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/124)
+      once Mark has read it — rebased onto `main`, CI green, every review
+      comment addressed, and the one open thread is his own question with a
+      reply on it. Then rebase
+      [#138](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/138)
+      (stacked on it) onto `main` and merge that too
 - [ ] Build the dead-field sweep — no field a user-facing surface draws may be
       `0`/null across every fixture — on top of #124's `public/scales.js`.
       blocked: needs #124's endpoint-list extraction; a sweep over `src/` alone
