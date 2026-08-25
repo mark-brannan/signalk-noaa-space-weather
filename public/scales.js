@@ -8,8 +8,8 @@
 // fixture can be pushed through the plugin's own transform and out the other
 // side as the numbers the badges show.
 //
-// Same split as hero.js and indices.js: the decision is testable without a
-// browser, the wording and markup stay in index.html.
+// Same split as hero.js: the decision is testable without a browser, the
+// wording and markup stay in index.html.
 import { leafTime, leafValue } from './signalk.js'
 
 /** The three scales, in the order the card lists them. */
