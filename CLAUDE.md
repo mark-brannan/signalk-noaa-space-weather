@@ -514,11 +514,15 @@ precisely a disagreement between the two.
 Publishing happens from CI via npm OIDC trusted publishing — tag `vX.Y.Z` and
 push. No npm token should ever live on a developer machine.
 
-Version bumps are automatic in two layers, so a real release never depends on
-remembering: `.husky/pre-commit` auto-patch-bumps `package.json` at commit
-time if nothing on the branch has already given it an explicit bump (compared
-against the latest git tag, not the immediate parent commit). `.github/workflows/auto-version.yml`
-then tags and publishes whatever version lands on `main`, whether that came
-from the hook or from an explicit `npm version minor`/`major` before
-committing. Bump explicitly yourself for anything more than the smallest
-change; let the hook cover the rest.
+Version bumps are automatic, and the number is decided **before** the merge:
+`.husky/pre-commit` at commit time, `.github/workflows/version-gate.yml` on the
+pull request. The hook is the convenience, the gate is the guarantee — and only
+while the ruleset requires the `version` check, since a red gate nothing
+requires can be merged past. `auto-version.yml` tags what lands on `main` and
+publishes it, and writes nothing to `main` — so the ruleset keeps requiring a
+pull request and a signed commit for every change.
+
+**Ahead of the latest tag, never merely different from it.** A stale branch
+differs from it too, which is how #123 squash-merged at a version already on
+npm and never published. All three callers read one file,
+`scripts/publish-impact.sh`, pinned by `test/publish-impact.test.ts`.

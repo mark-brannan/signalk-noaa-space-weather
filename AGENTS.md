@@ -188,11 +188,10 @@ output attached, is the scanner working. Read it.
 
 Upstream says never to touch version numbers, because a maintainer sets them at
 publish time. **Here, the version on `main` *is* the release trigger.**
-`.husky/pre-commit` auto-patch-bumps when nothing on the branch has set one
-explicitly, and `.github/workflows/auto-version.yml` tags and publishes whatever
-lands on `main`. So bump explicitly for anything larger than a patch, and let
-the hook cover the rest. Never create a tag locally — CI does that, and a local
-tag makes it skip the publish.
+The patch bump is not your job: `.husky/pre-commit` makes it, and
+`.github/workflows/version-gate.yml` blocks the pull request when it didn't.
+Yours is bumping explicitly for anything larger than a patch. Never create a tag
+locally — CI does that, and a local tag makes it skip the publish.
 
 **What makes a change minor is what a boat owner can observe, not which
 `CHANGELOG.md` heading it lands under.** A new Signal K path, a new product, a

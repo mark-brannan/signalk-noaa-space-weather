@@ -32,6 +32,12 @@ what it is blocked by. Delete it when it is done.
       (one unlanded commit each, no pull request) — real unlanded work, so
       not a sweep
 
+- [ ] Add `version` (from `Version gate`) as a required status check on the
+      [main ruleset](https://github.com/mark-brannan/signalk-noaa-space-weather/rules/21125202),
+      and turn on "require branches to be up to date before merging" — without
+      the second, two pull requests can still race the way #123's did
+      ([#136](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/136))
+
 ## Claude's
 
 - [ ] Subset the two unsubset embedded faces in `public/index.html` — Oswald
@@ -72,3 +78,6 @@ what it is blocked by. Delete it when it is done.
 - [ ] Correct the "Tier 1 is done" claim in `docs/noaa-cross-check.md` — #124
       exists but has not landed
       ([#125](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/125#discussion_r3856210060))
+- [ ] Add `npm run format:check` to the typecheck job in
+      [ci.yml](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/.github/workflows/ci.yml)
+      — AGENTS.md orders it and no check enforces it
