@@ -115,6 +115,10 @@ Stage by path. Never `git add -A`.
   changed. Call out breaking changes explicitly.
 - Reference issues with `closes` / `fixes` / `resolves`
 - Rebase onto `main`; never merge `main` into the branch
+- A PR that changes the webapp carries pictures. `node
+  scripts/screenshots/states.mjs` renders every hero state from the mock in
+  both themes; attach the ones the change touches. Words about a banner are
+  not a picture of it, and #126 is what a wrong banner nobody looked at costs.
 
 If a request arrives that is outside the current PR's topic, say so and propose
 a separate PR rather than quietly folding it in.
