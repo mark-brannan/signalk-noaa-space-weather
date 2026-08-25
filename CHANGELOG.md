@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [Unreleased]
+
+### Changed
+
+- **The banner says what is still in force.** A storm quieter than the day's
+  peak used to read as "conditions have since eased" or "nothing in force
+  right now" while it was still running -- an R2 under an earlier R3, a G1
+  under a G2. Both now name the level still on.
+- **The quiet banner no longer overclaims the forecast.** It only bounds G3
+  and above, and says nothing about the forecast when there is no forecast to
+  read.
+
+### Fixed
+
+- A D-RAP grid whose `Product Valid At` header did not survive the read is
+  skipped rather than published stamped with the local clock.
+
 ## [0.29.1] - 2026-08-26
 
 ### Fixed
@@ -26,8 +43,9 @@ observe, so internal plumbing lands in a patch even when it adds something.
 
 - **Webapp layout and copy tidy-up.** Dead hero CSS, redundant tile
   subheadings, a squarer aurora tile that names the position it read at,
-  educational-only Learn More links, and a status bar that shrinks instead of
-  wrapping on a narrow screen.
+  educational-only Learn More links, and a status bar that shrinks below 520px
+  and gives the countdown its own line below 410px rather than wrapping
+  raggedly.
 
 ## [0.27.0] - 2026-08-21
 
