@@ -52,8 +52,12 @@ async function main() {
 
   const { server, states } = await startMock()
   const shots = []
-  const browser = await chromium.launch()
+  // The launch is inside the try: it can fail (no browser downloaded yet),
+  // and the mock is already listening by then -- left running it holds the
+  // port, so the next run fails for a different reason than the real one.
+  let browser
   try {
+    browser = await chromium.launch()
     for (const theme of THEMES) {
       const context = await browser.newContext({
         viewport: { width: WIDTH, height: HEIGHT },
@@ -98,7 +102,7 @@ async function main() {
       }
     }
   } finally {
-    await browser.close()
+    await browser?.close()
     server.kill()
   }
 
