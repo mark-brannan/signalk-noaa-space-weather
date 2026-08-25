@@ -29,7 +29,9 @@ what it is blocked by. Delete it when it is done.
       [`claude/plugin-low-hanging-fruit-qms3w6`](https://github.com/mark-brannan/signalk-noaa-space-weather/tree/claude/plugin-low-hanging-fruit-qms3w6)
       and
       [`claude/synthetic-fixtures`](https://github.com/mark-brannan/signalk-noaa-space-weather/tree/claude/synthetic-fixtures)
-      (one unlanded commit each, no pull request) — real unlanded work, so
+      (one unlanded commit each; the last is
+      [#134](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/134),
+      open; the other two have no open pull request) — real unlanded work, so
       not a sweep
 
 ## Claude's
@@ -53,21 +55,15 @@ what it is blocked by. Delete it when it is done.
       and #133's cron adds more; fail a test on any file `test/fixtures.ts`
       does not list, rather than pruning by hand again
       ([audit](https://claude.ai/code/artifact/6150bdd6-8257-43fe-992c-e24263e340c7))
-- [ ] Rebase [#124](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/124)
-      onto `main` and address its open review comments (#123, which it used to
-      sit on, has landed)
 - [ ] Build the dead-field sweep — no field a user-facing surface draws may be
-      `0`/null across every fixture — on top of #124's `public/scales.js`.
-      blocked: needs #124's endpoint-list extraction; a sweep over `src/` alone
-      cannot catch [#120](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/120),
+      `0`/null across every fixture — on top of #124's `public/scales.js`, now
+      landed. A sweep over `src/` alone cannot catch
+      [#120](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/120),
       because the plugin published both paths correctly
 - [ ] Replace `examples/synthetic/wwv.no-storms.txt` with a real quiet bulletin
       once `capture.mjs fast` catches one — the invented wording is a guess and
       nothing should parse against it
       ([#134](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/134))
-- [ ] Correct the "Tier 1 is done" claim in `docs/noaa-cross-check.md` — #124
-      exists but has not landed
-      ([#125](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/125#discussion_r3856210060))
 - [ ] Add `npm run format:check` to the typecheck job in
       [ci.yml](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/.github/workflows/ci.yml)
       — AGENTS.md orders it and no check enforces it
@@ -84,3 +80,19 @@ what it is blocked by. Delete it when it is done.
       nor the version guard ever mentions it again. The red release run is the
       only signal; a re-dispatch of `publish.yml` at the tag is the manual fix
       ([#136](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/136))
+- [ ] Fix the three defects the review sweep found on merged PRs: the banner
+      claims nothing is in force while a level quieter than the day's peak is
+      still running
+      ([#127](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/127#discussion_r3856428331)),
+      the quiet subtext overclaims a forecast it only bounds at G3
+      ([#127](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/127#discussion_r3856431336)),
+      and `parseDrapGrid` publishes a torn header's grid stamped with the local
+      clock
+      ([#101](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/101#discussion_r3828245008)).
+      Written and tested on `claude/repo-structure-review-75idam`, closed
+      unmerged as out of scope for the audit
+      ([#135](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/135))
+      — reopen as its own PR. That branch also carries three unrelated fixes
+      from the same sweep (the `SCALE_WORDS` reference that never existed,
+      `isRaised` typed `any`, a truncated-grid test that passes on an empty
+      payload); they are not this card, so split them out
