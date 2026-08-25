@@ -36,6 +36,14 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Design the review rig with Mark — what portable environment it runs in
+      (a compose file in this repo with overridable ports, or a command that
+      builds and links into a dedicated plugin-dev Signal K), not one host's
+      `~/.signalk`; purpose and both mechanisms are settled, the environment is
+      not
+      ([#125](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/125)),
+      blocked: a one-on-one design pass, deliberately not blocking the rest of
+      the #121 plan
 - [ ] Add a `.coderabbit.yaml` scoping AGENTS.md's rules by path — with none in
       the repo it reads the whole file as coding guidelines and applied the
       commit-subject format to a CHANGELOG entry
