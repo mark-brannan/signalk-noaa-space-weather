@@ -28,9 +28,6 @@ export const ENDPOINTS = {
   solarWind: vessel('environment/noaa/swpc/solar_wind'),
   aurora: vessel('environment/noaa/swpc/aurora'),
   xrayFlare: vessel('environment/noaa/swpc/xray_flare'),
-  f107: vessel('environment/noaa/swpc/f107'),
-  aIndex: vessel('environment/noaa/swpc/a_index'),
-  sunspot: vessel('environment/noaa/swpc/sunspot_number'),
   position: vessel('navigation/position'),
   advisory: plugin('advisory-outlook'),
   status: plugin('status')
@@ -40,10 +37,13 @@ export const ENDPOINTS = {
  * Fetch the whole table at once and return it keyed by id.
  *
  * One round of requests per refresh, in parallel, because they all go to the
- * same server and a serial walk of thirteen paths is thirteen round trips of
- * latency for a page that redraws every minute. `read` is passed in rather
- * than imported so the caller keeps its own auth and error handling -- a 401
- * on any one of these means the same thing for all of them.
+ * same server and a serial walk of ten paths is ten round trips of latency
+ * for a page that redraws every minute. `read` is passed in rather than
+ * imported so the caller keeps its own auth and error handling -- a 401 on
+ * any one of these means the same thing for all of them.
+ *
+ * Every entry here is fetched on every refresh, so a path nothing renders is
+ * a request per minute bought for nothing. Add one when a surface reads it.
  */
 export async function readAll(read) {
   const ids = Object.keys(ENDPOINTS)
