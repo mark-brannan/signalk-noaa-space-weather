@@ -57,3 +57,18 @@ what it is blocked by. Delete it when it is done.
       and #133's cron adds more; fail a test on any file `test/fixtures.ts`
       does not list, rather than pruning by hand again
       ([audit](https://claude.ai/code/artifact/6150bdd6-8257-43fe-992c-e24263e340c7))
+- [ ] Rebase [#124](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/124)
+      onto `main` and address its open review comments (#123, which it used to
+      sit on, has landed)
+- [ ] Build the dead-field sweep — no field a user-facing surface draws may be
+      `0`/null across every fixture — on top of #124's `public/scales.js`.
+      blocked: needs #124's endpoint-list extraction; a sweep over `src/` alone
+      cannot catch [#120](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/120),
+      because the plugin published both paths correctly
+- [ ] Replace `examples/synthetic/wwv.no-storms.txt` with a real quiet bulletin
+      once `capture.mjs fast` catches one — the invented wording is a guess and
+      nothing should parse against it
+      ([#134](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/134))
+- [ ] Correct the "Tier 1 is done" claim in `docs/noaa-cross-check.md` — #124
+      exists but has not landed
+      ([#125](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/125#discussion_r3856210060))
