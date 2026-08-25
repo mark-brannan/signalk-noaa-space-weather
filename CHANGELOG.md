@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.29.0] - 2026-08-25
+
+### Changed
+
+- **Webapp layout and copy tidy-up.** Dead hero CSS, redundant tile
+  subheadings, a squarer aurora tile that names the position it read at,
+  educational-only Learn More links, and a status bar that shrinks instead of
+  wrapping on a narrow screen.
+
 ## [0.27.0] - 2026-08-21
 
 ### Added
