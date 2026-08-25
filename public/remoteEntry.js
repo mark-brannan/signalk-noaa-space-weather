@@ -53,9 +53,11 @@ import { ENDPOINTS } from './signalk.js'
 
 const EXPOSED = './PluginConfigurationPanel'
 const STATUS_URL = ENDPOINTS.status
-// The two paths the plugin already publishes that say what the sky is doing.
-// Drawn from the same table the webapp reads so the two surfaces cannot
-// disagree about which reading is the current conditions (issue #120).
+// The two paths the plugin already publishes that say what the sky is doing,
+// read from the webapp's own table so a moved path is one edit rather than
+// two. The scales URL was already shared through scales-source.js -- issue
+// #120's argument about which of the two observed readings is current
+// conditions lives there; the Kp path was the one written out twice.
 const SCALES_URL = ENDPOINTS.scalesObserved
 const KP_URL = ENDPOINTS.kp
 // The human-readable page behind the bulletin this setting forwards, so the

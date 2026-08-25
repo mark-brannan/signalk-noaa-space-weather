@@ -23,9 +23,9 @@ type Leaf = { value: unknown; timestamp: string }
 type ApiNode = Leaf | { [key: string]: ApiNode }
 
 /**
- * Only the vessel endpoints are answerable from what a product published; the
- * plugin's own routes (`advisory`, `status`) are served by the router and are
- * absent here, which is the same `null` the webapp sees for an unpublished one.
+ * The dotted path a vessel-data URL addresses, or `null` for the plugin's own
+ * routes (`advisory`, `status`) -- those are served by the router, so nothing
+ * a product publishes can answer them.
  */
 function pathOf(url: string): string | null {
   const vessel = '/signalk/v1/api/vessels/self/'
@@ -35,11 +35,10 @@ function pathOf(url: string): string | null {
 }
 
 /**
- * What a GET on each endpoint returns, from what the product published.
- *
- * The API answers a non-leaf path with the subtree below it, leaves and all,
- * which is why the webapp reaches into `?.G` and `?.S?.probability`. Anything
- * the product never published 404s, and arrives at the webapp as `null`.
+ * What a GET on each endpoint would return, built from what the product
+ * published. Subtrees are why the webapp reaches into `?.G` and
+ * `?.S?.probability`; a path the product never published 404s, and reaches
+ * the webapp as `null`.
  */
 function apiTree(
   values: ValueUpdate[],
@@ -129,18 +128,21 @@ describe('the Storm Scales card, from NOAA payload to badge', () => {
 })
 
 /**
- * The guard issue #121 asks for. A field that is 0 in every payload we have
- * ever captured is not a quiet sky -- it is a surface wired to the wrong
- * place, which is what #120 turned out to be. The instantaneous sample reads
- * 0 in all seven fixtures including the G4 day and the R2 day, so a card
- * drawing it fails here rather than shipping green.
+ * A canary over the fixture corpus, not a property of the card.
  *
- * The corpus has to be able to answer: a guard run over payloads that are all
- * genuinely quiet would pass a broken wiring, so the storm days are pinned
- * separately above and the fixture list is the thing to grow.
+ * `examples/` includes a G4 day and an R2 day, so every number the card draws
+ * should be non-zero in at least one payload. A field that is 0 or absent in
+ * all of them is drawing from somewhere the storms never reach -- which is
+ * what #120 was: the instantaneous sample reads 0 in every fixture, both
+ * storm days included.
+ *
+ * It is only as good as the corpus. Against an all-quiet one it would pass a
+ * card wired to nothing at all, which is why the two storm days are asserted
+ * by name above rather than left to this. Growing `examples/` is what gives
+ * this teeth; it catches the fields nobody thought to pin individually.
  */
-describe('no rendered field is dead across every captured payload', () => {
-  it('finds a non-zero reading for every number the card draws', async () => {
+describe('no number the card draws is dead across the whole corpus', () => {
+  it('finds a non-zero reading for every one of them', async () => {
     const cards = await Promise.all(
       SCALES_FIXTURES.map(publishedFrom).map(async (d) => scalesCard(await d))
     )

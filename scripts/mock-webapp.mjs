@@ -154,10 +154,9 @@ function payload(name, s) {
       return scales(s.peak24h)
     case 'forecast': {
       if (s.observed === null) return null
-      // Probabilities as 0-1 ratios, the way Signal K wants them and the way
-      // the plugin actually publishes them -- the arguments below are whole
-      // percents because that is how NOAA states them and how they read here.
-      // Serving the percent straight through made the card draw "1500%".
+      // The day() arguments below are whole percents, the way NOAA states
+      // them and the way they are readable here. Signal K carries ratios, so
+      // serve ratios: handing the card a percent made it draw "1500%".
       const ratio = (pct) => leaf(pct / 100)
       const day = (n, g, sp, rMin, rMaj) => ({
         time: leaf(iso(n * 1440)),

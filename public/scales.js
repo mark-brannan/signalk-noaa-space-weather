@@ -37,10 +37,9 @@ const DAY_KEYS = ['1day', '2day', '3day']
 /**
  * The card's numbers, from the endpoint table `readAll` produced.
  *
- * Probabilities come back as whole percents. The plugin publishes them as
- * 0-1 ratios because Signal K wants them that way, and the card draws arcs
- * and "12%" labels, so the conversion belongs on one side of the boundary or
- * the other rather than at three separate call sites in the markup.
+ * Probabilities arrive as 0-1 ratios, because Signal K wants them that way,
+ * and the card draws "12%" labels. Converting here rather than in the markup
+ * keeps it to one place instead of three call sites.
  *
  * Every value is a number or `null`; never `0` standing in for "no reading",
  * since 0 is a real and common level on all three scales.
@@ -60,8 +59,11 @@ export function scalesCard(data) {
     // is the first leaf published under it; either answers "how old is this",
     // and a product that failed mid-publish may have only one of them.
     observedAt: leafTime(observedNode?.G) || leafTime(observedNode?.time),
-    // Flare class is the same measurement R buckets into 0-5, at the
-    // letter+number resolution HF operators actually use.
+    // Labelled "Solar Flare Class" on the card, but issue #122 measured what
+    // this path actually carries: the background X-ray flux at poll time, not
+    // the class of any flare. Passed through unchanged here -- fixing what is
+    // published is #122's job, and renaming it only here would leave the card
+    // and the Signal K path disagreeing.
     flareClass: leafValue(flareNode?.class) ?? null,
     forecast: DAY_KEYS.map((key) => forecastDay(forecastNode?.[key]))
   }

@@ -1,15 +1,12 @@
 // Every Signal K path the webapp reads, in one list.
 //
-// The wiring is the thing that broke in issue #120 and the thing no test could
-// see, because it lived inline in a `Promise.all` in index.html next to the
-// markup it fed. A URL written at the call site is only ever checked by
-// looking at the page. Named here, the pairing of a surface to a path is a
-// value a test can hold -- `scales-render.test.ts` runs the card over every
-// captured payload through these ids and fails if a surface is drawing a
-// field that has never once been non-zero.
+// The wiring is what broke in issue #120, and no test could see it because it
+// lived inline in a `Promise.all` in index.html next to the markup it fed. A
+// URL written at the call site is only ever checked by looking at the page;
+// named here, which path feeds which surface is a value a test can assert on.
 //
-// The admin widget in remoteEntry.js reads from the same table, so the two
-// surfaces cannot drift apart the way they had.
+// The admin widget in remoteEntry.js reads its paths from this table too, so
+// there is one place to change when a path moves.
 import { SCALES_NOW, SCALES_OBSERVED } from './scales-source.js'
 
 const API = '/signalk/v1/api'
@@ -36,14 +33,16 @@ export const ENDPOINTS = {
 /**
  * Fetch the whole table at once and return it keyed by id.
  *
- * One round of requests per refresh, in parallel, because they all go to the
- * same server and a serial walk of ten paths is ten round trips of latency
- * for a page that redraws every minute. `read` is passed in rather than
- * imported so the caller keeps its own auth and error handling -- a 401 on
- * any one of these means the same thing for all of them.
+ * In parallel, because every request goes to the same server and a serial
+ * walk of the table would be one round trip of latency per row, once a
+ * minute. `read` is passed in rather than imported so the caller keeps its
+ * own auth and error handling -- a 401 on any one of these means the same
+ * thing for all of them.
  *
- * Every entry here is fetched on every refresh, so a path nothing renders is
- * a request per minute bought for nothing. Add one when a surface reads it.
+ * The whole table is fetched every refresh, so a row nothing renders costs a
+ * request a minute for nothing. Add one when a surface starts reading it, and
+ * take it out when the surface goes -- three outlived the SFI/A/K/SSN header
+ * strip that #107 removed.
  */
 export async function readAll(read) {
   const ids = Object.keys(ENDPOINTS)

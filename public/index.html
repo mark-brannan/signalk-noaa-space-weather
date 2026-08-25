@@ -887,6 +887,10 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
         : `Day ${i + 1}`;
 
     const { G: gLevel, S: sLevel, R: rLevel } = card.observed;
+    // rCls also colours the flare-class readout below, rather than that
+    // getting its own letter-tier table for two threshold sets to drift
+    // apart on. Issue #122: the value it colours is background flux, not the
+    // flare that drove R, so today it tints one measurement by another.
     const gCls = sevClass(gLevel) || 'sev-0', sCls = sevClass(sLevel) || 'sev-0', rCls = sevClass(rLevel) || 'sev-0';
 
     const gPredCell = (day) => {
@@ -902,10 +906,6 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
         ${rLine(day.rMajorProbability, 'R3&ndash;R5')}
       </div>`;
 
-    // Flare class is colored by the current R level rather than a separate
-    // letter-tier mapping: R's own bucketing (M4.9 vs M5.0 crossing R1/R2,
-    // say) is the authoritative one, and a second hand-picked threshold table
-    // would just risk drifting out of sync with it.
     const days = card.forecast;
 
     body.innerHTML = `
@@ -1615,7 +1615,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
       // signalk.js, which is also where the admin widget reads its paths.
       data = await readAll(getJson);
     } catch (err) {
-      // Every getJson call above hits this same server, so one 401 means
+      // Every request readAll makes hits this same server, so one 401 means
       // they all would -- no need to know which. Leaving the rest of the
       // tiles at whatever they last showed (not blanking them) makes this
       // read as "stale, go log in" rather than "the plugin stopped working".
