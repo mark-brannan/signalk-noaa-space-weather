@@ -16,7 +16,7 @@ import { ProductContext } from '../src/products/types'
  * argument to `client.text` -- would surface as an undefined at runtime.
  * `npm run typecheck` fails on it instead.
  */
-export function harness(responses: Record<string, any>) {
+export function harness(responses: Record<string, unknown>) {
   const published: { values: ValueUpdate[]; timestamp: string }[] = []
   const metas: Meta[] = []
   const errors: string[] = []
@@ -57,9 +57,15 @@ export function harness(responses: Record<string, any>) {
       if (!(subPath in responses)) throw new Error(`unstubbed ${subPath}`)
       return responses[subPath]
     },
+    // Narrowed rather than cast: a stub handing a parsed object to a product
+    // that asked for text would otherwise reach the parser as an object and
+    // fail somewhere further away than here.
     text: async (subPath) => {
       if (!(subPath in responses)) throw new Error(`unstubbed ${subPath}`)
-      return responses[subPath]
+      const body = responses[subPath]
+      if (typeof body !== 'string')
+        throw new Error(`stub for ${subPath} is not text`)
+      return body
     }
   }
 
