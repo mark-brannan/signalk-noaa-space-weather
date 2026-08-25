@@ -4,6 +4,7 @@
  *
  *   node scripts/capture.mjs slow --commit    # daily, small, tracked
  *   node scripts/capture.mjs fast             # 3-hourly, into examples/captures/
+ *   node scripts/capture.mjs fast --only-if-active   # 15-minutely, storms only
  *
  * Deliberately outside the test suite: it needs the live service, and the
  * plugin registry scores this package with `npm test` under --net=none.
@@ -13,8 +14,15 @@
  * newline and the rest of the line is fed to the command as stdin, which is
  * how a capture line can silently produce nothing for weeks:
  *
- *   0 *\/3 * * * cd ~/signalk-noaa-space-weather && /usr/bin/node scripts/capture.mjs fast >> /tmp/noaa-capture.log 2>&1
- *   17 6 * * *   cd ~/signalk-noaa-space-weather && /usr/bin/node scripts/capture.mjs slow --commit >> /tmp/noaa-capture.log 2>&1
+ *   *\/15 * * * * cd ~/signalk-noaa-space-weather && /usr/bin/node scripts/capture.mjs fast --only-if-active >> /tmp/noaa-capture.log 2>&1
+ *   0 *\/3 * * *  cd ~/signalk-noaa-space-weather && /usr/bin/node scripts/capture.mjs fast >> /tmp/noaa-capture.log 2>&1
+ *   17 6 * * *    cd ~/signalk-noaa-space-weather && /usr/bin/node scripts/capture.mjs slow --commit >> /tmp/noaa-capture.log 2>&1
+ *
+ * The three are not redundant. A storm is short and a 3-hourly capture lands on
+ * its peak by luck, so the 15-minute run exists to catch the peak -- gated on
+ * something actually happening, because an ungated one would be 96 fetches a day
+ * of a quiet sky. The 3-hourly run is what keeps *quiet* cases coming in, which
+ * the gate deliberately excludes.
  *
  * The point is a corpus with *variety* in it. Issue #120 shipped a badge wired
  * to a field that reads 0 in every fixture we had, and the whole suite stayed
@@ -212,6 +220,40 @@ const GROUPS = {
   fast: { dir: join('examples', 'captures'), tracked: false }
 }
 
+/**
+ * Is anything happening worth spending a full capture on?
+ *
+ * Two cheap fetches (~2.5 KB together) against the two endpoints that answer
+ * it: any non-zero observed G/S/R level, or a flare at M or above. Deliberately
+ * not a threshold on "interesting" -- G1 and an M1 are common, and the point of
+ * the 15-minute run is to be already capturing when a common event turns into
+ * an uncommon one.
+ */
+async function somethingIsHappening() {
+  const reasons = []
+  try {
+    const scales = JSON.parse(await fetchText('/products/noaa-scales.json'))
+    for (const index of ['-1', '0']) {
+      for (const letter of ['G', 'S', 'R']) {
+        const level = Number(scales?.[index]?.[letter]?.Scale)
+        if (level > 0) reasons.push(`${letter}${level}`)
+      }
+    }
+  } catch (error) {
+    // A probe that cannot be read is itself a reason to capture: either NOAA is
+    // broken or the shape moved, and both are worth a fixture.
+    return ['scales probe failed: ' + error.message]
+  }
+  try {
+    const [flare] = JSON.parse(await fetchText('/json/goes/primary/xray-flares-latest.json'))
+    const current = String(flare?.current_class ?? '')
+    if (/^[MX]/.test(current)) reasons.push(current)
+  } catch (error) {
+    return ['flare probe failed: ' + error.message]
+  }
+  return reasons
+}
+
 async function fetchText(path) {
   const response = await fetch(API + path, {
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
@@ -317,6 +359,15 @@ async function main() {
   if (!config) {
     console.error(`usage: capture.mjs <${Object.keys(GROUPS).join('|')}> [--commit]`)
     process.exit(2)
+  }
+
+  if (flags.includes('--only-if-active')) {
+    const reasons = await somethingIsHappening()
+    if (!reasons.length) {
+      console.log('quiet: nothing to capture')
+      return
+    }
+    console.log(`active (${[...new Set(reasons)].join(' ')}): capturing`)
   }
 
   const dir = join(REPO, config.dir)
