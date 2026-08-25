@@ -8,6 +8,14 @@
  * Deliberately outside the test suite: it needs the live service, and the
  * plugin registry scores this package with `npm test` under --net=none.
  *
+ * Cron. The script names its own files, so there is no date(1) call and so
+ * nothing for crontab's `%` handling to break -- an unescaped `%` becomes a
+ * newline and the rest of the line is fed to the command as stdin, which is
+ * how a capture line can silently produce nothing for weeks:
+ *
+ *   0 *\/3 * * * cd ~/signalk-noaa-space-weather && /usr/bin/node scripts/capture.mjs fast >> /tmp/noaa-capture.log 2>&1
+ *   17 6 * * *   cd ~/signalk-noaa-space-weather && /usr/bin/node scripts/capture.mjs slow --commit >> /tmp/noaa-capture.log 2>&1
+ *
  * The point is a corpus with *variety* in it. Issue #120 shipped a badge wired
  * to a field that reads 0 in every fixture we had, and the whole suite stayed
  * green because nothing in `examples/` disagreed with it. A fixture set where
@@ -288,6 +296,16 @@ function commit(paths) {
     return
   }
   git(['add', '--', ...paths])
+  // A capture can be byte-identical to one already committed -- the key said
+  // it was a new case, the bytes disagreed. `git commit` treats an empty
+  // pathspec as an error, and cron should not get a stack trace for it.
+  try {
+    git(['diff', '--cached', '--quiet', '--', ...paths])
+    console.log('nothing staged: captures matched what is already committed')
+    return
+  } catch {
+    // Non-zero from `--quiet` means there *are* staged changes. Carry on.
+  }
   const subject = `test: capture NOAA fixtures (${paths.length} new case${paths.length === 1 ? '' : 's'})`
   git(['commit', '--no-verify', '-m', subject, '--', ...paths])
   console.log(`committed ${paths.length} file(s)`)
@@ -332,7 +350,14 @@ async function main() {
     console.log(`${prefix}: NEW ${name} (${thisKey.slice(0, 40)})`)
   }
 
-  if (config.tracked && flags.includes('--commit')) commit(written)
+  if (config.tracked && flags.includes('--commit')) {
+    try {
+      commit(written)
+    } catch (error) {
+      console.error(`commit failed: ${error.message.split('\n')[0]}`)
+      process.exit(1)
+    }
+  }
   // Exit non-zero only if nothing worked, so cron mail means something.
   if (failures && !written.length) process.exit(1)
 }
