@@ -5,16 +5,13 @@ import { Meta, Publisher } from '../src/publisher'
 import { ProductContext } from '../src/products/types'
 
 /**
- * The point of the products/ split: a product can be exercised with a fake
- * client and a fake publisher, with no server, no timers and no network. Each
- * of these drives the real refresh path over a captured payload and asserts on
- * what would reach Signal K.
+ * A product's real refresh path over a captured payload, with no server, no
+ * timers and no network.
  *
  * The stubs satisfy Client and Publisher rather than being cast at the call
- * site. A cast on `refresh(ctx)` accepts whatever the stubs happen to be, so a
- * product reaching for something they don't have -- `dataDirPath`, a second
- * argument to `client.text` -- would surface as an undefined at runtime.
- * `npm run typecheck` fails on it instead.
+ * site: a cast accepts whatever the stubs happen to be, so a product reaching
+ * for something they don't have surfaces as an undefined at runtime instead
+ * of failing `npm run typecheck`.
  */
 export function harness(responses: Record<string, unknown>) {
   const published: { values: ValueUpdate[]; timestamp: string }[] = []
@@ -45,8 +42,8 @@ export function harness(responses: Record<string, unknown>) {
     fail: () => {},
     error: (m, ...a) => errors.push(`${m} ${a.join(' ')}`),
     debug: () => {},
-    // No product exercised here persists a file, and a stub handing back a
-    // real directory would let one start doing so without a test noticing.
+    // No product exercised here persists a file; a real directory would let
+    // one start doing so unnoticed.
     dataDirPath: () => {
       throw new Error('dataDirPath is not stubbed')
     }
@@ -57,9 +54,8 @@ export function harness(responses: Record<string, unknown>) {
       if (!(subPath in responses)) throw new Error(`unstubbed ${subPath}`)
       return responses[subPath]
     },
-    // Narrowed rather than cast: a stub handing a parsed object to a product
-    // that asked for text would otherwise reach the parser as an object and
-    // fail somewhere further away than here.
+    // Narrowed rather than cast, so a stub handing a parsed object to a
+    // product that asked for text fails here rather than in the parser.
     text: async (subPath) => {
       if (!(subPath in responses)) throw new Error(`unstubbed ${subPath}`)
       const body = responses[subPath]

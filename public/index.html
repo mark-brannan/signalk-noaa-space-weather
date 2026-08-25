@@ -870,17 +870,13 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   // Outlook" tile was just forcing the reader to cross-reference two tiles
   // to answer "is this getting worse."
   //
-  // Which paths the numbers come from is scales.js's business, not this
-  // function's: `card` is already the levels and percentages to draw. That
-  // separation is issue #121 -- inline, the wiring could only be checked by
-  // looking at the page.
+  // `card` is already the levels and percentages to draw; which paths they
+  // came from is scales.js's business (issue #121).
   function renderScales(card) {
     const body = document.getElementById('scalesBody');
-    // Format the forecast day in UTC, not the vessel's local zone. NOAA's
-    // forecast days are UTC days and days 2 and 3 arrive stamped 00:00:00, so
-    // rendering them locally moves them a day earlier anywhere west of
-    // Greenwich and a day later far enough east -- which put two columns on
-    // the same date again.
+    // UTC, not the vessel's local zone: NOAA's forecast days are UTC days and
+    // days 2 and 3 arrive stamped 00:00:00, so rendering them locally puts two
+    // columns on the same date.
     const dayLabel = (day, i) =>
       day.at
         ? new Date(day.at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
@@ -888,9 +884,8 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
 
     const { G: gLevel, S: sLevel, R: rLevel } = card.observed;
     // rCls also colours the flare-class readout below, rather than that
-    // getting its own letter-tier table for two threshold sets to drift
-    // apart on. Issue #122: the value it colours is background flux, not the
-    // flare that drove R, so today it tints one measurement by another.
+    // getting a second letter-tier table to drift apart from this one. Issue
+    // #122: the value it colours is background flux, not the flare that drove R.
     const gCls = sevClass(gLevel) || 'sev-0', sCls = sevClass(sLevel) || 'sev-0', rCls = sevClass(rLevel) || 'sev-0';
 
     const gPredCell = (day) => {
@@ -1611,8 +1606,6 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   async function refresh() {
     let data;
     try {
-      // One round of requests over the whole endpoint table -- see
-      // signalk.js, which is also where the admin widget reads its paths.
       data = await readAll(getJson);
     } catch (err) {
       // Every request readAll makes hits this same server, so one 401 means
@@ -1649,9 +1642,9 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     // map) and the map's extent caption need it.
     const pos = leafValue(data.position);
 
-    // The hero keeps both observed readings, because telling a storm in
-    // progress from one that has passed needs the pair. The card takes only
-    // the 24-hour maximum, and picks that path itself -- see scales.js.
+    // The hero keeps both observed readings: telling a storm in progress from
+    // one that has passed needs the pair. The card takes only the 24-hour
+    // maximum, and picks that path itself -- see scales.js.
     renderHero(data.scalesNow, data.scalesObserved, kp, status);
     renderScales(scalesCard(data));
     renderAurora(data.aurora, auroraScheduled, status?.settings?.auroraInterval, !!status, pos);

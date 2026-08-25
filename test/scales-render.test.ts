@@ -7,26 +7,20 @@ import { SCALES_FIXTURES, fixtureJson } from './fixtures.js'
 import { harness } from './harness.js'
 
 /**
- * The gap issue #121 names: `hero.test.ts` proves the *decision* is right from
- * hand-built objects, and nothing proved which endpoint fills them. So this
- * runs the real product over a captured payload, serves the result the way the
- * Signal K API would, and asks the card what the badges read -- the whole path
- * from NOAA's bytes to the number on screen, with no hand-written middle.
+ * The gap issue #121 names: `hero.test.ts` proves the decision is right from
+ * hand-built objects, and nothing proved which endpoint fills them. These run
+ * the real product over a captured payload, serve the result the way the
+ * Signal K API would, and ask the card what the badges read.
  */
 
 const SCALES_ENDPOINT = '/products/noaa-scales.json'
 
-/** A Signal K leaf as the REST API returns it. */
 type Leaf = { value: unknown; timestamp: string }
 
 /** A GET on a non-leaf path returns the subtree below it, leaves and all. */
 type ApiNode = Leaf | { [key: string]: ApiNode }
 
-/**
- * The dotted path a vessel-data URL addresses, or `null` for the plugin's own
- * routes (`advisory`, `status`) -- those are served by the router, so nothing
- * a product publishes can answer them.
- */
+/** The dotted path a vessel URL addresses; `null` for the plugin's own routes. */
 function pathOf(url: string): string | null {
   const vessel = '/signalk/v1/api/vessels/self/'
   return url.startsWith(vessel)
@@ -36,9 +30,7 @@ function pathOf(url: string): string | null {
 
 /**
  * What a GET on each endpoint would return, built from what the product
- * published. Subtrees are why the webapp reaches into `?.G` and
- * `?.S?.probability`; a path the product never published 404s, and reaches
- * the webapp as `null`.
+ * published. A path it never published 404s, reaching the webapp as `null`.
  */
 function apiTree(
   values: ValueUpdate[],
@@ -68,11 +60,8 @@ function apiTree(
   return data
 }
 
-/**
- * The flare endpoint is deliberately left unstubbed: no fixture pairs one with
- * a scales payload, the product treats a failure there as best-effort, and
- * that is the case these assertions run through.
- */
+// The flare endpoint is left unstubbed: no fixture pairs one with a scales
+// payload, and the product treats a failure there as best-effort.
 async function publishedFrom(fixture: string) {
   const h = harness({ [SCALES_ENDPOINT]: fixtureJson(fixture) })
   await scales.refresh(h.ctx)
@@ -104,10 +93,8 @@ describe('the Storm Scales card, from NOAA payload to badge', () => {
   })
 
   it('converts NOAA probabilities out of the ratio Signal K publishes', async () => {
-    // NOAA states this payload's first forecast day as S "Prob": "1" and R
-    // "MinorProb": "60" -- whole percents. The plugin publishes them as the
-    // 0-1 ratios Signal K wants, so the card has to multiply them back up. A
-    // card reading the ratio straight through would draw "0%" and "1%".
+    // NOAA states this payload's first day as S "Prob": "1" and R
+    // "MinorProb": "60", in whole percents; Signal K carries the ratio.
     const data = await publishedFrom('noaa-scales.2025_04_16.json')
     expect(
       leafValue(data.scalesForecast?.['1day']?.S?.probability)
@@ -128,18 +115,13 @@ describe('the Storm Scales card, from NOAA payload to badge', () => {
 })
 
 /**
- * A canary over the fixture corpus, not a property of the card.
- *
- * `examples/` includes a G4 day and an R2 day, so every number the card draws
- * should be non-zero in at least one payload. A field that is 0 or absent in
- * all of them is drawing from somewhere the storms never reach -- which is
- * what #120 was: the instantaneous sample reads 0 in every fixture, both
- * storm days included.
- *
- * It is only as good as the corpus. Against an all-quiet one it would pass a
- * card wired to nothing at all, which is why the two storm days are asserted
- * by name above rather than left to this. Growing `examples/` is what gives
- * this teeth; it catches the fields nobody thought to pin individually.
+ * A canary over the fixture corpus, not a property of the card, and worth
+ * keeping as its own case: `examples/` holds a G4 day and an R2 day, so a
+ * field that is 0-or-absent in every payload is drawing from somewhere the
+ * storms never reach. That is what #120 was. It is only as good as the
+ * corpus -- against an all-quiet one it would pass a card wired to nothing,
+ * which is why the two storm days are asserted by name above. What it buys
+ * is the fields nobody thought to pin individually.
  */
 describe('no number the card draws is dead across the whole corpus', () => {
   it('finds a non-zero reading for every one of them', async () => {
@@ -147,8 +129,7 @@ describe('no number the card draws is dead across the whole corpus', () => {
       SCALES_FIXTURES.map(publishedFrom).map(async (d) => scalesCard(await d))
     )
 
-    // Keyed by the label a failure has to name, since "something is dead" is
-    // not actionable and the whole point is to say which field.
+    // Keyed by label, so a failure names the field rather than the count.
     const drawn: Record<string, (number | null)[]> = {}
     const record = (label: string, value: number | null) =>
       (drawn[label] ??= []).push(value)
