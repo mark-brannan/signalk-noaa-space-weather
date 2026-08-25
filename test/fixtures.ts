@@ -1,5 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { settingsFrom } from '../src/config.js'
+import { Client } from '../src/noaa/client.js'
+import { ValueUpdate } from '../src/parse.js'
+import { Meta, Publisher } from '../src/publisher.js'
+import { ProductContext } from '../src/products/types.js'
+import { scales as scalesProduct } from '../src/products/scales.js'
+import { ENDPOINTS } from '../public/signalk.js'
 
 /**
  * Captured NOAA payloads live in examples/ and are the only input these tests
@@ -99,6 +106,159 @@ export const KP_FORECAST_FIXTURES = [
   'noaa-planetary-k-index-forecast.2025_04_17.json',
   'noaa-planetary-k-index-forecast.2026_08_01.json'
 ]
+
+export const FLARE_ENDPOINT = '/json/goes/primary/xray-flares-latest.json'
+
+/**
+ * The point of the products/ split: a product can be exercised with a fake
+ * client and a fake publisher, with no server, no timers and no network. Each
+ * caller drives the real refresh path over a captured payload and asserts on
+ * what would reach Signal K.
+ *
+ * The stubs satisfy Client and Publisher rather than being cast at the call
+ * site. A cast on `refresh(ctx)` accepts whatever the stubs happen to be, so a
+ * product reaching for something they don't have -- `dataDirPath`, a second
+ * argument to `client.text` -- would surface as an undefined at runtime.
+ * `npm run typecheck` fails on it instead.
+ */
+export function harness(responses: Record<string, any>) {
+  const published: { values: ValueUpdate[]; timestamp: string }[] = []
+  const metas: Meta[] = []
+  const errors: string[] = []
+
+  const publisher: Publisher = {
+    meta: (m) => metas.push(...m),
+    values: (values, timestamp) => published.push({ values, timestamp }),
+    value(path, value, timestamp) {
+      this.values([{ path, value }], timestamp)
+    },
+    // Answers what this harness has already published, so a product that
+    // checks the tree before republishing sees what a server would show it:
+    // the newest update for that path, not the first, and the `.timestamp`
+    // leaf alongside the `.value` one.
+    selfPath: (path: string) => {
+      for (let i = published.length - 1; i >= 0; i--) {
+        const { values, timestamp } = published[i]
+        for (const update of values) {
+          if (`${update.path}.value` === path) return update.value
+          if (`${update.path}.timestamp` === path) return timestamp
+        }
+      }
+      return undefined
+    },
+    status: () => {},
+    fail: () => {},
+    error: (m, ...a) => errors.push(`${m} ${a.join(' ')}`),
+    debug: () => {},
+    // No product exercised here persists a file, and a stub handing back a
+    // real directory would let one start doing so without a test noticing.
+    dataDirPath: () => {
+      throw new Error('dataDirPath is not stubbed')
+    }
+  }
+
+  const client: Client = {
+    json: async (subPath) => {
+      if (!(subPath in responses)) throw new Error(`unstubbed ${subPath}`)
+      return responses[subPath]
+    },
+    text: async (subPath) => {
+      if (!(subPath in responses)) throw new Error(`unstubbed ${subPath}`)
+      return responses[subPath]
+    }
+  }
+
+  const ctx: ProductContext = {
+    client,
+    publisher,
+    settings: settingsFrom({}),
+    stopped: () => false
+  }
+
+  const flat = () => published.flatMap((p) => p.values)
+  return {
+    publisher,
+    client,
+    metas,
+    errors,
+    published,
+    ctx,
+    valueAt: (path: string) => flat().find((v) => v.path === path)?.value,
+    paths: () => flat().map((v) => v.path)
+  }
+}
+
+/** The dotted Signal K path an endpoint URL addresses. */
+function pathOf(url: string): string | null {
+  const vessel = '/signalk/v1/api/vessels/self/'
+  return url.startsWith(vessel) ? url.slice(vessel.length).replace(/\//g, '.') : null
+}
+
+/**
+ * What a GET on each endpoint in `ENDPOINTS` would return, from what a
+ * product published -- the API answers a non-leaf path with the subtree
+ * below it, leaves and all, which is why webapp card modules reach into
+ * `?.G` and `?.S?.probability`. Anything never published 404s and arrives at
+ * the webapp as `null`.
+ */
+function apiTree(values: ValueUpdate[], timestamp: string): Record<string, any> {
+  const data: Record<string, any> = {}
+  for (const [id, url] of Object.entries<string>(ENDPOINTS)) {
+    const base = pathOf(url)
+    if (base === null) continue
+    let node: any = null
+    for (const { path, value } of values) {
+      if (path !== base && !path.startsWith(base + '.')) continue
+      const rest = path === base ? [] : path.slice(base.length + 1).split('.')
+      const leaf = { value, timestamp }
+      if (rest.length === 0) {
+        node = leaf
+        continue
+      }
+      node ??= {}
+      let cursor = node
+      for (const key of rest.slice(0, -1)) cursor = cursor[key] ??= {}
+      cursor[rest[rest.length - 1]] = leaf
+    }
+    data[id] = node
+  }
+  return data
+}
+
+/**
+ * Runs the real Scales product over one captured payload, offline, and
+ * returns the result the way the Signal K API would serve it to the webapp --
+ * the whole path from NOAA's bytes to what a card module reads, with no
+ * hand-written middle. `flareFixture` is optional because most fixtures do
+ * not pair a scales payload with a flare one; when omitted, the flare fetch
+ * fails the same best-effort way it does against a real server that hasn't
+ * published one yet.
+ */
+export async function publishedScalesTree(scalesFixture: string, flareFixture?: string) {
+  const scalesJson = fixtureJson(scalesFixture)
+  const flareJson = flareFixture ? fixtureJson(flareFixture) : undefined
+  const values: ValueUpdate[] = []
+  let timestamp = ''
+  await scalesProduct.refresh({
+    client: {
+      json: async (subPath: string) => {
+        if (subPath.includes('noaa-scales')) return scalesJson
+        if (subPath.includes('xray-flares') && flareJson !== undefined) return flareJson
+        throw new Error(`no fixture stubbed for ${subPath}`)
+      }
+    } as any,
+    publisher: {
+      values: (v: ValueUpdate[], ts: string) => {
+        values.push(...v)
+        timestamp = ts
+      },
+      error: () => {}
+    } as any,
+    settings: settingsFrom({}),
+    stopped: () => false
+  })
+  return apiTree(values, timestamp)
+}
 
 /**
  * The server's zone matcher, reproduced verbatim from signalk-server

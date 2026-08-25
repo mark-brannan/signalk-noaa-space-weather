@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ENDPOINTS, leafValue } from '../public/signalk.js'
 import { LETTERS, SCALES_CARD_SOURCES, scalesCard } from '../public/scales.js'
-import { scales } from '../src/products/scales.js'
-import { ValueUpdate } from '../src/parse.js'
-import { SCALES_FIXTURES, fixtureJson } from './fixtures.js'
+import { SCALES_FIXTURES, fixtureJson, publishedScalesTree } from './fixtures.js'
 
 /**
  * The gap issue #121 names: `hero.test.ts` proves the *decision* is right from
@@ -11,77 +9,13 @@ import { SCALES_FIXTURES, fixtureJson } from './fixtures.js'
  * runs the real product over a captured payload, serves the result the way the
  * Signal K API would, and asks the card what the badges read -- the whole path
  * from NOAA's bytes to the number on screen, with no hand-written middle.
- */
-
-/** The dotted Signal K path an endpoint URL addresses. */
-function pathOf(url: string): string | null {
-  const vessel = '/signalk/v1/api/vessels/self/'
-  return url.startsWith(vessel)
-    ? url.slice(vessel.length).replace(/\//g, '.')
-    : null
-}
-
-/**
- * What a GET on each endpoint returns, from what the product published.
  *
- * The API answers a non-leaf path with the subtree below it, leaves and all,
- * which is why the webapp reaches into `?.G` and `?.S?.probability`. Anything
- * the product never published 404s, and arrives at the webapp as `null`.
+ * `publishedFrom` here is `publishedScalesTree` with no flare fixture -- the
+ * flare class comes from a second endpoint these fixtures do not pair with a
+ * scales payload, and the product treats a failure there as best-effort,
+ * which is exactly the case being exercised.
  */
-function apiTree(
-  values: ValueUpdate[],
-  timestamp: string
-): Record<string, any> {
-  const data: Record<string, any> = {}
-  for (const [id, url] of Object.entries<string>(ENDPOINTS)) {
-    const base = pathOf(url)
-    if (base === null) continue
-    let node: any = null
-    for (const { path, value } of values) {
-      if (path !== base && !path.startsWith(base + '.')) continue
-      const rest = path === base ? [] : path.slice(base.length + 1).split('.')
-      const leaf = { value, timestamp }
-      if (rest.length === 0) {
-        node = leaf
-        continue
-      }
-      node ??= {}
-      let cursor = node
-      for (const key of rest.slice(0, -1)) cursor = cursor[key] ??= {}
-      cursor[rest[rest.length - 1]] = leaf
-    }
-    data[id] = node
-  }
-  return data
-}
-
-/** Run the scales product over one captured payload, offline. */
-async function publishedFrom(fixture: string) {
-  const json = fixtureJson(fixture)
-  const values: ValueUpdate[] = []
-  let timestamp = ''
-  await scales.refresh({
-    client: {
-      json: async (subPath: string) => {
-        // The flare class comes from a second endpoint the fixtures do not
-        // pair with a scales payload; the product treats a failure there as
-        // best-effort, which is exactly the case being exercised.
-        if (subPath.includes('noaa-scales')) return json
-        throw new Error('no flare fixture for this payload')
-      }
-    } as any,
-    publisher: {
-      values: (v: ValueUpdate[], ts: string) => {
-        values.push(...v)
-        timestamp = ts
-      },
-      error: () => {}
-    } as any,
-    settings: {} as any,
-    stopped: () => false
-  })
-  return apiTree(values, timestamp)
-}
+const publishedFrom = (fixture: string) => publishedScalesTree(fixture)
 
 describe('the Storm Scales card, from NOAA payload to badge', () => {
   it('reads G4 on the day whose 24-hour maximum was G4', async () => {
