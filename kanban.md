@@ -24,6 +24,36 @@ what it is blocked by. Delete it when it is done.
       environment-level sync only you can configure
       ([context](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/97#discussion_r3823818406))
 
+- [ ] Decide the three stale branches: `docs/readme` (45 commits ahead of
+      main, untouched since 2026-08-01),
+      [`claude/plugin-low-hanging-fruit-qms3w6`](https://github.com/mark-brannan/signalk-noaa-space-weather/tree/claude/plugin-low-hanging-fruit-qms3w6)
+      and
+      [`claude/synthetic-fixtures`](https://github.com/mark-brannan/signalk-noaa-space-weather/tree/claude/synthetic-fixtures)
+      (one unlanded commit each, no pull request) — real unlanded work, so
+      not a sweep
+
 ## Claude's
 
-Nothing in flight.
+- [ ] Subset the two unsubset embedded faces in `public/index.html` — Oswald
+      (224 KB) and Space Mono (2 x ~128 KB) are the full character range, while
+      Nunito and Red Hat Mono are already subset; ~450 KB of a 604 KB page
+      ([#135](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/135))
+- [ ] Add a `.coderabbit.yaml` scoping AGENTS.md's rules by path — with none in
+      the repo it reads the whole file as coding guidelines and applied the
+      commit-subject format to a CHANGELOG entry
+      ([#119](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/119#discussion_r3857388486))
+- [ ] Move the settled arguments out of CLAUDE.md's `## Non-obvious
+      constraints` — 229 of its 524 lines, loaded by every session; keep the
+      imperative and the issue number, move the defence to the issue or a
+      `docs/decisions/` note
+      ([audit](https://claude.ai/code/artifact/6150bdd6-8257-43fe-992c-e24263e340c7))
+- [ ] Cut AGENTS.md's duplicates of `~/.claude/rules/code.md` — "Draft is a
+      working state" (21 lines) and "Tell the maintainer once" (16), down to
+      two lines each since a drive-by contributor sees only this file; and
+      delete the `github-advanced-security` section if
+      [#67](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/67)
+      has closed
+- [ ] Make `examples/` self-policing — 19 of 50 fixtures are named by no test,
+      and #133's cron adds more; fail a test on any file `test/fixtures.ts`
+      does not list, rather than pruning by hand again
+      ([audit](https://claude.ai/code/artifact/6150bdd6-8257-43fe-992c-e24263e340c7))
