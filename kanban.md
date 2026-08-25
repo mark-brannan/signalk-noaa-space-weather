@@ -26,4 +26,6 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
-Nothing in flight.
+- [ ] Fix K-index tile's oversized margins on narrow viewports ([#129](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/129))
+- [ ] Make Storm Scales title responsive and align it with the Kp graph ([#130](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/130))
+- [ ] Determine the rationale for 3-day R-scale coloring, fix if backwards ([#131](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/131))
