@@ -61,11 +61,18 @@ const sha = (text) => createHash('sha1').update(text).digest('hex').slice(0, 12)
  * shape change is the most interesting capture there is.
  */
 
-/** wwv: the severity words and the storm sentences, not the issue time. */
+/**
+ * wwv: the severity words and the storm sentences, not the issue time.
+ *
+ * `are predicted` and `were observed` are in the list because that is how the
+ * bulletin says *nothing* is happening ("No space weather storms are predicted
+ * for the next 24 hours"). Without them a quiet forecast contributes nothing to
+ * the key and two different ways of saying "quiet" collapse into one case.
+ */
 const wwvKey = (body) =>
   body
     .split('\n')
-    .filter((line) => /has been|predicted to be|reaching the|are likely/.test(line))
+    .filter((line) => /has been|predicted to be|reaching the|are likely|are predicted|were observed/.test(line))
     .map((line) => line.trim())
     .join(' | ')
 
@@ -126,7 +133,46 @@ const drapKey = (body) =>
     .map((line) => line.trim())
     .join(' | ')
 
-/** Text bulletins: the body with the issue timestamp lines removed. */
+/**
+ * The 27-day outlook: the worst day in the window, not the window itself.
+ *
+ * The table rolls forward one row a day, so hashing its body marks every
+ * capture as new whatever the sun is doing -- the "new moment, not new case"
+ * failure this whole file exists to avoid, landing in the *tracked* tree. What
+ * makes one outlook a different case is whether it forecasts a storm and how
+ * big: the peak A index and Kp across the 27 rows, with F10.7 in 10 sfu bands.
+ */
+const outlook27Key = (body) => {
+  const rows = [...body.matchAll(/^\d{4} \w{3} +\d{1,2} +(\d+) +(\d+) +(\d+)\s*$/gm)]
+  if (!rows.length) return null
+  const column = (index) => rows.map((row) => Number(row[index]))
+  const band = (value) => Math.round(value / 10) * 10
+  const flux = column(1)
+  return `f${band(Math.min(...flux))}-${band(Math.max(...flux))} ap${Math.max(...column(2))} kp${Math.max(...column(3))}`
+}
+
+/**
+ * Daily solar indices: the newest row only, in bands.
+ *
+ * Same rolling-window problem -- the feed is the last 30 days, so yesterday
+ * drops off the top every night. The case is today's reading: F10.7 in 5 sfu
+ * bands and the sunspot number in 10s, which is the resolution at which two
+ * days are actually different weather rather than different days.
+ */
+const dailyIndicesKey = (body) => {
+  const rows = [...body.matchAll(/^(\d{4} \d{2} \d{2}) +(\d+) +(\d+)\b/gm)]
+  if (!rows.length) return null
+  const newest = rows.reduce((best, row) => (row[1] > best[1] ? row : best))
+  return `f${Math.round(Number(newest[2]) / 5) * 5} ssn${Math.round(Number(newest[3]) / 10) * 10}`
+}
+
+/**
+ * Narrative bulletins: the body with the issue timestamp lines removed.
+ *
+ * Only for feeds that are genuinely re-written per issue rather than rolled
+ * forward per day -- the advisory outlook is irregular prose, so distinct text
+ * really does mean a distinct case. Do not reach for this for a table.
+ */
 const bulletinKey = (body) =>
   sha(
     body
@@ -167,7 +213,9 @@ const xrayFluxKey = (body) => {
 }
 
 /**
- * F10.7 in 5 sfu buckets -- a one-unit drift is the same solar activity.
+ * F10.7 in 10 sfu bands -- a few units of drift is the same solar activity.
+ * Narrower than that and the daily reading crosses a boundary most days, which
+ * files a new case for what is really the same sun.
  *
  * Picks the newest "Noon" entry rather than trusting the array's order, the
  * same way `parseF107` does: the feed is not sorted, and its last element is
@@ -179,7 +227,11 @@ const f107Key = (body) => {
     if (row?.reporting_schedule !== 'Noon') continue
     if (!latest || row.time_tag > latest.time_tag) latest = row
   }
-  return String(Math.round((Number(latest?.flux) || 0) / 5) * 5)
+  // No Noon reading at all is a shape change, not a flux of zero: returning a
+  // number here would file every such payload under one key and drop all but
+  // the first. `null` sends it to the content hash, which keeps them.
+  if (!latest) return null
+  return String(Math.round(Number(latest.flux) / 10) * 10)
 }
 
 /** JSON payloads with no better key: every value except the timestamps. */
@@ -191,14 +243,15 @@ const jsonKey = (body) =>
  * enough that a year of them is a rounding error in the repo.
  *
  * `fast` lands in `examples/captures/`, which is gitignored: sub-daily, or
- * large enough that tracking every distinct case would bloat the tree. Promote
- * an interesting one by hand with `git mv`.
+ * large enough that tracking every distinct case would bloat the tree. These are
+ * untracked, so promote an interesting one with plain `mv` into `examples/` and
+ * then `git add` it -- `git mv` refuses a source git does not know about.
  */
 const ENDPOINTS = [
   // --- slow: daily, tracked -------------------------------------------------
-  ['slow', '/text/27-day-outlook.txt', '27-day-outlook', 'txt', bulletinKey],
+  ['slow', '/text/27-day-outlook.txt', '27-day-outlook', 'txt', outlook27Key],
   ['slow', '/text/advisory-outlook.txt', 'advisory-outlook', 'txt', bulletinKey],
-  ['slow', '/text/daily-solar-indices.txt', 'daily-solar-indices', 'txt', bulletinKey],
+  ['slow', '/text/daily-solar-indices.txt', 'daily-solar-indices', 'txt', dailyIndicesKey],
   ['slow', '/json/f107_cm_flux.json', 'f107_cm_flux', 'json', f107Key],
   ['slow', '/json/goes/primary/xray-flares-latest.json', 'xray-flares-latest', 'json', flareKey],
 
