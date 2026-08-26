@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { LETTERS, scalesCard } from '../public/scales.js'
-import { SOLAR_WIND_BASE } from '../src/paths'
+import { SOLAR_WIND_BASE, XRAY_FLARE_BASE } from '../src/paths'
+import { scales } from '../src/products/scales'
 import { solarWind } from '../src/products/solarWind'
 import {
+  FLARE_ENDPOINT,
   FLARE_FIXTURES,
+  FLARE_WEEK_FIXTURES,
   SCALES_FIXTURES,
   SOLAR_WIND_FIXTURES,
   SYNTHETIC_FLARE_FIXTURES,
@@ -96,13 +99,36 @@ describe('no field a webapp surface draws is dead across the whole fixture corpu
     expect(dead).toEqual([])
   })
 
-  it('finds a non-empty X-ray flare class somewhere in examples/', async () => {
+  it('finds a non-empty 24-hour peak flare class somewhere in examples/', async () => {
+    // What the card draws, which since #122 is the 24-hour peak rather than
+    // the latest event -- the readout sits beside a badge that is NOAA's own
+    // 24-hour maximum, so the two have to describe the same day.
     const classes = await Promise.all(
-      FLARE_CORPUS.map(
-        async (f) =>
-          scalesCard(await publishedScalesTree(ANY_SCALES_FIXTURE, f))
-            .flareClass
+      FLARE_WEEK_FIXTURES.map(
+        async (week) =>
+          scalesCard(
+            await publishedScalesTree(ANY_SCALES_FIXTURE, undefined, week)
+          ).flareClass
       )
+    )
+    expect(classes.some((v) => typeof v === 'string' && v.length > 0)).toBe(
+      true
+    )
+  })
+
+  it('finds a non-empty latest flare class somewhere in examples/', async () => {
+    // The second sweep that stops at the Signal K path, for solar wind's
+    // reason: the Solar Activity tile reads this leaf directly out of
+    // index.html, so there is no card module above it to ask.
+    const classes = await Promise.all(
+      FLARE_CORPUS.map(async (f) => {
+        const h = harness({
+          '/products/noaa-scales.json': fixtureJson(ANY_SCALES_FIXTURE),
+          [FLARE_ENDPOINT]: fixtureJson(f)
+        })
+        await scales.refresh(h.ctx)
+        return h.valueAt(`${XRAY_FLARE_BASE}.class`)
+      })
     )
     expect(classes.some((v) => typeof v === 'string' && v.length > 0)).toBe(
       true
