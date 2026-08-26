@@ -24,20 +24,20 @@ node scripts/measure-noaa.mjs --cadence  # adds a 15-minute content watch
 
 ## Endpoints
 
-| Endpoint | Product | Notes |
-| --- | --- | --- |
-| `/products/noaa-scales.json` | `scales` | G/S/R observed + 3-day forecast |
-| `/json/goes/primary/xray-flares-latest.json` | `scales` | flare class, e.g. `B5.7` |
-| `/products/noaa-planetary-k-index-forecast.json` | `kp` | shape alternates, see below |
-| `/products/summary/solar-wind-speed.json` | `solarWind` | shape changed once, see below |
-| `/products/summary/solar-wind-mag-field.json` | `solarWind` | shape changed once, see below |
-| `/products/alerts.json` | `alerts` | rolling 30-day archive, see below |
-| `/json/f107_cm_flux.json` | `f107` | three readings a day; only "Noon" is used |
-| `/json/ovation_aurora_latest.json` | `aurora` | the only large payload |
-| `/text/advisory-outlook.txt` | `advisory` | weekly bulletin, plain text |
-| `/text/27-day-outlook.txt` | `outlook27` | daily rows for one solar rotation, plain text |
-| `/text/wwv.txt` | `aIndex` | the WWV geophysical alert bulletin, plain text |
-| `/text/daily-solar-indices.txt` | `sunspot` | last 30 daily rows (DSD.txt), plain text |
+| Endpoint                                         | Product     | Notes                                          |
+| ------------------------------------------------ | ----------- | ---------------------------------------------- |
+| `/products/noaa-scales.json`                     | `scales`    | G/S/R observed + 3-day forecast                |
+| `/json/goes/primary/xray-flares-latest.json`     | `scales`    | flare class, e.g. `B5.7`                       |
+| `/products/noaa-planetary-k-index-forecast.json` | `kp`        | shape alternates, see below                    |
+| `/products/summary/solar-wind-speed.json`        | `solarWind` | shape changed once, see below                  |
+| `/products/summary/solar-wind-mag-field.json`    | `solarWind` | shape changed once, see below                  |
+| `/products/alerts.json`                          | `alerts`    | rolling 30-day archive, see below              |
+| `/json/f107_cm_flux.json`                        | `f107`      | three readings a day; only "Noon" is used      |
+| `/json/ovation_aurora_latest.json`               | `aurora`    | the only large payload                         |
+| `/text/advisory-outlook.txt`                     | `advisory`  | weekly bulletin, plain text                    |
+| `/text/27-day-outlook.txt`                       | `outlook27` | daily rows for one solar rotation, plain text  |
+| `/text/wwv.txt`                                  | `aIndex`    | the WWV geophysical alert bulletin, plain text |
+| `/text/daily-solar-indices.txt`                  | `sunspot`   | last 30 daily rows (DSD.txt), plain text       |
 
 ## Payload size
 
@@ -46,12 +46,12 @@ Measured 2026-08-09. Wire size is with `Accept-Encoding: gzip`, which Node's
 size is what a fixture on disk shows, and quoting it overstates the cost by
 roughly ten times.
 
-| Endpoint | Wire | Decoded |
-| --- | --- | --- |
-| `/products/alerts.json` | ~5 KB | 53 KB |
+| Endpoint                           | Wire    | Decoded |
+| ---------------------------------- | ------- | ------- |
+| `/products/alerts.json`            | ~5 KB   | 53 KB   |
 | `/json/ovation_aurora_latest.json` | ~145 KB | ~898 KB |
-| `/text/advisory-outlook.txt` | ~1.6 KB | — |
-| `/text/27-day-outlook.txt` | 451 B | 1606 B |
+| `/text/advisory-outlook.txt`       | ~1.6 KB | —       |
+| `/text/27-day-outlook.txt`         | 451 B   | 1606 B  |
 
 Everything else is small enough that it has never mattered; the remaining
 observation and forecast endpoints together come to about 5 KB per poll.
@@ -64,10 +64,18 @@ above and after it, by the same method. At `outlook27`'s daily interval that is
 the same script, in the run that also produced the two rows added to the
 conditional-GET table below.
 
-| Endpoint | Wire | Decoded |
-| --- | --- | --- |
-| `/text/wwv.txt` | 0.3 KB | 0.5 KB |
-| `/text/daily-solar-indices.txt` | 0.8 KB | 2.9 KB |
+| Endpoint                        | Wire   | Decoded |
+| ------------------------------- | ------ | ------- |
+| `/text/wwv.txt`                 | 0.3 KB | 0.5 KB  |
+| `/text/daily-solar-indices.txt` | 0.8 KB | 2.9 KB  |
+
+`/json/goes/primary/xray-flares-7-day.json` was measured 2026-08-26 by a
+single gzipped GET, ahead of the HF tile work (#110/#122) that would fetch it.
+The decoded size varies with how many flares the week held.
+
+| Endpoint                                    | Wire   | Decoded |
+| ------------------------------------------- | ------ | ------- |
+| `/json/goes/primary/xray-flares-7-day.json` | 4.9 KB | 27.5 KB |
 
 At their intervals (three-hourly and four-hourly) that is roughly 2.4 KB and
 4.8 KB a day, so neither gets a setting either.
@@ -79,14 +87,14 @@ sunspot number directly. Both serve the whole record — back to 1749 and to 199
 respectively — for the one current value, and there is no shorter form of
 either.
 
-| Endpoint | Wire | Decoded |
-| --- | --- | --- |
-| `/json/solar-cycle/observed-solar-cycle-indices.json` | 34 KB | 512 KB |
-| `/json/solar-cycle/swpc_observed_ssn.json` | 44 KB | 474 KB |
+| Endpoint                                              | Wire  | Decoded |
+| ----------------------------------------------------- | ----- | ------- |
+| `/json/solar-cycle/observed-solar-cycle-indices.json` | 34 KB | 512 KB  |
+| `/json/solar-cycle/swpc_observed_ssn.json`            | 44 KB | 474 KB  |
 
 **Consequence.** `sunspot` reads the daily number out of
 `/text/daily-solar-indices.txt` instead, at roughly a fortieth of the wire. The
-monthly *smoothed* number, which is the truer cycle-context figure, is only in
+monthly _smoothed_ number, which is the truer cycle-context figure, is only in
 the first of these and is not published on its own — so it is not published by
 this plugin either.
 
@@ -98,14 +106,14 @@ against roughly 120 KB a day for everything else combined.
 
 Measured 2026-08-09, 15 samples one minute apart, comparing a hash of each body.
 
-| Endpoint | Changes in 15 min |
-| --- | --- |
-| `/products/noaa-scales.json` | 13 |
-| `/json/goes/primary/xray-flares-latest.json` | 12 |
-| `/products/summary/solar-wind-speed.json` | 7 |
-| `/products/alerts.json` | 0 |
-| `/products/noaa-planetary-k-index-forecast.json` | 0 |
-| `/json/f107_cm_flux.json` | 0 |
+| Endpoint                                         | Changes in 15 min |
+| ------------------------------------------------ | ----------------- |
+| `/products/noaa-scales.json`                     | 13                |
+| `/json/goes/primary/xray-flares-latest.json`     | 12                |
+| `/products/summary/solar-wind-speed.json`        | 7                 |
+| `/products/alerts.json`                          | 0                 |
+| `/products/noaa-planetary-k-index-forecast.json` | 0                 |
+| `/json/f107_cm_flux.json`                        | 0                 |
 
 **Consequence.** Polling faster than NOAA publishes is harmless and polling
 slower only means staler data, so the interval is not worth explaining to a
@@ -122,7 +130,7 @@ the independent note in `src/products/advisory.ts` that every captured advisory
 fixture is issued on a Monday between 0100 and 0400 UTC.
 
 **This is one issue, seen twice.** It establishes that the product is weekly
-rather than daily; it does *not* establish that Monday ~0153 UTC holds week to
+rather than daily; it does _not_ establish that Monday ~0153 UTC holds week to
 week. A separate watch outside this repo is collecting that, one issue per
 week; [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55)
 tracks it, and the Unmeasured list below says what is still open.
@@ -141,20 +149,20 @@ Measured 2026-08-09, except `/text/27-day-outlook.txt` on 2026-08-12 by the
 same method. Baseline `ETag` and `Last-Modified` echoed back as
 `If-None-Match` / `If-Modified-Since`, probed twice.
 
-| Endpoint | +150s | +300s |
-| --- | --- | --- |
-| `/products/alerts.json` | 200, content identical, new ETag | 200, content identical, new ETag |
-| `/products/noaa-scales.json` | 200, content changed, new ETag | 200, content changed, new ETag |
+| Endpoint                                         | +150s                            | +300s                            |
+| ------------------------------------------------ | -------------------------------- | -------------------------------- |
+| `/products/alerts.json`                          | 200, content identical, new ETag | 200, content identical, new ETag |
+| `/products/noaa-scales.json`                     | 200, content changed, new ETag   | 200, content changed, new ETag   |
 | `/products/noaa-planetary-k-index-forecast.json` | 200, content identical, new ETag | 200, content identical, new ETag |
-| `/products/summary/solar-wind-speed.json` | 200, content changed, new ETag | 200, content changed, new ETag |
-| `/products/summary/solar-wind-mag-field.json` | 200, content changed, new ETag | 200, content changed, new ETag |
-| `/json/f107_cm_flux.json` | 200, content identical, new ETag | 200, content identical, new ETag |
-| `/json/goes/primary/xray-flares-latest.json` | 200, content changed, new ETag | 200, content changed, new ETag |
-| `/json/ovation_aurora_latest.json` | 200, content changed, new ETag | 200, content changed, new ETag |
-| `/text/advisory-outlook.txt` | 200, content identical, new ETag | 200, content identical, new ETag |
-| `/text/27-day-outlook.txt` | 200, content identical, new ETag | 200, content identical, new ETag |
-| `/text/wwv.txt` | 200, content identical, new ETag | 200, content identical, new ETag |
-| `/text/daily-solar-indices.txt` | 200, content identical, new ETag | 200, content identical, new ETag |
+| `/products/summary/solar-wind-speed.json`        | 200, content changed, new ETag   | 200, content changed, new ETag   |
+| `/products/summary/solar-wind-mag-field.json`    | 200, content changed, new ETag   | 200, content changed, new ETag   |
+| `/json/f107_cm_flux.json`                        | 200, content identical, new ETag | 200, content identical, new ETag |
+| `/json/goes/primary/xray-flares-latest.json`     | 200, content changed, new ETag   | 200, content changed, new ETag   |
+| `/json/ovation_aurora_latest.json`               | 200, content changed, new ETag   | 200, content changed, new ETag   |
+| `/text/advisory-outlook.txt`                     | 200, content identical, new ETag | 200, content identical, new ETag |
+| `/text/27-day-outlook.txt`                       | 200, content identical, new ETag | 200, content identical, new ETag |
+| `/text/wwv.txt`                                  | 200, content identical, new ETag | 200, content identical, new ETag |
+| `/text/daily-solar-indices.txt`                  | 200, content identical, new ETag | 200, content identical, new ETag |
 
 The last two rows are from a 2026-08-20 re-run of the same script. It found
 zero 304s on every endpoint, exactly as the 2026-08-09 run did; which bodies
@@ -176,7 +184,7 @@ rewrite. `Last-Modified` behaves the same way — every endpoint reports an age 
 **neither header is a freshness signal**, and the cache in `noaa/client.ts`
 never hits at a realistic poll interval.
 
-Back-to-back requests *do* return 304, which is what makes this easy to get
+Back-to-back requests _do_ return 304, which is what makes this easy to get
 wrong: probe twice in a row and conditional GET looks like it works.
 
 **Consequence.** Every poll pays full price. That price is small, so this stays a
@@ -231,10 +239,10 @@ Counted 2026-08-13 over the three captured fixtures — `alerts.2025_04_11.json`
 (118). Re-count when a fixture is added; every figure below moved the last time
 one was.
 
-| At the default alarm level | In force | Audible |
-| --- | --- | --- |
-| At each fixture's capture time | 4, in all three | 0 |
-| Peak over each fixture's whole span | 8 / 9 / 11 | 0 |
+| At the default alarm level          | In force        | Audible |
+| ----------------------------------- | --------------- | ------- |
+| At each fixture's capture time      | 4, in all three | 0       |
+| Peak over each fixture's whole span | 8 / 9 / 11      | 0       |
 
 **Nothing in any captured payload is audible at the default**, including both
 April 2025 storms: they peaked at an observed G4, which is `warn` — visual only
@@ -266,13 +274,13 @@ quoted as events per cycle only.
 NOAA quotes events per cycle for all three, and days per cycle for G and R only.
 Compare like with like: events against events.
 
-| Level | G events / days | R events / days | S events | R vs G, by days | G ÷ S, by events |
-| --- | --- | --- | --- | --- | --- |
-| 1 Minor | 1700 / 900 | 2000 / 950 | 50 | +6% | 34× |
-| 2 Moderate | 600 / 360 | 350 / 300 | 25 | −17% | 24× |
-| 3 Strong | 200 / 130 | 175 / 140 | 10 | +8% | 20× |
-| 4 Severe | 100 / 60 | 8 / 8 | 3 | **−87%** | 33× |
-| 5 Extreme | 4 / 4 | 1 / 1 | 1 | **−75%** | 4× |
+| Level      | G events / days | R events / days | S events | R vs G, by days | G ÷ S, by events |
+| ---------- | --------------- | --------------- | -------- | --------------- | ---------------- |
+| 1 Minor    | 1700 / 900      | 2000 / 950      | 50       | +6%             | 34×              |
+| 2 Moderate | 600 / 360       | 350 / 300       | 25       | −17%            | 24×              |
+| 3 Strong   | 200 / 130       | 175 / 140       | 10       | +8%             | 20×              |
+| 4 Severe   | 100 / 60        | 8 / 8           | 3        | **−87%**        | 33×              |
+| 5 Extreme  | 4 / 4           | 1 / 1           | 1        | **−75%**        | 4×               |
 
 **They are not interchangeable, and not comparable in one direction either.** R
 runs slightly ahead of G at levels 1 and 3, 17% behind at level 2, and 87%
@@ -295,13 +303,13 @@ So the dropdown quotes the measured record instead: geomagnetic storm days per
 year, counted from GFZ's Kp archive, 1932–2025, 94 complete years. Regenerate
 with `node scripts/measure-kp.mjs`.
 
-| Level and above | Median year | p10 | p90 | Worst year | Dropdown says |
-| --- | --- | --- | --- | --- | --- |
-| G1+ | 72 | 30 | 133 | 164 | most weeks |
-| G2+ | 27 | 8 | 61 | 85 | a couple of times a month |
-| G3+ | 10 | 1 | 25 | 39 | several times a year |
-| G4+ | 3 | 0 | 9 | 18 | once or twice a year |
-| G5+ | 0 | 0 | 3 | 7 | several times a decade |
+| Level and above | Median year | p10 | p90 | Worst year | Dropdown says             |
+| --------------- | ----------- | --- | --- | ---------- | ------------------------- |
+| G1+             | 72          | 30  | 133 | 164        | most weeks                |
+| G2+             | 27          | 8   | 61  | 85         | a couple of times a month |
+| G3+             | 10          | 1   | 25  | 39         | several times a year      |
+| G4+             | 3           | 0   | 9   | 18         | once or twice a year      |
+| G5+             | 0           | 0   | 3   | 7          | several times a decade    |
 
 p90 sits at roughly twice the median at every level, which is the "active
 stretch" the description mentions. Cycle 25's started around 2023 and should run
@@ -319,7 +327,7 @@ longer part of that — the plugin bands where NOAA's scale page bands — so wh
 is left is that NOAA's long-run average includes cycles stronger than any since.
 Both numbers are honest; they answer different questions.
 
-**These count storm *days*, and a label says "times".** A storm running across
+**These count storm _days_, and a label says "times".** A storm running across
 two UTC dates counts twice here and is one thing a boat experiences; several
 transitions inside one date count once. The error runs in the safe direction —
 days over-count occasions, so a label promises slightly more noise than the
@@ -390,14 +398,14 @@ both probes — issued once daily (`:Issued: 0225 UT 20 Aug 2026`), matching
 Both products are published in matching `-6-hour`, `-1-day` and `-3-day`
 windows, one satellite (18, the current GOES primary) at capture time.
 
-| Endpoint | Wire (gzip) | Decoded | Records |
-| --- | --- | --- | --- |
-| `xrays-6-hour.json` | 26.0 KB | 159.7 KB | ~716 |
-| `xrays-1-day.json` | 103.9 KB | 642.0 KB | 2876 |
-| `xrays-3-day.json` | 308.8 KB | 1928.0 KB | 8636 |
-| `integral-protons-6-hour.json` | 7.9 KB | 58.6 KB | ~568 |
-| `integral-protons-1-day.json` | 30.7 KB | 236.7 KB | 2296 |
-| `integral-protons-3-day.json` | 91.8 KB | 711.6 KB | 6904 |
+| Endpoint                       | Wire (gzip) | Decoded   | Records |
+| ------------------------------ | ----------- | --------- | ------- |
+| `xrays-6-hour.json`            | 26.0 KB     | 159.7 KB  | ~716    |
+| `xrays-1-day.json`             | 103.9 KB    | 642.0 KB  | 2876    |
+| `xrays-3-day.json`             | 308.8 KB    | 1928.0 KB | 8636    |
+| `integral-protons-6-hour.json` | 7.9 KB      | 58.6 KB   | ~568    |
+| `integral-protons-1-day.json`  | 30.7 KB     | 236.7 KB  | 2296    |
+| `integral-protons-3-day.json`  | 91.8 KB     | 711.6 KB  | 6904    |
 
 X-ray records interleave two energy channels (`0.05-0.4nm`, `0.1-0.8nm`) at
 roughly 1-minute cadence each; proton records interleave eight (`>=1 MeV`
@@ -430,7 +438,7 @@ Named so nobody cites this file for them:
 - whether `/text/wwv.txt` is reissued on the hour it claims (NOAA documents it
   as three-hourly, and `aIndex` polls on that documented cadence rather than a
   measured one); the daily A index it carries moves once a day either way
-- whether `/text/27-day-outlook.txt` is issued on a Monday *every* week, and
+- whether `/text/27-day-outlook.txt` is issued on a Monday _every_ week, and
   how tightly the issue time clusters. One issue observed so far; see
   [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55)
 - how much two consecutive weekly issues differ across the 20 days their

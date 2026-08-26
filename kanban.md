@@ -73,7 +73,7 @@ what it is blocked by. Delete it when it is done.
       commit-subject format to a CHANGELOG entry
       ([#119](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/119#discussion_r3857388486))
 - [ ] Move the settled arguments out of CLAUDE.md's `## Non-obvious
-      constraints` — 229 of its 524 lines, loaded by every session; keep the
+    constraints` — 229 of its 524 lines, loaded by every session; keep the
       imperative and the issue number, move the defence to the issue or a
       `docs/decisions/` note
       ([audit](https://claude.ai/code/artifact/6150bdd6-8257-43fe-992c-e24263e340c7))
@@ -157,10 +157,11 @@ what it is blocked by. Delete it when it is done.
       Radio, all `span-4`) with Solar Wind renamed and dropped from `span-8`;
       the band strip filling only the measured floor;
       [#122](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/122)'s
-      two flare values with a dated `xray-flares-7-day` fixture (28.2 KB
-      measured 2026-08-26); the X-ray trend, derived from the ~700 records
-      already fetched every poll and currently discarded; the F10.7 bands as
-      labelled convention; and zone metadata on the HF paths — reading the
+      two flare values with a dated `xray-flares-7-day` fixture (the
+      endpoint is measured in `docs/noaa-products.md`); the X-ray trend,
+      derived from the ~700 records already fetched every poll and currently
+      discarded; the F10.7 bands as a labelled guess; and zone metadata on
+      the HF paths — reading the
       two hazards in `hf-operator-view.md` first, since F10.7 is inverted and
       D-RAP's value is a frequency rather than a severity
 - [ ] Review the two HF markdown docs for accuracy and overlap —

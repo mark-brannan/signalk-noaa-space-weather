@@ -237,7 +237,7 @@ being informative about a band the operator may not be using is not grounds to
 interrupt them. The clean way out is the reader telling us their band — see
 "My frequencies" under [Ideas](#ideas-raised-not-decided).
 
-## Webapp decisions from this session
+## Webapp decisions
 
 Recorded so the layout isn't re-litigated. Full context, with rendered
 mockups at 1180 / 900 / 760 px in both themes, on
