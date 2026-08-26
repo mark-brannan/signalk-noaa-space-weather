@@ -187,33 +187,26 @@ output attached, is the scanner working. Read it.
 ### Versions: this repo is the exception
 
 Upstream says never to touch version numbers, because a maintainer sets them at
-publish time. **Here, the version on `main` *is* the release trigger.**
-The patch bump is not your job: `.husky/pre-commit` makes it, and
-`.github/workflows/version-gate.yml` blocks the pull request when it didn't.
-Yours is bumping explicitly for anything larger than a patch. Never create a tag
-locally — CI does that, and a local tag makes it skip the publish.
+publish time. Here the version on `main` is what a release carries.
 
-**What makes a change minor is what a boat owner can observe, not which
-`CHANGELOG.md` heading it lands under.** A new Signal K path, a new product, a
-change in what gets published or how loudly — minor. A fix, or plumbing that
-only this plugin's own webapp consumes, is a patch even when it adds code and
-files under `### Added`. A new route under
-`/signalk/v1/api/signalk-noaa-space-weather/` is usually the second kind: those
-serve the bundled webapp and nothing outside the tarball can tell whether they
-exist. The exception is a route we invite other software to point at — the
-aurora tile endpoint is one — which is a capability like any other, and minor.
+**Bias hard towards no bump at all.** `.husky/pre-commit` writes the patch and
+`.github/workflows/version-gate.yml` blocks a pull request that shipped without
+one, so an agent that touches the version at all is overriding a decision the
+tooling already made correctly. If the hook stood down because `main` is already
+past the latest tag, that is the batching working: your change joins the pending
+version rather than minting another. Leave it alone. Never create a tag locally
+— CI does that, and a local tag makes it skip the publish.
 
-The webapp itself sits on both sides of that line, so say which side. A route
-it consumes, a redraw, a fix to something already displayed: patch. A change in
-**what the page tells its reader** — a condition it now distinguishes, a number
-it now shows, a state that used to read as something else: minor, on the same
-grounds as a change in what gets published. The bundled webapp is how most
-owners meet this plugin, and "only the webapp" is not the same claim as "only
-its plumbing."
+**A minor bump is the maintainer's call, not yours.** Not "ask and then do it":
+the number stays a patch unless Mark types `npm version minor` himself. This is
+a standing bias, not a judgement to re-litigate per change — the plugin cut 59
+releases in its first 24 days and 27 of them were minors, which is not semver
+working, it is every author finding their own change significant. Reviewers,
+including review bots, will argue the strict reading where any new non-breaking
+functionality is minor. That reading counts routes nobody outside this package
+calls and burns a version on each one. Decline it and say why.
 
-Reviewers reach for the strict reading of semver here, where any new
-non-breaking functionality is minor. That reading counts routes nobody outside
-this package calls, and it burns a minor version on each one.
+Revisit this once release cadence has settled; the card is on `kanban.md`.
 
 ## Open loops live in `kanban.md`
 

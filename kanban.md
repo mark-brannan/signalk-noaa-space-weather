@@ -81,3 +81,9 @@ what it is blocked by. Delete it when it is done.
 - [ ] Add `npm run format:check` to the typecheck job in
       [ci.yml](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/.github/workflows/ci.yml)
       — AGENTS.md orders it and no check enforces it
+- [ ] **2026-09-02**: revisit `RELEASE_WINDOW_HOURS` in
+      [scripts/publish-impact.sh](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/scripts/publish-impact.sh)
+      — started at 6h in [#136](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/136),
+      drop to 3 if a week of `git tag --list` shows releases still batching
+      well at that cadence. Revisit AGENTS.md's "bias hard towards no bump"
+      in the same pass

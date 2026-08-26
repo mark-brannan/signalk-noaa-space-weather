@@ -41,20 +41,19 @@ jobs:
           PKG_VERSION=$(node -p "require('./package.json').version")
           LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n1)
           LATEST_VERSION="${LATEST_TAG#v}"
-          # Past the base too, not just the latest tag: between a merge and the
-          # tag auto-version.yml cuts for it, the tag still names the release
-          # before, and a second pull request holding that same version would
-          # read as free.
-          BASE_VERSION=$(git show "$BASE_SHA:package.json" | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")
 
-          if version_is_ahead "$PKG_VERSION" "$LATEST_VERSION" &&
-            version_is_ahead "$PKG_VERSION" "$BASE_VERSION"; then
-            echo "Ships as $PKG_VERSION, past ${LATEST_TAG:-the first release} and past main's $BASE_VERSION."
+          # Past the latest tag, and deliberately NOT past main's own version.
+          # Between a merge and the release window closing, main sits at a
+          # version that hasn't shipped yet, and a second pull request is meant
+          # to join it there rather than mint another number -- that shared
+          # version is the batching. Only a tagged version is spent.
+          if version_is_ahead "$PKG_VERSION" "$LATEST_VERSION"; then
+            echo "Ships as $PKG_VERSION, past ${LATEST_TAG:-the first release}."
             exit 0
           fi
 
-          NEXT=$(next_patch_version "$BASE_VERSION" "$LATEST_VERSION")
-          echo "::error::This PR changes what gets published while package.json is still $PKG_VERSION -- ${LATEST_TAG:-the last release} is released and main is at $BASE_VERSION. Run: npm version $NEXT --no-git-tag-version -- or npm version minor, if a boat owner can see the change."
+          NEXT=$(next_patch_version "$PKG_VERSION" "$LATEST_VERSION")
+          echo "::error::This PR changes what gets published while package.json is still $PKG_VERSION, and ${LATEST_TAG:-the last release} is already released. Run: npm version $NEXT --no-git-tag-version"
           echo "Publish-impacting paths in this PR:"
           echo "$CHANGED" | grep -vE "$NO_PUBLISH_IMPACT" | sed 's/^/  /'
           exit 1

@@ -38,3 +38,15 @@ const hi = i === undefined || a[i] > b[i] ? a : b
 console.log([hi[0], hi[1], hi[2] + 1].join("."))
 ' "$1" "$2"
 }
+
+# Hours of quiet on main before a pending version publishes. A merge restarts
+# the wait, so a busy afternoon ships once when it ends rather than once per
+# pull request -- 59 releases in this repo's first 24 days is what that costs
+# otherwise. Nothing is left unpublished: the window closing is the trigger.
+RELEASE_WINDOW_HOURS=6
+
+# True when the last commit on main ($1, unix seconds) is far enough back
+# against now ($2). Now is a parameter so a test can name both ends.
+release_window_elapsed() {
+  [ "$(($2 - $1))" -ge "$((RELEASE_WINDOW_HOURS * 3600))" ]
+}

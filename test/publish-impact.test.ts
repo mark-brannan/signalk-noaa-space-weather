@@ -25,6 +25,9 @@ const isAhead = (a: string, b: string) =>
   sh(`version_is_ahead "${a}" "${b}" && echo yes || echo no`)
 const nextPatch = (a: string, b: string) =>
   sh(`next_patch_version "${a}" "${b}"`)
+const windowElapsed = (lastMerge: number, now: number) =>
+  sh(`release_window_elapsed ${lastMerge} ${now} && echo yes || echo no`)
+const windowSeconds = Number(sh('echo $((RELEASE_WINDOW_HOURS * 3600))'))
 
 describe('publish_impacting', () => {
   it('is true for anything that reaches the tarball', () => {
@@ -69,5 +72,23 @@ describe('next_patch_version', () => {
 
   it('patches the working version when it is the higher one', () => {
     expect(nextPatch('0.30.0', '0.28.1')).toBe('0.30.1')
+  })
+})
+
+describe('release_window_elapsed', () => {
+  it('holds a version merged moments ago, so the next merge joins it', () => {
+    expect(windowElapsed(1000, 1000)).toBe('no')
+    expect(windowElapsed(1000, 1000 + windowSeconds - 1)).toBe('no')
+  })
+
+  it('releases once main has been quiet for the whole window', () => {
+    expect(windowElapsed(1000, 1000 + windowSeconds)).toBe('yes')
+    expect(windowElapsed(1000, 1000 + windowSeconds * 3)).toBe('yes')
+  })
+
+  it('is a debounce, so a later merge pushes the release back out', () => {
+    const now = 1000 + windowSeconds
+    expect(windowElapsed(1000, now)).toBe('yes')
+    expect(windowElapsed(now - 60, now)).toBe('no')
   })
 })
