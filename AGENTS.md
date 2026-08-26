@@ -134,10 +134,13 @@ work is done**: the branch is pushed, it builds, `npm run format:check` and
 `npm test` pass. Marking ready is the agent's call, not something to hand
 upward — a PR waiting on a human to flip it is waiting for nothing.
 
-Ready is not the end of the turn. Keep driving after it: CI failures,
-review-bot findings and merge conflicts are all yours to fix, round after
-round, until every check is green and every automated review thread is
-answered or resolved. A red check is never handed over as a status report.
+Ready is not the end of the turn. CI failures and merge conflicts are yours
+to fix until every check is green — a red check is never handed over as a
+status report. Review-bot findings get triage, not litigation: fix a real
+violation, resolve a nit with one line or with silence, and never argue. A
+bot's finding is advisory; if it is wrong, resolving the thread unanswered
+costs nothing, while a justification essay costs a round trip every future
+reader pays for. One pass over all open threads, one push, done.
 
 The one red check that is not yours is the one
 [The red `github-advanced-security` check is not yours](#the-red-github-advanced-security-check-is-not-yours)
@@ -258,13 +261,7 @@ orders now, in `~/.claude/CLAUDE.md`'s "Open loops" section
 ([dotfiles#15](https://github.com/mark-brannan/dotfiles/pull/15), merged).
 
 That file lives on the maintainer's machine, not in this checkout, so an
-agent working this repo has it only if something put it there.
-`.github/workflows/claude-review.yml` does that for the one session that
-runs for non-draft PRs from this repository — it fetches `~/.claude/CLAUDE.md` from a pinned commit in
-`dotfiles` before the reviewer starts, the same gap the old card-in-`kanban.md` version
-of this rule existed to cover for that session specifically. A session
-started some other way (Claude Code web or mobile, a fresh checkout with no
-such step) doesn't get it for free, and nothing in this repo can promise it
-does — that mechanism belongs to whatever launched the session, not to this
-file. If you're missing it, that's the gap to close, not a reason to restate
-the rules here.
+agent working this repo has it only if something put it there — that
+mechanism belongs to whatever launched the session, not to this file. If
+you're missing it, that's the gap to close, not a reason to restate the
+rules here.
