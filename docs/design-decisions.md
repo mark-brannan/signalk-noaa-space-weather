@@ -320,8 +320,9 @@ a D-RAP map exists to show, and the aurora oval is the other half. Charts are
 also optional, and usually absent: two chart providers installed and an empty
 `charts/` directory is the normal state of a Signal K install. Fetching OSM
 tiles instead would put an internet request behind every pan, from a boat, for
-a plugin that meters its own NOAA polling to the byte — and OSMF's tile policy
-disallows that use anyway.
+a plugin that meters its own NOAA polling to the byte — a cost this plugin
+doesn't pay anywhere else, for a source it would depend on staying free and
+reachable underway.
 
 So `public/geo.js` carries a coastline and draws it through whatever projection
 the caller hands it — the aurora map and the D-RAP absorption map both. The
