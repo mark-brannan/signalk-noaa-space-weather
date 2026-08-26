@@ -44,12 +44,12 @@ Moderate / Strong / Severe / Extreme, `SEV_WORDS` in `index.html`, mirroring
 `NoaaScaleNames` in `parse.ts` — because "what is the sky doing" is a fact
 and "how loud should this be" is a preference. The two got answered with one
 word once: the banner carried the notification-state ladder, so an R2 that
-NOAA's front page and the WWV bulletin both called *moderate* rendered as
+NOAA's front page and the WWV bulletin both called _moderate_ rendered as
 **Quiet**, in the quiet green, with `Normal` under the badge
 ([#126](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/126)).
 So `heroState` describes any level in force, `ALERT_FLOOR` only decides
 precedence there, and level 2 has a colour step of its own. `quiet` means
-level 0 in force *and* level 0 over 24 hours, and `hero.test.ts` pins that
+level 0 in force _and_ level 0 over 24 hours, and `hero.test.ts` pins that
 nothing else reaches it.
 
 **The hero reads both observed scale paths, and needs both.**
@@ -57,7 +57,7 @@ nothing else reaches it.
 in `examples/`, including the day whose 24-hour maximum was G4
 ([#120](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/120));
 `observations/24_hours_maximums` is what NOAA's front page and WWV report as
-the day's condition. So the maximum decides what the banner *says* and the
+the day's condition. So the maximum decides what the banner _says_ and the
 instantaneous reading decides whether it is still running — `storm` versus
 `recent`, or above the floor, `storm` versus `all-clear`. Leading from either
 one alone puts the page back to reporting R0 through an R2.
@@ -100,10 +100,10 @@ on `alarmLevel` it removes the sound, on `popupLevel` the popup. It is named
 which is exactly what the split bought — the other dropdown says so in its
 own words.
 
-Do not reintroduce a control that derives *upward* from a "worth your
+Do not reintroduce a control that derives _upward_ from a "worth your
 attention" pivot. That runs off the end of a five-level scale: the pivot at 4
 could never reach `alarm`, and at 5 never even `warn`, so the two
-loudest-*sounding* choices in the dropdown were the two that silenced the
+loudest-_sounding_ choices in the dropdown were the two that silenced the
 plugin. `stateForScaleValue` carries the argument, and `zones.test.ts` pins
 that no threshold pair silences the level it names and that lowering either
 one is monotonically louder.
@@ -115,7 +115,7 @@ dropdowns. A threshold is a boundary, so it is drawn as one: the line rests
 on the bottom edge of the row its band opens at, and the band is everything
 above it. `ALARM_NEVER` rests above the top row, where the band is empty —
 "Never" is reached by running out of storms rather than by picking a word for
-it. The table that showed the consequence of the setting *is* the setting, so
+it. The table that showed the consequence of the setting _is_ the setting, so
 nothing on screen is neither a decision nor a result of one.
 
 Two things about that are load-bearing. The line is a CSS border on the cells
@@ -248,7 +248,7 @@ navigation server; it does not get to stall it.
 
 The App Store resolves `signalk.appIcon` server-side against the package
 root, so `./icon.svg` works there. The admin Webapps page reads the
-*top-level* `appIcon` and loads it as a plain URL from the browser, and
+_top-level_ `appIcon` and loads it as a plain URL from the browser, and
 `mountWebModules` in signalk-server serves `public/` as the webapp's root
 when that directory exists — so the file has to be at `public/icon.svg` or
 the page renders a broken image. A symlink cannot be that file: npm's
@@ -272,7 +272,7 @@ plugins you weren't touching.
 should stay one: a rebuild here reaches the server with no reinstall, which is
 the whole point. Recreate it with `ln -s` if something replaces it — an `npm
 install` in that directory will, since the `file:` dependency entry installs
-as a *copy* of the packed files instead. Don't "fix" that with `npm link`: it
+as a _copy_ of the packed files instead. Don't "fix" that with `npm link`: it
 writes a `link:` spec that npm 9 refuses to install at all with
 `EUNSUPPORTEDPROTOCOL`, which is what broke `~/.signalk-dev`.
 
@@ -299,7 +299,7 @@ squash-merged at a version already on npm and never published.
 
 So the gate requires a version past the latest tag and pointedly not past
 `main`'s own. Between a merge and the window closing, `main` sits at a version
-that has not shipped, and a second pull request is meant to *join* it there.
+that has not shipped, and a second pull request is meant to _join_ it there.
 That shared number is the batching, and it is why released versions stay
 contiguous instead of skipping the ones a second concurrent branch would
 otherwise have minted. Only a tagged version is spent. Do not reintroduce a
@@ -341,3 +341,47 @@ The chart-plotter tiles are the opposite case and must stay that way. They are
 drawn *over* the user's real charts, so geography is already there and ours
 would be a second, wronger coastline printed on top of it. `tiles.ts` renders
 data and nothing else.
+
+## The D-RAP map is the deliverable; a station list is not
+
+`environment.noaa.swpc.drap.highest_affected_frequency` has always been the
+cutoff at the vessel, and that number is not the operational one:
+[#167](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/167)
+is right that what a skipper wants to know is whether a band will reach _a
+station_ — the net, the shore contact, Winlink — and that absorption over the
+great-circle path is not the absorption overhead.
+
+The issue then proposes a path query with a configured destination, and its
+three open questions are all about that destination: where it comes from, how
+finely to sample the circle, worst or mean. Two of the three are settled by
+building the map instead, and the third turns out not to need answering:
+
+- **The map is the input.** A click on the grid names a destination with no
+  callsign database, no route integration and no new configuration setting.
+  Every station list this could have grown — a waypoint, a saved set, a
+  callsign lookup — is a feature _on top of_ a picture that answers the
+  question directly, and none of them are worth building before somebody has
+  used the picture and said what they actually reach for.
+- **Sampling is tied to the cell size**, not to a fixed number of points:
+  about 100 km per step, which is under a degree of arc and so finer than the
+  2°×4° grid everywhere, bounded at 400 samples so an antipodal path stays
+  cheap. A fixed count would oversample a harbour hop and step over cells on
+  a Pacific crossing.
+- **Worst _and_ mean, both**, with the worst as the headline. Absorption
+  anywhere on the path attenuates the whole path, so a band that clears the
+  mean and not the worst does not get through; the mean is reported beside it
+  because one bad cell on an otherwise clear path is a different situation
+  from a path that is bad end to end, and only the pair distinguishes them.
+
+The grid is cached (`src/cache/drapCache.ts`) the way the aurora grid is, and
+for the same reasons — one server-side fetch, a browser that only talks to the
+server it loaded the page from — which also gives the tile route something to
+draw from. Unlike aurora, the product no longer waits for a vessel position
+before fetching: the grid is readable without knowing where the boat is, and
+the payload is a hundredth of OVATION's.
+
+The colour ramp is keyed to the marine SSB band edges rather than to round
+megahertz, for the reason `zonesForDrap` gives for bucketing the ladder that
+way: the published value is a frequency, not a severity, so the only reading
+of it that is the same for every reader is which of their bands it kills. A
+colour change on the map is therefore a band going under the cutoff.

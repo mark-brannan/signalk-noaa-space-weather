@@ -309,8 +309,24 @@ describe('plugin module', () => {
       fixture('drap-global-frequencies.2026_08_20.txt')
     )!
 
-    function serving() {
-      writeDrapCache(dataDir, GRID)
+    /** A dayside cap over the Atlantic, in NOAA's documented grid shape. */
+    function syntheticGrid(peakMHz = 20) {
+      const latitudes = Array.from({ length: 90 }, (_, i) => 89 - i * 2)
+      const longitudes = Array.from({ length: 90 }, (_, i) => -178 + i * 4)
+      return {
+        validTime: '2026-08-20T04:42:00.000Z',
+        latitudes,
+        longitudes,
+        frequenciesMHz: latitudes.map((lat) =>
+          longitudes.map((lon) =>
+            Math.abs(lat) < 40 && Math.abs(lon) < 40 ? peakMHz : 0
+          )
+        )
+      }
+    }
+
+    function serving(cached: any = GRID) {
+      writeDrapCache(dataDir, cached)
       const plugin = createPlugin(fakeApp(dataDir))
       const router = fakeRouter()
       plugin.signalKApiRoutes(router)
@@ -356,6 +372,53 @@ describe('plugin module', () => {
       expect(
         (await router.invoke(ROUTE, { z: '99', x: '0', y: '0' })).status
       ).toBe(400)
+      plugin.stop()
+    })
+
+    it('renders from the newer grid after a refresh replaces the cache', async () => {
+      const { plugin, router } = serving(syntheticGrid(20))
+      const before = await router.invoke(ROUTE, { z: '1', x: '0', y: '0' })
+
+      // Fake timers again: the memo is keyed on the entry's `fetchedAt`.
+      vi.advanceTimersByTime(1000)
+      writeDrapCache(dataDir, syntheticGrid(0))
+      const after = await router.invoke(ROUTE, { z: '1', x: '0', y: '0' })
+
+      expect(after.sent.equals(before.sent)).toBe(false)
+      expect(after.headers.ETag).not.toBe(before.headers.ETag)
+      plugin.stop()
+    })
+
+    /**
+     * The two layers hold separate tile caches: they are refreshed on
+     * separate schedules, and a D-RAP fetch has no business evicting a
+     * screenful of aurora tiles -- or, worse, answering with one.
+     */
+    it('does not serve aurora tiles from the D-RAP cache, or the reverse', async () => {
+      writeAuroraCache(dataDir, {
+        coordinates: Array.from({ length: 360 }, (_, lon) =>
+          Array.from({ length: 181 }, (_, i) => [lon, i - 90, 40])
+        ).flat()
+      })
+      const { plugin, router } = serving(syntheticGrid())
+
+      const auroraTile = await router.invoke(
+        '/signalk-noaa-space-weather/aurora-tile/:z/:x/:y.png',
+        { z: '1', x: '0', y: '0' }
+      )
+      const drapTile = await router.invoke(ROUTE, { z: '1', x: '0', y: '0' })
+      expect(auroraTile.status).toBe(200)
+      expect(drapTile.status).toBe(200)
+      expect(drapTile.sent.equals(auroraTile.sent)).toBe(false)
+      plugin.stop()
+    })
+
+    it('answers 404 when the cached grid is not the shape it must be', async () => {
+      const torn = syntheticGrid()
+      torn.frequenciesMHz = torn.frequenciesMHz.slice(0, 40)
+      const { plugin, router } = serving(torn)
+      const response = await router.invoke(ROUTE, { z: '1', x: '0', y: '0' })
+      expect(response.status).toBe(404)
       plugin.stop()
     })
   })

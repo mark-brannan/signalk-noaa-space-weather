@@ -62,15 +62,6 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
-- [ ] Rebase [#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169)
-      onto main now that #164/#166 merged — it independently rebuilt the
-      D-RAP map/tiles/cache #166 already shipped. Cache-layer conflicts
-      (`drapCache.ts`, `drap.ts`, `drap.test.ts`) are mechanical, take main's
-      side; `src/tiles.ts` and the map widget are a real fork (#166's
-      `mapLayer` switcher vs. this branch's separate `drapMap.js` panel) —
-      keep #166's shell, port in the click-to-score probe
-      (`pathAbsorption`, `drapProbeHtml`, the canvas click handler). See
-      [PR comment](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169#issuecomment-5429163568)
 - [ ] Cut the README down — 246 lines and still growing, and every feature
       lands one more paragraph in it. The getting-started path is buried under
       design rationale that belongs in
@@ -182,6 +173,12 @@ what it is blocked by. Delete it when it is done.
       shipping the coastline, which is why that PR carries module renders
       instead of screenshots
       ([#172](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/172))
+- [ ] Decide whether a *named* destination is worth building on top of the
+      absorption map's click-to-score probe — a route waypoint, a saved
+      station list, a callsign lookup. The map answers the path question by
+      clicking, so this is a convenience now rather than the feature; wait
+      until the map has been used and it is clear which one gets reached for
+      ([#167](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/167))
 - [ ] Surface the D-RAP header fields the parser currently reads past —
       `Estimated Recovery Time`, `X-RAY Message` and `Proton Message` are
       NOAA's own "when does this blackout end", already inside a payload we
