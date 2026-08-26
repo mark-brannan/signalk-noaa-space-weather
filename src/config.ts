@@ -110,7 +110,7 @@ export const schema = {
         ' through, barring other factors. NOAA serves one grid covering the' +
         ' whole globe, so it costs the same everywhere: about 3.3 KB on each' +
         ' fetch of the interval below, hourly by default, against 5 KB for' +
-        ' everything else in them. Needs a position fix. Switching this off' +
+        ' everything else in them. Switching this off' +
         ' stops it completely \u2014 unlike the aurora grid there is no' +
         ' on-demand fetch.',
       default: true
