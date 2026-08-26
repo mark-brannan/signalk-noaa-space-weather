@@ -80,17 +80,6 @@ what it is blocked by. Delete it when it is done.
       the repo it reads the whole file as coding guidelines and applied the
       commit-subject format to a CHANGELOG entry
       ([#119](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/119#discussion_r3857388486))
-- [ ] Move the settled arguments out of CLAUDE.md's `## Non-obvious
-    constraints` — 229 of its 524 lines, loaded by every session; keep the
-      imperative and the issue number, move the defence to the issue or a
-      `docs/decisions/` note
-      ([audit](https://claude.ai/code/artifact/6150bdd6-8257-43fe-992c-e24263e340c7))
-- [ ] Cut AGENTS.md's duplicates of `~/.claude/rules/code.md` — "Draft is a
-      working state" (21 lines) and "Tell the maintainer once" (16), down to
-      two lines each since a drive-by contributor sees only this file; and
-      delete the `github-advanced-security` section if
-      [#67](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/67)
-      has closed
 - [ ] Make `examples/` self-policing — 19 of 50 fixtures are named by no test,
       and #133's cron adds more; fail a test on any file `test/fixtures.ts`
       does not list, rather than pruning by hand again
