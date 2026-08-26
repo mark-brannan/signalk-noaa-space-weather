@@ -295,6 +295,15 @@ one-level disagreement across a transition is expected and is not drift. Two
 consecutive runs disagreeing the same way is. This also absorbs a replay flake
 — a NOAA outage is handled a paragraph further down, by not counting at all.
 
+**Which only works if the runs are far apart, so the schedule is daily.** Two
+runs minutes apart would both sample the same in-flight transition and
+"confirm" one disagreement seen twice. NOAA documents `wwv.txt` as three-hourly
+and this repo has not measured that (docs/noaa-products.md's Unmeasured list
+says so), which is the argument for daily rather than hourly: a day is eight
+documented publish cycles, so the rule survives that figure being wrong by a
+large factor. Nothing here wants freshness — drift is a property of weeks, and
+a check that notices a day late costs nothing.
+
 **The streak is the one thing that must persist, and the issue is where it
 lives.** A run that disagrees for the first time opens `noaa-drift` and says so
 in the title — *unconfirmed* — rather than staying silent and needing somewhere
@@ -349,8 +358,8 @@ Ordered by what unblocks what. **Nothing here waits on the review rig.**
    justify. It reads the badges through a browser rather than by calling
    `scalesCard()`, so it never depended on Tier 1 and can be measured first if
    that is more convenient.
-6. **One scheduled workflow** for 4 and 5, opening or updating `noaa-drift` on
-   a second consecutive disagreement.
+6. **One scheduled workflow** for 4 and 5, daily, opening or updating
+   `noaa-drift` on a second consecutive disagreement.
 7. **Release check** — the same comparison behind a `--url`, on a local timer,
    with a line in `RUNBOOK.md` for installing it.
 
