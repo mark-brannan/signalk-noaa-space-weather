@@ -113,9 +113,9 @@ const STATES = {
   },
   eased: {
     // A real storm (G3, above NOTABLE) ended, but a quieter G1 is still
-    // running under it -- the all-clear/inForce case #145 fixed after a
-    // review round caught the chip and headline both still claiming quiet
-    // over a level that was, in fact, still in force.
+    // running under it. Unreachable against a live sky on demand, and the
+    // one all-clear shape where chip, headline and sub must all name the
+    // level still in force rather than claiming quiet.
     label: 'G3 eased to G1, still in force',
     observed: { G: 1, S: 0, R: 0 },
     peak24h: { G: 3, S: 0, R: 0 },
