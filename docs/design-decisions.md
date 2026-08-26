@@ -142,3 +142,69 @@ The server loads plugins with `require()` on an absolute directory path, and
 Node's CommonJS resolver ignores `exports` in that case. Removing `main`
 reintroduces
 [#1](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/1).
+
+## NOAA changes payload shapes without notice
+
+This has happened at least twice and both times it silently broke published
+data:
+
+- the solar wind summaries went from `{"Bt": 5, "Bz": -3}` to
+  `[{"bt": 4, "bz_gsm": -1}]`, which made the plugin publish `NaN` for months
+- the planetary K-index forecast alternates between a header-row table and a
+  list of records
+
+## `auroraEnabled` governs the schedule, not the capability
+
+`auroraEnabled` says what the plugin may spend on its own initiative; a press
+is not the plugin's own initiative. So `aurora-refresh` fetches whether or not
+the product is scheduled, and the setting being off is exactly the case it
+exists for — otherwise the only route to one aurora reading is to turn the
+recurring fetch on, wait out an interval, and turn it off again, which is four
+steps and leaves a recurring cost behind when the last one is forgotten. Four
+things fall out of that and none are optional:
+
+- `start()` publishes `metadata()` only for the products it schedules, so the
+  route publishes aurora's itself before the first value. Without it the
+  probability lands on a path with no units, no zones and no display name.
+- A successful manual fetch defers the next scheduled run by a full interval.
+  The payload has just been bought; a refresh a minute before the tick must
+  not buy it twice, which is the same argument the two-hour default rests on.
+  Deferring cannot cover a run whose timer has already fired, so `refreshOnce`
+  holds one refresh per product and a second caller joins it rather than
+  starting its own.
+- The cooldown counts fetches, not presses — a scheduled one holds it down too
+  — and `'not-ready'` refunds it: the position check is ahead of the fetch, so
+  nothing went to NOAA and there is nothing to bound. That case lands on a
+  boat still waiting for its first fix, which is the worst one to make wait
+  another minute.
+- A `refresh()` that returns without publishing is not a success. It returns
+  normally when the payload carried no usable grid, so the route compares the
+  cache's `fetchedAt` across the call and answers 502 when nothing new
+  landed; otherwise the button reports a refresh that did not happen, over a
+  reading that has not moved.
+
+The webapp may never turn its own polling into a NOAA fetch — the map draws
+from cache, the poll reads Signal K, and only a press reaches NOAA.
+`plugin.test.ts` pins that an on-demand fetch starts no schedule of its own.
+
+## Tile rendering must not block the event loop
+
+Measured on a 20-tile screenful: `zlib.deflateSync` back-to-back blocks for
+the whole 75ms with zero timer ticks, while awaiting the async form one tile
+at a time holds the worst lag to ~2.5ms for 11ms more wall clock.
+`Promise.all` over tiles is worse than either — it runs every rasterize
+synchronously before awaiting anything. This is a plugin inside somebody's
+navigation server; it does not get to stall it.
+
+## The icon lives in two places, and the second copy is generated
+
+The App Store resolves `signalk.appIcon` server-side against the package
+root, so `./icon.svg` works there. The admin Webapps page reads the
+*top-level* `appIcon` and loads it as a plain URL from the browser, and
+`mountWebModules` in signalk-server serves `public/` as the webapp's root
+when that directory exists — so the file has to be at `public/icon.svg` or
+the page renders a broken image. A symlink cannot be that file: npm's
+packlist skips symlinked files instead of following them, and the copy is
+simply missing from the tarball. `scripts/sync-icon.mjs` generates it on
+`prebuild` and `prepare`; it is gitignored like `dist/`, and `icon.test.ts`
+fails if the wiring comes undone.
