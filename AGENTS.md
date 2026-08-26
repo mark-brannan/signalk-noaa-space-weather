@@ -220,6 +220,14 @@ a session with a paste-ready prompt instead of a status bullet are standing
 orders now, in `~/.claude/CLAUDE.md`'s "Open loops" section
 ([dotfiles#15](https://github.com/mark-brannan/dotfiles/pull/15), merged).
 
+**A board edit is its own pull request, merged the same session — never left
+open while other work runs.** Three pull requests edited `kanban.md`
+concurrently once (#140, #143, #125) and the board was unreliable to pull from
+the whole time: every open copy disagreed with `main` and with each other, and
+each merge put the next branch into conflict. A board PR is a few lines with
+nothing to review slowly, so nothing excuses it sitting open; a code PR that
+also wants a card queues that card behind its merge rather than carrying it.
+
 That file lives on the maintainer's machine, not in this checkout, so an
 agent working this repo has it only if something put it there.
 `.github/workflows/claude-review.yml` does that for the one session that
