@@ -130,7 +130,7 @@ http://<your-server>:3000/signalk/v1/api/signalk-noaa-space-weather/drap-tile/{z
 
 The D-RAP layer is coloured by which marine SSB bands the absorption cutoff has taken, not by a smooth frequency scale — the published number is a frequency, and what changes for you is a band going under. Nothing is drawn where the cutoff is below the lowest marine band.
 
-Add that in [`@signalk/charts-plugin`](https://github.com/SignalK/charts-plugin) as an online chart source (chart format `png`, zoom 0–8), and it appears as a selectable layer in Freeboard-SK. Tiles are transparent everywhere the model gives no probability, so it overlays a real chart rather than covering it.
+Add either URL in [`@signalk/charts-plugin`](https://github.com/SignalK/charts-plugin) as an online chart source (chart format `png`, zoom 0–8), and it appears as a selectable layer in Freeboard-SK. Tiles are transparent everywhere the layer has nothing to report, so they overlay a real chart rather than covering it.
 
 Tiles are drawn on demand from the same cached fetches the webapp reads — enabling this costs no extra NOAA traffic — and are re-rendered automatically when a new grid arrives. Zoom is capped at 8 because the source grids are 1° and 2°×4°; beyond that there is nothing more to show.
 

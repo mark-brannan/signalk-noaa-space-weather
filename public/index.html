@@ -1726,14 +1726,14 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
       canvas._position = lastPosition
       canvas._layer = mapLayer
       layer.draw(canvas, entry.grid, lastPosition)
-      const refresh = document.getElementById('mapRefresh')
-      refresh.addEventListener('click', () =>
-        handleRefreshClick(refresh, layer.refreshUrl, async () => {
+      const refreshButton = document.getElementById('mapRefresh')
+      refreshButton.addEventListener('click', () =>
+        handleRefreshClick(refreshButton, layer.refreshUrl, async () => {
           await refresh()
           await loadMap()
         }, layer.relabel))
       labelAuroraButtons()
-      labelDrapButton(refresh)
+      labelDrapButton(refreshButton)
     } catch (err) {
       mapState = 'error'
       if (err instanceof AuthRequiredError) {
@@ -1888,8 +1888,16 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     mapLayer = event.target.value
     document.getElementById('mapTitle').textContent = mapLayers()[mapLayer].title
     // Only redraw a map that is actually open; switching the layer with the
-    // body hidden must not turn into a fetch nobody asked for.
-    if (!document.getElementById('mapBody').hidden) loadMap()
+    // body hidden must not turn into a fetch nobody asked for. But a hidden
+    // 'ready' map still holds the old layer's canvas, and the toggle below
+    // only reloads from 'idle'/'no-position' -- drop back to 'idle' so
+    // reopening loads the layer that's now selected instead of redisplaying
+    // stale imagery under the new title.
+    if (!document.getElementById('mapBody').hidden) {
+      loadMap()
+    } else if (mapState === 'ready' || mapState === 'error') {
+      mapState = 'idle'
+    }
   })
 
   document.getElementById('mapToggle').addEventListener('click', () => {
