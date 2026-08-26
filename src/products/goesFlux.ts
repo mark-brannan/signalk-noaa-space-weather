@@ -46,12 +46,16 @@ export const goesFlux: Product = {
             ' D-region absorption floor is rising and HF is getting worse;' +
             ' below 1 a blackout is clearing. Says nothing about the F2' +
             ' ceiling -- the X-ray channel acts on the D region only.',
-          // No `units`, and not `'ratio'`: CLAUDE.md reserves that string for
-          // a probability normalised to 0-1 (PROBABILITY_META in scales.ts
-          // and aurora.ts). This is a quotient of two same-dimension flux
-          // samples with no upper bound -- test/hf-render.test.ts exercises
-          // ratios past 40 -- so it belongs with the dimensionless indices
-          // (Kp, G/S/R) that carry no units key at all.
+          // `'ratio'` despite being unbounded above 1. Signal K's own
+          // vocabulary defines it as "relative value compared to reference or
+          // normal value", and its keys carrying it are not all 0-1:
+          // `propulsion.*.transmission.gearRatio` and `alternators.*.pulleyRatio`
+          // are open-ended quotients of two same-dimension quantities, which is
+          // exactly this. The 0-1 cases in this plugin are a property of
+          // probabilities, not of the units string. Its `display` is the empty
+          // string, so this does not reintroduce the `units: 'none'` problem
+          // that keeps Kp and G/S/R unitless.
+          units: 'ratio',
           timeout: 60 * 60
           // No `zones`, deliberately. A rate is not a condition: a ratio of 3
           // is alarming from an M-class floor and meaningless from a B-class
