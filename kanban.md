@@ -40,11 +40,14 @@ what it is blocked by. Delete it when it is done.
       shipped `1151` in the Sep 01 radio-flux column on 2026-08-24 and
       corrected it by reissuing the same Monday 15 hours later. Only
       `Number.isFinite` guards it, so the bad value went straight onto
-      `...outlook27.series`, and the same typo in the Kp column would reach
-      `gScaleForKp`, which has no upper bound — a false G5, audible under the
-      default thresholds. Fixtures for the pair are
+      `...outlook27.series`. A corrupt Kp column would likewise reach
+      `gScaleForKp`, which has no upper bound, and publish a false level on
+      `...outlook27.maxNoaaScale` — a wrong number, not an alarm: outlook27
+      carries no `zones` on any path by design and no webapp surface reads
+      one. Fixtures for the pair are
       `examples/27-day-outlook.2026_08_24_0259.txt` (corrupt) and
       `...1801.txt` (corrected)
+      ([#144](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/144))
 - [ ] Add a `.coderabbit.yaml` scoping AGENTS.md's rules by path — with none in
       the repo it reads the whole file as coding guidelines and applied the
       commit-subject format to a CHANGELOG entry
