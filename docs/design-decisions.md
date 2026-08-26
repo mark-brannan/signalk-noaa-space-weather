@@ -305,3 +305,37 @@ contiguous instead of skipping the ones a second concurrent branch would
 otherwise have minted. Only a tagged version is spent. Do not reintroduce a
 check that a pull request be ahead of the base — it was there when every merge
 published, and under the window it is exactly what puts the gaps back.
+
+## Every webapp map draws its own coastline; the chart overlay draws none
+
+A grid of numbers over a sphere is not a map. Without a coastline the aurora
+tile shows a coloured band and a dot, and the reader cannot tell whether the
+bright patch is over their passage or over Siberia.
+
+Borrowing the boat's own charts is the obvious way to avoid shipping
+geography, and it does not work here. Every chart source Signal K can offer —
+`@signalk/charts-plugin`, OpenSeaMap, whatever Freeboard-SK is showing — is
+Web Mercator, which cannot render a pole; polar-cap absorption is half of what
+a D-RAP map exists to show, and the aurora oval is the other half. Charts are
+also optional, and usually absent: two chart providers installed and an empty
+`charts/` directory is the normal state of a Signal K install. Fetching OSM
+tiles instead would put an internet request behind every pan, from a boat, for
+a plugin that meters its own NOAA polling to the byte — and OSMF's tile policy
+disallows that use anyway.
+
+So `public/geo.js` carries a coastline and both maps draw it through their own
+projection. The cost is the thing that was actually in question, and it was
+measured
+([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32#issuecomment-5429065591)):
+Natural Earth's 110m coastline is 140 KB as published, but simplified to a
+quarter degree — still four times finer than a D-RAP cell — and delta-encoded
+it is under 8 KB, against a tarball that already ships 1.2 MB of README
+screenshots. `test/coastline.test.ts` pins that ceiling rather than the
+tolerance, because the ceiling is what the argument rests on. Natural Earth is
+public domain, which the NOAA colour scales are not
+([#12](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/12)).
+
+The chart-plotter tiles are the opposite case and must stay that way. They are
+drawn *over* the user's real charts, so geography is already there and ours
+would be a second, wronger coastline printed on top of it. `tiles.ts` renders
+data and nothing else.
