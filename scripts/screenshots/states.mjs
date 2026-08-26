@@ -7,6 +7,7 @@
 //   npm install --prefix scripts/screenshots
 //   npx --prefix scripts/screenshots playwright install chromium
 //   node scripts/screenshots/states.mjs
+//   node scripts/screenshots/states.mjs --through '#hfTile'   # further down the page
 //
 // This draws from `scripts/mock-webapp.mjs`, not from a server, and that is
 // the whole point: four of its states are impractical to reach against a live
@@ -35,6 +36,11 @@ const OUT_DIR = path.resolve(ROOT, argv.out || '.hero-states')
 const PORT = Number(argv.port || 8732)
 const BASE = `http://127.0.0.1:${PORT}`
 const THEMES = argv.theme ? [argv.theme] : ['dark', 'light']
+// Every shot runs from the top of the page down to the bottom of one element.
+// The default pairs the statusbar with the hero tile and nothing else; a
+// change lower down the page passes its own selector so the pictures show what
+// it touched (`--through '#hfTile'` reaches the tile row).
+const THROUGH = argv.through || '.tile.hero'
 
 // Wide enough that the hero copy wraps the way it does on a laptop, and tall
 // enough that the whole banner is in the viewport before it is clipped.
@@ -79,20 +85,28 @@ async function main() {
             return t.trim() !== '' && !t.includes('Reading current conditions')
           })
           await page.evaluate(() => document.fonts.ready)
+          // The mock's state switcher is pinned to the viewport bottom, so a
+          // clip taller than the viewport lands it across the middle of the
+          // page. It is the mock's furniture, not the page under review.
+          await page.addStyleTag({
+            content: '[data-mock-strip] { display: none !important; }'
+          })
 
-          // The statusbar carries the chip and the countdown and the tile
-          // below carries the words, and #126 was a disagreement between the
-          // two -- so they are one picture, never two.
-          const hero = await page.locator('.tile.hero').first().boundingBox()
+          // Never the hero tile without the statusbar above it: the chip and
+          // the countdown live in the first and the words in the second, and
+          // #126 was a disagreement between the two. So the clip always starts
+          // at the top of the page and only its bottom edge moves.
+          const target = await page.locator(THROUGH).first().boundingBox()
+          if (!target) throw new Error(`No element matches ${THROUGH}`)
+          const height = Math.ceil(target.y + target.height + 8)
           const file = `hero-${state}-${theme}.png`
           await page.screenshot({
             path: path.join(OUT_DIR, file),
-            clip: {
-              x: 0,
-              y: 0,
-              width: WIDTH,
-              height: Math.ceil(hero.y + hero.height + 8)
-            }
+            // A clip taller than the viewport is only honoured on a full-page
+            // shot; asking for one unconditionally would scroll the short
+            // default shot for no reason.
+            fullPage: height > HEIGHT,
+            clip: { x: 0, y: 0, width: WIDTH, height }
           })
           shots.push({ state, theme, file })
           console.log(`  ✓ ${state} · ${theme} → ${file}`)
