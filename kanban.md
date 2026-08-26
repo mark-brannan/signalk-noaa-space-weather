@@ -7,6 +7,21 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Send the three coastline-package outreach drafts, in order, once
+      `coastlines`/`coast-wright`/`portolani` are published — the SignalK/signalk
+      "Show and tell" discussion first (highest reach), then Flyguy86, then
+      decide whether Aitonos is worth sending at all. Text, send order and
+      the re-verify list are drafted and held in the private state repo at
+      `state/global/drafts/coastlines-outreach.md`
+      ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179))
+- [ ] Decide whether to correct
+      [#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179)'s
+      "two plugins re-solved this worse" claim — reading both repos on
+      2026-08-27 shows neither can consume an 0.25° global coastline: Aitonos
+      raycasts breakwaters at 0.3 nm, Flyguy86 stitches NOAA ENC COALNE at
+      ~100 m snap. Flyguy86 is a generator/format peer, not a consumer, and
+      their plugin was never published to npm. Left uncommented because it is
+      a public issue naming other maintainers
 - [ ] Decide the fate of `claude-review.yml` after the scope-down — keep the
       narrow version, or drop it entirely (delete the workflow and the
       `CLAUDE_CODE_OAUTH_TOKEN` secret) and let CodeRabbit be the one
