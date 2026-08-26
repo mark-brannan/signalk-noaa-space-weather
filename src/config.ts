@@ -105,14 +105,15 @@ export const schema = {
       // setting costs, so the measured number lives here. Per fetch;
       // public/config-panel.js does the daily arithmetic.
       description:
-        'The highest frequency D-region absorption is degrading at the' +
-        ' vessel position: everything below it is dead, everything above it' +
-        ' is getting through. Fetched on the interval below, hourly by' +
-        ' default, adding about 3.3 KB to each of those fetches against 5 KB' +
-        ' for everything else in them. Nothing is fetched until the vessel' +
-        ' has a position, and switching this off costs nothing and stops' +
-        ' everything: there is no on-demand fetch for it as there is for the' +
-        ' aurora grid, so the reading simply stops.',
+        'The highest radio frequency D-region absorption is blocking at the' +
+        " vessel's position. Frequencies below it are absorbed; those above" +
+        ' it should get through, barring other factors. NOAA serves one grid' +
+        ' covering the whole globe, so the cost is the same wherever the boat' +
+        ' is: about 3.3 KB added to each fetch on the interval below, hourly' +
+        ' by default, against 5 KB for everything else in them. Nothing is' +
+        ' fetched until the vessel has a position, and switching this off' +
+        ' stops it completely \u2014 unlike the aurora grid there is no' +
+        ' on-demand fetch, so the reading simply stops.',
       default: true
     },
     auroraInterval: {

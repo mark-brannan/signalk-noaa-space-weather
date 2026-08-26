@@ -657,14 +657,15 @@ function createPanel(React) {
         help: h(
           'span',
           null,
-          'The highest frequency D-region absorption is degrading at the' +
-            ' vessel position: everything below it is dead, everything above' +
-            ' it is getting through. Fetched on the "everything else"' +
-            ' interval below, hourly by default, and it adds about 3.3 KB to' +
-            ' each of those fetches. Nothing is fetched until the vessel has' +
-            ' a position, and switching it off stops it completely: there is' +
-            ' no on-demand fetch for this one as there is for the aurora' +
-            ' grid, so the reading just stops. ',
+          'The highest radio frequency D-region absorption is blocking at' +
+            " the vessel's position. Frequencies below it are absorbed; those" +
+            ' above it should get through, barring other factors. NOAA serves' +
+            ' one grid covering the whole globe, so the cost is the same' +
+            ' wherever the boat is: about 3.3 KB on each fetch of the' +
+            ' "everything else" interval below, hourly by default. Nothing is' +
+            ' fetched until the vessel has a position, and switching it off' +
+            ' stops it completely \u2014 unlike the aurora grid there is no' +
+            ' on-demand fetch, so the reading just stops. ',
           h(NoaaLink, { href: DRAP_URL, text: "NOAA's D-RAP model" })
         )
       }),
