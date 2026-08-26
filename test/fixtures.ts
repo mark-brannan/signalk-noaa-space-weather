@@ -143,27 +143,34 @@ function pathOf(url: string): string | null {
  * published. A path it never published 404s, reaching the webapp as `null`.
  */
 function apiTree(
-  values: ValueUpdate[],
-  timestamp: string
+  batches: { values: ValueUpdate[]; timestamp: string }[]
 ): Record<string, ApiNode | null> {
   const data: Record<string, ApiNode | null> = {}
   for (const [id, url] of Object.entries<string>(ENDPOINTS)) {
     const base = pathOf(url)
     if (base === null) continue
     let node: ApiNode | null = null
-    for (const { path, value } of values) {
-      if (path !== base && !path.startsWith(base + '.')) continue
-      const rest = path === base ? [] : path.slice(base.length + 1).split('.')
-      const leaf: Leaf = { value, timestamp }
-      if (rest.length === 0) {
-        node = leaf
-        continue
+    // Each batch stamps its own leaves. `scales.refresh` publishes the flare
+    // class and the scale levels in separate calls with separate timestamps,
+    // so flattening first and stamping everything from the last batch would
+    // report the scales time for the flare leaf -- a surface reading a value
+    // from one place and its freshness from another, which is the family of
+    // bug this corpus exists to catch.
+    for (const { values, timestamp } of batches) {
+      for (const { path, value } of values) {
+        if (path !== base && !path.startsWith(base + '.')) continue
+        const rest = path === base ? [] : path.slice(base.length + 1).split('.')
+        const leaf: Leaf = { value, timestamp }
+        if (rest.length === 0) {
+          node = leaf
+          continue
+        }
+        node ??= {}
+        let cursor = node as Record<string, ApiNode>
+        for (const key of rest.slice(0, -1))
+          cursor = (cursor[key] ??= {}) as Record<string, ApiNode>
+        cursor[rest[rest.length - 1]] = leaf
       }
-      node ??= {}
-      let cursor = node as Record<string, ApiNode>
-      for (const key of rest.slice(0, -1))
-        cursor = (cursor[key] ??= {}) as Record<string, ApiNode>
-      cursor[rest[rest.length - 1]] = leaf
     }
     data[id] = node
   }
@@ -191,9 +198,5 @@ export async function publishedScalesTree(
 
   const h = harness(responses)
   await scales.refresh(h.ctx)
-  const last = h.published[h.published.length - 1]
-  return apiTree(
-    h.published.flatMap((p) => p.values),
-    last ? last.timestamp : ''
-  )
+  return apiTree(h.published)
 }
