@@ -173,6 +173,15 @@ what it is blocked by. Delete it when it is done.
       ([#172](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/172));
       blocked: the color-gradient decision below
       ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170))
+- [ ] Let `scripts/mock-webapp.mjs` show the aurora map — it serves no grid, so
+      the map renders its own empty state and neither the coastline nor the
+      probability cells can be seen without a live server. The recorded reason
+      ("faking one would be mocking tiles.ts") does not hold for this surface:
+      the webapp map draws in the browser from the cached grid, and
+      `examples/ovation-aurora.2026_08_01.json` is a real one. Found while
+      shipping the coastline, which is why that PR carries module renders
+      instead of screenshots
+      ([#172](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/172))
 - [ ] Surface the D-RAP header fields the parser currently reads past —
       `Estimated Recovery Time`, `X-RAY Message` and `Proton Message` are
       NOAA's own "when does this blackout end", already inside a payload we
