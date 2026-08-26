@@ -215,6 +215,25 @@ for anything with a question in it. `kanban.md` is this project's board, and
 the home for loose ends that cannot become a commit: a stale review-bot
 learning, an account setting, a decision only the maintainer can make.
 
+**A board edit is its own pull request, and it is merged in the session that
+opened it.** A card is capture — it exists so a loop survives the session, and
+a card sitting on an unmerged branch has failed at the one job it had. So don't
+carry `kanban.md` along on a feature branch, and don't leave the board PR for
+the maintainer to notice: open it, and merge it yourself.
+
+A pull request whose diff touches **only** `kanban.md` needs no review and no
+approval to ask for. Merge it as soon as the `version` check is green — the
+repo already allows auto-merge, requires no approving review, and deletes the
+branch on merge, so one command does all of it:
+
+```shell
+gh pr merge --squash --auto --delete-branch
+```
+
+That authorisation is exactly the diff test and nothing wider: one file, no
+other path in the diff. A board edit riding alongside any source, doc or
+config change is an ordinary pull request and waits like one.
+
 The card contract, writing one at discovery instead of at wrap-up, and closing
 a session with a paste-ready prompt instead of a status bullet are standing
 orders now, in `~/.claude/CLAUDE.md`'s "Open loops" section
