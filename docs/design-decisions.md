@@ -1,10 +1,9 @@
 # Design decisions
 
-Settled arguments behind constraints named in [`CLAUDE.md`](../CLAUDE.md)'s
-"Non-obvious constraints". That file keeps the imperative and the issue
-number; the defence for each one — why the alternative was rejected, what it
-cost when it was tried — lives here instead, so it isn't reloaded into every
-session's context.
+Settled arguments behind constraints named in [`CLAUDE.md`](../CLAUDE.md).
+That file keeps the imperative and the issue number; the defence for each one
+— why the alternative was rejected, what it cost when it was tried — lives
+here instead, so it isn't reloaded into every session's context.
 
 ## Alerts are keyed by message code, not serial number
 
@@ -208,3 +207,52 @@ packlist skips symlinked files instead of following them, and the copy is
 simply missing from the tarball. `scripts/sync-icon.mjs` generates it on
 `prebuild` and `prepare`; it is gitignored like `dist/`, and `icon.test.ts`
 fails if the wiring comes undone.
+
+## The dev server finds this plugin by symlink
+
+The server finds plugins by scanning `node_modules/`, not by reading
+`package.json`: `findModulesInDir` in signalk-server's `src/modules.ts` walks
+each directory under `<configPath>/node_modules/` and checks that package's
+own `keywords` for `signalk-node-server-plugin`. So a symlink dropped into
+`~/.signalk/node_modules/` is enough to wire this plugin in, with no
+dependency entry and no `npm install` — which matters, because installing
+anything in that directory re-resolves every caret range in it and can upgrade
+plugins you weren't touching.
+
+`~/.signalk/node_modules/signalk-noaa-space-weather` is that symlink, and it
+should stay one: a rebuild here reaches the server with no reinstall, which is
+the whole point. Recreate it with `ln -s` if something replaces it — an `npm
+install` in that directory will, since the `file:` dependency entry installs
+as a *copy* of the packed files instead. Don't "fix" that with `npm link`: it
+writes a `link:` spec that npm 9 refuses to install at all with
+`EUNSUPPORTEDPROTOCOL`, which is what broke `~/.signalk-dev`.
+
+## A merge does not publish; `release.yml` does, on a debounce
+
+The version number is decided **before** the merge and the release happens
+**after** it, and those are deliberately not the same moment.
+`.husky/pre-commit` is the convenience and
+`.github/workflows/version-gate.yml` is the guarantee — and only while the
+ruleset requires the `version` check, since a red gate nothing requires can be
+merged past.
+
+`release.yml` runs hourly and tags `main` only once nothing has merged for
+`RELEASE_WINDOW_HOURS`, so a busy afternoon ships one release when the
+afternoon ends instead of one per pull request — 59 releases in the first 24
+days is what the merge-publishes design cost. A `workflow_dispatch` run skips
+the wait and flushes whatever is pending immediately; it skips nothing else,
+since the tag is still what says what has already been published.
+
+A version has to be ahead of the latest tag, never merely different from it: a
+stale branch differs from it too, which is how
+[#123](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/123)
+squash-merged at a version already on npm and never published.
+
+So the gate requires a version past the latest tag and pointedly not past
+`main`'s own. Between a merge and the window closing, `main` sits at a version
+that has not shipped, and a second pull request is meant to *join* it there.
+That shared number is the batching, and it is why released versions stay
+contiguous instead of skipping the ones a second concurrent branch would
+otherwise have minted. Only a tagged version is spent. Do not reintroduce a
+check that a pull request be ahead of the base — it was there when every merge
+published, and under the window it is exactly what puts the gaps back.

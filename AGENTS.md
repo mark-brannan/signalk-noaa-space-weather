@@ -63,7 +63,8 @@ This runs on a Pi 3-5, often on battery, inside somebody's navigation server.
 CPU cycles cost watts, and a plugin does not get to stall the event loop.
 
 - Guard `debug()` arguments — the string is built even when debug is off.
-- Don't block on the tile-render path; see the measurements in `CLAUDE.md`.
+- Don't block on the tile-render path; the measurements are in
+  [docs/design-decisions.md](docs/design-decisions.md#tile-rendering-must-not-block-the-event-loop).
 - Publish deltas only when a value actually changed. Re-broadcasting an
   unchanged set to every connected client on every poll is what
   [#45](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/45)
