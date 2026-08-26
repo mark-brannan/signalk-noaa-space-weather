@@ -111,6 +111,17 @@ const STATES = {
     kpObserved: 3.0,
     series: series({ peakKp: 7.0, peakInMin: 860 })
   },
+  eased: {
+    // A real storm (G3, above NOTABLE) ended, but a quieter G1 is still
+    // running under it -- the all-clear/inForce case #145 fixed after a
+    // review round caught the chip and headline both still claiming quiet
+    // over a level that was, in fact, still in force.
+    label: 'G3 eased to G1, still in force',
+    observed: { G: 1, S: 0, R: 0 },
+    peak24h: { G: 3, S: 0, R: 0 },
+    kpObserved: 4.0,
+    series: series({ peakKp: 5.0, peakInMin: 1200 })
+  },
   storm: {
     // Two scales at once, so the hero has to fold an "Also S4:" clause into
     // the impact sentence -- the longest string the layout ever carries.
