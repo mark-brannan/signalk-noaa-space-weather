@@ -1484,6 +1484,10 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   let mapLayer = 'aurora'
   let lastPosition = null
   let mapState = 'idle' // idle | loading | ready | error | no-position
+  // Bumped on every loadMap() call and every layer change; a load whose id no
+  // longer matches when its fetch resolves was for a layer the reader already
+  // left, so its result must not land on the current one.
+  let mapLoadId = 0
   // Whether the plugin is fetching aurora on its own schedule, from the status
   // route. Only changes what this page says and offers -- the fetch itself is
   // allowed either way, and the server is the one that decides that.
@@ -1704,10 +1708,12 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
       return
     }
     const layer = mapLayers()[mapLayer]
+    const loadId = ++mapLoadId
     mapState = 'loading'
     body.innerHTML = `<div class="empty-state">Loading the cached grid&hellip;</div>`
     try {
       const entry = await fetchGridCache(layer.gridUrl)
+      if (loadId !== mapLoadId) return // superseded by a later layer change
       mapState = 'ready'
       body.innerHTML = `
         <canvas id="auroraMapCanvas"></canvas>
@@ -1735,6 +1741,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
       labelAuroraButtons()
       labelDrapButton(refreshButton)
     } catch (err) {
+      if (loadId !== mapLoadId) return // superseded by a later layer change
       mapState = 'error'
       if (err instanceof AuthRequiredError) {
         document.getElementById('authBanner').classList.add('show')
@@ -1887,15 +1894,19 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   document.getElementById('mapLayer').addEventListener('change', (event) => {
     mapLayer = event.target.value
     document.getElementById('mapTitle').textContent = mapLayers()[mapLayer].title
-    // Only redraw a map that is actually open; switching the layer with the
-    // body hidden must not turn into a fetch nobody asked for. But a hidden
-    // 'ready' map still holds the old layer's canvas, and the toggle below
-    // only reloads from 'idle'/'no-position' -- drop back to 'idle' so
-    // reopening loads the layer that's now selected instead of redisplaying
-    // stale imagery under the new title.
+    // A load in flight for the layer just left is now stale; loadMap's own id
+    // check drops its result if it lands after this. Only redraw a map that
+    // is actually open; switching the layer with the body hidden must not
+    // turn into a fetch nobody asked for. But a hidden 'ready' map still
+    // holds the old layer's canvas -- and a hidden 'loading' one is headed
+    // for the old layer's picture -- and the toggle below only reloads from
+    // 'idle'/'no-position', so drop back to 'idle' from either so reopening
+    // loads the layer that's now selected instead of finishing into, or
+    // redisplaying, the old layer's picture.
+    mapLoadId++
     if (!document.getElementById('mapBody').hidden) {
       loadMap()
-    } else if (mapState === 'ready' || mapState === 'error') {
+    } else if (mapState === 'ready' || mapState === 'error' || mapState === 'loading') {
       mapState = 'idle'
     }
   })
