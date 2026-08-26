@@ -5,8 +5,7 @@ it we can answer today, and the thresholds that answer it.
 
 Companion to [ham-radio-research.md](ham-radio-research.md), which surveys the
 _products_. This one is about the _reading_: the operator's question, the
-numbers that answer it, and where each number's authority comes from. Written
-during the #110 design session, 2026-08-26.
+numbers that answer it, and where each number's authority comes from.
 
 The thresholds in this file are the durable part. They belong in Signal K as
 zone metadata whether or not the webapp ever draws them — see
