@@ -7,9 +7,10 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
-- [ ] Launch the coastline-extraction build sessions — pick the two npm
-      names, then run the handoff prompt (data package repo, then JS lib
-      repo, then the swap-in PR here)
+- [ ] Launch the coastline-extraction build sessions — names are settled
+      (`coastlines` data, `coast-wright` lib, `portolani` generator), so run
+      the handoff prompt: generator repo, then data repo, then lib repo, then
+      the swap-in PR here
       ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179))
 - [ ] Deliver the resource-delivery-layer detail you were holding, and open
       the upstream Signal K discussion once the coastline packages exist
