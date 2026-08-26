@@ -7,6 +7,12 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Pick how the D-RAP map tiles and webapp map should color-match NOAA's
+      colorbar — match NOAA exactly on both surfaces (as asked) or repeat
+      aurora's chart-overlay-exact/webapp-adapted split; the measured NOAA
+      color stops are on the issue
+      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170)).
+      Blocks the D-RAP map-tiles card below
 - [ ] Decide the fate of `claude-review.yml` after the scope-down — keep the
       narrow version, or drop it entirely (delete the workflow and the
       `CLAUDE_CODE_OAUTH_TOKEN` secret) and let CodeRabbit be the one
@@ -152,7 +158,9 @@ what it is blocked by. Delete it when it is done.
       grid-agnostic, and a map is the only surface that can answer _path_
       absorption (see "Every reading here is at the vessel" in
       [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md))
-      ([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32))
+      ([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32)).
+      blocked: the color-gradient decision below
+      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170))
 - [ ] Surface the D-RAP header fields the parser currently reads past —
       `Estimated Recovery Time`, `X-RAY Message` and `Proton Message` are
       NOAA's own "when does this blackout end", already inside a payload we
