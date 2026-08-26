@@ -32,12 +32,6 @@ what it is blocked by. Delete it when it is done.
       (one unlanded commit each, no pull request) — real unlanded work, so
       not a sweep
 
-- [ ] Add `version` (from `Version gate`) as a required status check on the
-      [main ruleset](https://github.com/mark-brannan/signalk-noaa-space-weather/rules/21125202),
-      and turn on "require branches to be up to date before merging" — without
-      the second, two pull requests can still race the way #123's did
-      ([#136](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/136))
-
 ## Claude's
 
 - [ ] Add a `.coderabbit.yaml` scoping AGENTS.md's rules by path — with none in
@@ -83,11 +77,10 @@ what it is blocked by. Delete it when it is done.
       drop to 3 if a week of `git tag --list` shows releases still batching
       well at that cadence. Revisit AGENTS.md's "bias hard towards no bump"
       in the same pass
-- [ ] Unstick the stranded release: `main` carries
-      [#141](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/141)'s
-      `public/index.html` font subsetting at 0.29.0, and `v0.29.0` is already
-      tagged, so nothing can publish it — the exact #123 failure, live, because
-      the `version` check is not required on the ruleset yet. One
-      `npm version patch` on a branch clears it once
-      [#136](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/136)
-      has landed
+- [ ] Make a failed publish recoverable in
+      [release.yml](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/.github/workflows/release.yml)
+      — the tag is pushed before `publish.yml` runs, so if the publish fails
+      the tag exists, `version_is_ahead` goes false and neither `release.yml`
+      nor the version guard ever mentions it again. The red release run is the
+      only signal; a re-dispatch of `publish.yml` at the tag is the manual fix
+      ([#136](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/136))
