@@ -662,7 +662,9 @@ function createPanel(React) {
             ' it is getting through. Fetched on the "everything else"' +
             ' interval below, hourly by default, and it adds about 3.3 KB to' +
             ' each of those fetches. Nothing is fetched until the vessel has' +
-            ' a position. ',
+            ' a position, and switching it off stops it completely: there is' +
+            ' no on-demand fetch for this one as there is for the aurora' +
+            ' grid, so the reading just stops. ',
           h(NoaaLink, { href: DRAP_URL, text: "NOAA's D-RAP model" })
         )
       }),

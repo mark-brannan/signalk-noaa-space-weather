@@ -110,7 +110,9 @@ export const schema = {
         ' is getting through. Fetched on the interval below, hourly by' +
         ' default, adding about 3.3 KB to each of those fetches against 5 KB' +
         ' for everything else in them. Nothing is fetched until the vessel' +
-        ' has a position.',
+        ' has a position, and switching this off costs nothing and stops' +
+        ' everything: there is no on-demand fetch for it as there is for the' +
+        ' aurora grid, so the reading simply stops.',
       default: true
     },
     auroraInterval: {
