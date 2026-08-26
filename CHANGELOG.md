@@ -7,6 +7,120 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.29.2] - 2026-08-26
+
+### Changed
+
+- **The banner says what is still in force.** A storm quieter than the day's
+  peak used to read as "conditions have since eased" or "nothing in force
+  right now" while it was still running -- an R2 under an earlier R3, a G1
+  under a G2. Both now name the level still on.
+- **The quiet banner no longer overclaims the forecast.** It only bounds G3
+  and above, and says nothing about the forecast when there is no forecast to
+  read.
+
+### Fixed
+
+- A D-RAP grid whose `Product Valid At` header did not survive the read is
+  skipped rather than published stamped with the local clock.
+
+## [0.29.1] - 2026-08-26
+
+### Fixed
+
+- **Oswald and Space Mono subset to Latin.** The webapp shipped the full font
+  files for a page that renders Latin text only.
+
+### Changed
+
+- **The scales card's Signal K wiring moved out of `index.html`** into
+  `public/scales.js` and `public/signalk.js`, so the path plumbing can be
+  tested rather than read.
+
+## [0.29.0] - 2026-08-25
+
+### Changed
+
+- **Webapp layout and copy tidy-up.** Dead hero CSS, redundant tile
+  subheadings, a squarer aurora tile that names the position it read at,
+  educational-only Learn More links, and a status bar that shrinks below 520px
+  and gives the countdown its own line below 410px rather than wrapping
+  raggedly.
+
+## [0.27.0] - 2026-08-21
+
+### Added
+
+- **D-RAP highest affected frequency.**
+  `environment.noaa.swpc.drap.highest_affected_frequency` (Hz), sampled from
+  NOAA's D-Region Absorption Predictions grid at the vessel's own position —
+  the highest HF frequency currently degraded by 1dB or more, the same
+  "value at the vessel" treatment the aurora probability gets. The map
+  overlay the same issue proposes is a larger, separate piece of work and
+  is not part of this change.
+
+## [0.26.0] - 2026-08-21
+
+### Added
+
+- **GOES X-ray and proton flux.** `environment.noaa.swpc.xray_flux` (W/m²,
+  the 0.1-0.8nm channel the flare class is defined on) and
+  `environment.noaa.swpc.proton_flux` (the >=10 MeV channel the S scale is
+  defined on, converted from NOAA's pfu to m⁻².s⁻¹.sr⁻¹). The R and S scale
+  levels already published only the bucketed severity; this is the raw
+  number behind them, so a history tool such as Grafana can show whether a
+  flare-driven blackout is building or already decaying, and give days of
+  lead on a polar cap absorption event.
+
+## [0.25.0] - 2026-08-21
+
+### Changed
+
+- **The weekly Advisory Outlook now stays on one path.** It used to publish to
+  `notifications.noaa.swpc.advisory_outlook.<bulletin number>`, so every Monday
+  the notification a client was watching went quiet and a sibling appeared at a
+  new path. It now publishes to `notifications.noaa.swpc.advisory_outlook`
+  itself, with the bulletin number carried in the value's `shortId` field. The
+  per-bulletin paths raised by earlier versions are stood down to `normal` on
+  the first refresh after upgrading.
+
+## [0.24.1] - 2026-08-21
+
+### Added
+
+- **Community health files.** `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`
+  (Contributor Covenant 2.1), `SECURITY.md`, GitHub issue forms for bugs and
+  feature requests, and a pull request template. The bug form asks for the
+  plugin version, server version, hardware and log up front, which is what
+  makes a report actionable. Security reports go through a private GitHub
+  advisory rather than a public issue.
+- The README now says where to take a bug, an idea, a patch or a vulnerability,
+  and names the licence in the body rather than only in `LICENSE`.
+
+## [0.24.0] - 2026-08-20
+
+### Changed
+
+- **The webapp's statusbar carries the verdict.** The severity chip and the
+  countdown moved out of the hero tile and into the bar, and what was left of
+  the hero merged with the advisory into one tile. On a 1280 viewport the Kp
+  panel now starts at 226px rather than 289px; on the 800x480 kiosk the bar is
+  one row of 42px rather than two of 69px. The header compacts at 900px rather
+  than 760px, because 800 is the width this was drawn for and the bar cannot
+  hold the countdown and the local time on one row there.
+- **The vessel name is gone from the webapp**, and `navigation.position`'s
+  sibling `name` path is no longer read at all. Position moved to the aurora
+  tile, where it reads as that map's extent ("+/-25 degrees latitude around
+  47.6578, -122.3773") -- centring the map was the only thing the page ever
+  did with it.
+
+### Added
+
+- **`npm run dev:webapp`** serves `public/` against fabricated Signal K data
+  with a state switcher, so the webapp's five hero states -- including a G4
+  storm and "no data since the plugin started" -- can be worked on without a
+  Signal K server running. Dev-only: no dependencies and nothing imports it.
+
 ## [0.23.0] - 2026-08-20
 
 ### Added

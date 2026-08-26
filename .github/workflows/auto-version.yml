@@ -1,87 +1,50 @@
-name: Auto Version
+name: Version guard
 
-# Ensures every version bump on main gets tagged and published, without
-# anyone having to remember to do that by hand.
+# The last check before a change is stranded: main carries something that
+# ships, at a version already tagged, so no release can ever carry it.
 #
-# The actual "did anyone forget to bump the version" problem is solved
-# locally instead, by .husky/pre-commit -- it auto-patch-bumps at commit
-# time when nothing on the branch has already given package.json an
-# explicit bump, so by the time anything reaches main the version has
-# already moved. That's what makes this workflow simple: it never bumps
-# anything itself, only tags and publishes whatever's already on main.
+# version-gate.yml should have caught this on the pull request. This job
+# exists because a gate nothing requires can be merged past, and a failure
+# here is loud where a silent exit 0 was how #123 went unnoticed.
 #
-# (history: this used to also auto-bump here, via a bot-created PR with
-# auto-merge, for pushes that reached main without an explicit bump. Every
-# real run of that path hit a different GitHub anti-abuse gate -- Actions
-# forbidden from creating PRs, auto-merge disabled repo-wide, a bot-authored
-# PR's own CI needing manual approval -- each only discoverable by hitting
-# it, and undoing that required either a one-time repo setting change or
-# hand-approving a run. The local hook sidesteps all of it: a human or
-# Claude's own push never touches the bot-PR machinery those gates exist
-# to gate.)
+# Tagging and publishing happen in release.yml, on a timer -- not here. A
+# merge no longer publishes; it starts the release window over.
 
 on:
   push:
     branches: [main]
 
 permissions:
-  contents: write
-  actions: write # to dispatch publish.yml (gh workflow run / gh run watch)
-
-concurrency:
-  group: auto-version-main
-  cancel-in-progress: false
+  contents: read
 
 jobs:
-  tag-and-publish:
+  guard:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # need the full tag history to find the latest one
 
-      - name: Tag if package.json's version isn't tagged yet
-        id: tag
+      - name: Refuse to leave a publish-impacting change unreleasable
         run: |
+          . ./scripts/publish-impact.sh
+
           PKG_VERSION=$(node -p "require('./package.json').version")
           LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n1)
           LATEST_VERSION="${LATEST_TAG#v}"
-          echo "package.json: $PKG_VERSION, latest tag: ${LATEST_TAG:-(none)}"
 
-          if [ "$PKG_VERSION" = "$LATEST_VERSION" ]; then
-            echo "Already tagged; nothing to publish."
+          if version_is_ahead "$PKG_VERSION" "$LATEST_VERSION"; then
+            echo "main is at $PKG_VERSION, pending release past ${LATEST_TAG:-the first release}."
             exit 0
           fi
 
-          TAG="v$PKG_VERSION"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          git tag "$TAG"
-          git push origin "$TAG"
-
-      # Deliberately not a plain tag push triggering publish.yml's own
-      # `push: tags` listener: a tag pushed with the default GITHUB_TOKEN
-      # doesn't trigger other workflows (GitHub's own loop-prevention).
-      # workflow_dispatch is the proven path -- both a human's manual
-      # `gh workflow run` and this job use it identically.
-      - name: Trigger the real publish, and wait for it to actually succeed
-        if: steps.tag.outputs.tag != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="${{ steps.tag.outputs.tag }}"
-          BEFORE=$(gh run list --workflow=publish.yml --json databaseId --jq '.[0].databaseId // 0')
-          gh workflow run publish.yml --ref "$TAG"
-
-          RUN_ID=""
-          for i in $(seq 1 20); do
-            sleep 5
-            RUN_ID=$(gh run list --workflow=publish.yml --json databaseId,event,headBranch \
-              --jq "[.[] | select(.event == \"workflow_dispatch\" and .headBranch == \"$TAG\" and .databaseId > $BEFORE)][0].databaseId // empty")
-            if [ -n "$RUN_ID" ]; then break; fi
-          done
-          if [ -z "$RUN_ID" ]; then
-            echo "Could not find the triggered publish run for $TAG" >&2
-            exit 1
+          CHANGED=$(git diff --name-only --no-renames "$LATEST_TAG"..HEAD)
+          if [ -z "$CHANGED" ] || ! echo "$CHANGED" | publish_impacting; then
+            echo "Nothing on main past ${LATEST_TAG:-the first release} reaches the tarball."
+            exit 0
           fi
-          echo "Watching publish run $RUN_ID for $TAG"
-          gh run watch "$RUN_ID" --exit-status
+
+          NEXT=$(next_patch_version "$PKG_VERSION" "$LATEST_VERSION")
+          echo "::error::main ships changes past ${LATEST_TAG:-the first release} at $PKG_VERSION, which is already tagged, so nothing can publish them. Merge a branch with npm version $NEXT -- and check the version gate is required on the ruleset, because it should have caught this."
+          echo "$CHANGED" | grep -vE "$NO_PUBLISH_IMPACT" | sed 's/^/  /'
+          exit 1

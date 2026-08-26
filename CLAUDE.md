@@ -108,6 +108,27 @@ mapping: 0 `nominal`, 1–2 `normal`, 3 `alert` with an **empty method array**, 
 `warn` (visual), 5 `alarm` (visual + sound). Do not make this louder without a
 frequency argument.
 
+**That conservatism is about notifications, never about what the page says.**
+The webapp describes conditions in NOAA's own vocabulary — None / Minor /
+Moderate / Strong / Severe / Extreme, `SEV_WORDS` in `index.html`, mirroring
+`NoaaScaleNames` in `parse.ts` — because "what is the sky doing" is a fact and
+"how loud should this be" is a preference. The two got answered with one word
+once: the banner carried the notification-state ladder, so an R2 that NOAA's
+front page and the WWV bulletin both called *moderate* rendered as **Quiet**,
+in the quiet green, with `Normal` under the badge (issue #126). So `heroState`
+describes any level in force, `ALERT_FLOOR` only decides precedence there, and
+level 2 has a colour step of its own. `quiet` means level 0 in force *and*
+level 0 over 24 hours, and `hero.test.ts` pins that nothing else reaches it.
+
+**The hero reads both observed scale paths, and needs both.**
+`observations/latest` is an instantaneous sample that is 0 in every payload in
+`examples/`, including the day whose 24-hour maximum was G4 (issue #120);
+`observations/24_hours_maximums` is what NOAA's front page and WWV report as
+the day's condition. So the maximum decides what the banner *says* and the
+instantaneous reading decides whether it is still running — `storm` versus
+`recent`, or above the floor, `storm` versus `all-clear`. Leading from either
+one alone puts the page back to reporting R0 through an R2.
+
 **Loudness is two thresholds, each naming the level its own band opens at** —
 `alarmLevel` sounds, `popupLevel` is visible and silent. Both are boundaries,
 and that is the point of there being two: **a single anchor with the quieter
@@ -402,6 +423,49 @@ If the admin UI 500s on `/admin/`, npm has hoisted `@signalk/server-admin-ui`
 somewhere the server doesn't look; symlink it into
 `node_modules/signalk-server/node_modules/@signalk/`.
 
+## Working on the webapp without a server
+
+```shell
+npm run dev:webapp        # http://127.0.0.1:8731, or pass a port
+```
+
+`scripts/mock-webapp.mjs` serves `public/` with a state switcher appended and
+answers the ten Signal K paths it understands with fabricated data, so the real
+`heroState`/`renderTimer`/`renderKp` decide what renders. A strip at the
+bottom of the page switches between five states: quiet, G3 forecast, G4+S4,
+stale, and no-data-since-start. Four of those are impractical to reach
+against a live server -- a G4 happens a few times a solar cycle, and the last
+one means breaking the plugin on purpose -- which is the whole reason the
+file exists. Reach for it instead of hand-editing the DOM in devtools, and
+add a state there rather than faking one in the console.
+
+It has no dependencies and nothing imports it. Keep it that way: the plugin
+registry clones this repo and runs `npm ci`, `npm run build` and `npm test`
+under `firejail --net=none` with a 60 second cap, and this script has to stay
+invisible to all three.
+
+The aurora map is deliberately not mocked -- it needs a real grid cache to
+draw, and faking one would be mocking `tiles.ts` rather than the webapp -- so
+that tile renders its own empty state.
+
+`--upstream <base-url>` trades the five fabricated states for a running
+server's real numbers: the same ten paths are proxied there verbatim instead
+of going through `payload()`, so a branch's `public/` -- a changed card, new
+copy -- can be checked against genuine data without repointing
+`~/.signalk/node_modules/signalk-noaa-space-weather` at this worktree, which
+would move every other session on that shared server onto this branch's
+build too.
+
+```shell
+node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3010
+```
+
+3010 is the shared dev server described above -- check
+`~/.signalk/locks/dev-server.lock` before relying on it being idle, same as
+any other use of that instance. `--upstream` and the state switcher are
+mutually exclusive; passing it replaces the switcher strip with one naming
+the upstream instead.
+
 ## Regenerating the README screenshots
 
 `scripts/screenshots/capture.mjs` rewrites all five PNGs in `docs/screenshots/`
@@ -443,16 +507,61 @@ their labels absorb count badges ("Data" is really "Data1") — so the script mo
 *hard* navigation straight to a deep route still doesn't work, which is why it
 loads `/admin/` first.
 
+## Pictures for a webapp pull request
+
+`scripts/screenshots/states.mjs` is the other half of that package, and the two
+answer different questions. `capture.mjs` shoots a live server and rewrites the
+five PNGs the README ships; `states.mjs` starts `scripts/mock-webapp.mjs`
+itself, walks every state it declares in both themes, and writes a gitignored
+`.hero-states/` with the PNGs and an `index.html` contact sheet. Nothing is
+committed — these are review material for one pull request, and pinning them
+would mean recapturing on every unrelated change to the page.
+
+```shell
+node scripts/screenshots/states.mjs        # --out, --port, --theme
+```
+
+It reads the state list off the mock's own startup line rather than importing
+it, so a state added there appears here with no second edit. The clip is the
+statusbar and the hero tile together, never one without the other: the chip and
+the countdown live in the first and the words in the second, and #126 was
+precisely a disagreement between the two.
+
 ## Releasing
 
 Publishing happens from CI via npm OIDC trusted publishing — tag `vX.Y.Z` and
 push. No npm token should ever live on a developer machine.
 
-Version bumps are automatic in two layers, so a real release never depends on
-remembering: `.husky/pre-commit` auto-patch-bumps `package.json` at commit
-time if nothing on the branch has already given it an explicit bump (compared
-against the latest git tag, not the immediate parent commit). `.github/workflows/auto-version.yml`
-then tags and publishes whatever version lands on `main`, whether that came
-from the hook or from an explicit `npm version minor`/`major` before
-committing. Bump explicitly yourself for anything more than the smallest
-change; let the hook cover the rest.
+The number is decided **before** the merge and the release happens **after** it,
+and those are deliberately not the same moment. `.husky/pre-commit` writes the
+patch at commit time; `.github/workflows/version-gate.yml` blocks a pull request
+that changed what ships without one. The hook is the convenience, the gate is
+the guarantee — and only while the ruleset requires the `version` check, since a
+red gate nothing requires can be merged past. `auto-version.yml` catches on
+`main` what the gate should have caught, and fails loudly rather than exiting 0.
+None of them write to `main`, so the ruleset keeps requiring a pull request and
+a signed commit for every change.
+
+**Ahead of the latest tag, never merely different from it.** A stale branch
+differs from it too, which is how #123 squash-merged at a version already on
+npm and never published.
+
+**A merge does not publish. `release.yml` does, on a debounce.** It runs hourly
+and tags `main` only once nothing has merged for `RELEASE_WINDOW_HOURS`, so a
+busy afternoon ships one release when the afternoon ends instead of one per
+pull request — 59 releases in the first 24 days is what the merge-publishes
+design cost. A `workflow_dispatch` run skips the wait and flushes whatever is
+pending immediately; it skips nothing else, since the tag is still what says
+what has already been published.
+
+**So the gate requires a version past the latest tag and pointedly not past
+`main`'s own.** Between a merge and the window closing, `main` sits at a version
+that has not shipped, and a second pull request is meant to *join* it there.
+That shared number is the batching, and it is why released versions stay
+contiguous instead of skipping the ones a second concurrent branch would
+otherwise have minted. Only a tagged version is spent. Do not reintroduce a
+check that a pull request be ahead of the base — it was there when every merge
+published, and under the window it is exactly what puts the gaps back.
+
+All of the above read one file, `scripts/publish-impact.sh`, pinned by
+`test/publish-impact.test.ts`.

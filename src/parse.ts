@@ -1420,3 +1420,184 @@ function dailySolarRow(line: string): DailySolarIndices | null {
   )
   return day ? { day, sunspotNumber } : null
 }
+
+/**
+ * Whether a raised notification still has something to stand down.
+ *
+ * A non-empty method matters even at `normal`, and is not a hypothetical: the
+ * screenshot on issue #45 is a `normal` notification carrying visual+sound,
+ * which is why it was making noise about a three-week-old message. Treating
+ * `state === normal` as "already quiet" would leave exactly the reported case
+ * untouched.
+ */
+export function isRaised(value: {
+  state?: unknown
+  method?: unknown
+}): boolean {
+  return (
+    value.state !== NotificationStates.NORMAL ||
+    (Array.isArray(value.method) && value.method.length > 0)
+  )
+}
+
+// ---------------------------------------------------------------------------
+// GOES X-ray and integral proton flux
+// https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json
+// https://services.swpc.noaa.gov/json/goes/primary/integral-protons-6-hour.json
+// ---------------------------------------------------------------------------
+
+export interface GoesFlux {
+  /** 0.1-0.8nm channel, W/m^2 -- the channel the GOES flare class (M1, X1, ...) is defined on. */
+  xrayFlux: number | null
+  xrayTimestamp: string | null
+  /** >=10 MeV channel, converted from pfu (cm^-2.s^-1.sr^-1) to m^-2.s^-1.sr^-1 -- the channel the S scale is defined on. */
+  protonFlux: number | null
+  protonTimestamp: string | null
+}
+
+const PFU_TO_SI = 1e4 // cm^-2 -> m^-2
+
+/**
+ * Both endpoints are flat arrays interleaving several energy channels per
+ * timestamp (two for X-rays, eight for protons), not one channel appended in
+ * order -- so "latest" means the last record matching the wanted channel,
+ * found by scanning from the end, not simply the last element.
+ */
+export function parseGoesFlux(xrayJson: any, protonJson: any): GoesFlux {
+  const xrayRow = lastRecordForEnergy(xrayJson, '0.1-0.8nm')
+  const protonRow = lastRecordForEnergy(protonJson, '>=10 MeV')
+
+  const xrayFlux = firstNumber(xrayRow, ['flux'])
+  const protonFluxPfu = firstNumber(protonRow, ['flux'])
+
+  return {
+    xrayFlux,
+    xrayTimestamp: firstString(xrayRow, ['time_tag']),
+    protonFlux: protonFluxPfu === null ? null : protonFluxPfu * PFU_TO_SI,
+    protonTimestamp: firstString(protonRow, ['time_tag'])
+  }
+}
+
+function lastRecordForEnergy(json: any, energy: string): any {
+  if (!Array.isArray(json)) return null
+  for (let i = json.length - 1; i >= 0; i--) {
+    if (json[i]?.energy === energy) return json[i]
+  }
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// D-RAP global frequencies
+// https://services.swpc.noaa.gov/text/drap_global_frequencies.txt
+// ---------------------------------------------------------------------------
+
+export interface DrapGrid {
+  validTime: string
+  /** 89 down to -89, step -2. */
+  latitudes: number[]
+  /** -178 up to 178, step 4. */
+  longitudes: number[]
+  /** [latitude row][longitude column], MHz, the highest frequency degraded by >=1dB. */
+  frequenciesMHz: number[][]
+}
+
+const DRAP_LON_ROW = /^\s*-?\d+(?:\s+-?\d+)+\s*$/
+const DRAP_DATA_ROW = /^\s*(-?\d+)\s*\|\s*(.+)$/
+
+export function parseDrapGrid(rawText: string): DrapGrid | null {
+  // A checkout with CRLF line endings (git on Windows) leaves a trailing \r
+  // on every line; unstripped it lands inside the last numeric column and
+  // fails the Number.isFinite check below for the entire grid.
+  const text = rawText.replace(/\r\n/g, '\n')
+  const validMatch = text.match(
+    /Product Valid At\s*:\s*(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\s*UTC/
+  )
+  const validTime = validMatch
+    ? asIsoString(`${validMatch[1].replace(' ', 'T')}:00Z`)
+    : null
+
+  let longitudes: number[] | null = null
+  const latitudes: number[] = []
+  const rows: number[][] = []
+
+  for (const line of text.split('\n')) {
+    if (!longitudes && !line.startsWith('#') && DRAP_LON_ROW.test(line)) {
+      longitudes = line.trim().split(/\s+/).map(Number)
+      continue
+    }
+    const dataMatch = line.match(DRAP_DATA_ROW)
+    if (dataMatch) {
+      latitudes.push(Number(dataMatch[1]))
+      rows.push(dataMatch[2].trim().split(/\s+/).map(Number))
+    }
+  }
+
+  if (!longitudes || rows.length === 0) return null
+  if (rows.some((row) => row.length !== longitudes!.length)) return null
+  if (rows.some((row) => row.some((v) => !Number.isFinite(v)))) return null
+  // A read landing mid-write (docs/noaa-products.md) can catch this text
+  // grid mid-rewrite: every row that arrived is internally consistent, but
+  // there are fewer of them than NOAA's documented 90x90 shape. Accepting
+  // that grid would let nearestIndex silently snap to the nearest surviving
+  // row/column -- a wrong answer with no signal it's wrong, the same failure
+  // auroraCell avoids by returning null on an inexact match rather than
+  // approximating.
+  if (latitudes.length !== 90 || longitudes.length !== 90) return null
+  // The header is torn by the same rewrite the rows are, and a grid whose
+  // valid time did not survive it has no way to say how old it is. Publishing
+  // it stamped with the local clock dates a NOAA reading by when we read it.
+  if (!validTime) return null
+
+  return { validTime, latitudes, longitudes, frequenciesMHz: rows }
+}
+
+/**
+ * Highest degraded frequency (MHz) at a position, from the nearest grid
+ * point. Not interpolated: a D-RAP cell is a threshold, not a continuous
+ * field, so blending a blacked-out cell with a clear one would invent a
+ * frequency nothing actually measured.
+ */
+export function drapFrequencyAt(
+  grid: DrapGrid | null,
+  latitude: number,
+  longitude: number
+): number | null {
+  if (!grid) return null
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
+
+  const latIndex = nearestIndex(grid.latitudes, latitude, (a, b) =>
+    Math.abs(a - b)
+  )
+  const lonIndex = nearestIndex(grid.longitudes, longitude, angularDistance)
+  if (latIndex === -1 || lonIndex === -1) return null
+
+  // parseDrapGrid already guarantees every cell is finite, but this function
+  // takes a DrapGrid rather than the raw text -- "never publish NaN" holds
+  // for any grid a caller hands in, not only ones that went through the
+  // parser.
+  const value = grid.frequenciesMHz[latIndex]?.[lonIndex]
+  return Number.isFinite(value) ? value : null
+}
+
+function nearestIndex(
+  values: number[],
+  target: number,
+  distance: (a: number, b: number) => number
+): number {
+  let best = -1
+  let bestDistance = Infinity
+  for (let i = 0; i < values.length; i++) {
+    const d = distance(values[i], target)
+    if (d < bestDistance) {
+      bestDistance = d
+      best = i
+    }
+  }
+  return best
+}
+
+/** Shortest distance between two longitudes on a -180..180 circle. */
+function angularDistance(a: number, b: number): number {
+  const diff = Math.abs(a - b) % 360
+  return diff > 180 ? 360 - diff : diff
+}

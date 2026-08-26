@@ -5,7 +5,8 @@
   "description": "Playwright capture of the README screenshots. Deliberately a separate package: the plugin registry scores this repo by running `npm ci` offline with a 60s cap, and Playwright would blow both.",
   "type": "module",
   "scripts": {
-    "capture": "node capture.mjs"
+    "capture": "node capture.mjs",
+    "states": "node states.mjs"
   },
   "dependencies": {
     "playwright": "^1.62.1"

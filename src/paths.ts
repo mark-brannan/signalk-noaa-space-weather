@@ -16,6 +16,13 @@ export const AURORA_BASE = 'environment.noaa.swpc.aurora'
 // it's a single "most recent event" reading.
 export const XRAY_FLARE_BASE = 'environment.noaa.swpc.xray_flare'
 export const NOTIFICATIONS_BASE = 'notifications.noaa.swpc'
+/**
+ * The weekly Advisory Outlook, a single notification rather than a subtree:
+ * there is only ever one current bulletin, and keying the path on the week's
+ * bulletin number moved the notification out from under anyone subscribed to
+ * it every Monday (issue #104). The number is in the value's `shortId`, and
+ * `clearShortIdPaths` cleans up after the old scheme.
+ */
 export const ADVISORY_BASE = 'notifications.noaa.swpc.advisory_outlook'
 /**
  * Alerts, watches and warnings, one leaf per NOAA message code (`WARK05`,
@@ -62,6 +69,22 @@ export const A_INDEX_BASE = 'environment.noaa.swpc.a_index'
  * is not derived from the other.
  */
 export const SUNSPOT_BASE = 'environment.noaa.swpc.sunspot_number'
+/**
+ * Raw GOES flux behind the R and S scales -- the shape (rising, peaked,
+ * decaying) the bucketed level can't show. `xray_flux` is the 0.1-0.8nm
+ * channel the flare class is defined on, alongside XRAY_FLARE_BASE's class
+ * string; `proton_flux` is the >=10 MeV channel the S scale is defined on,
+ * converted from NOAA's pfu to m^-2.s^-1.sr^-1 -- see parseGoesFlux.
+ */
+export const XRAY_FLUX_BASE = 'environment.noaa.swpc.xray_flux'
+export const PROTON_FLUX_BASE = 'environment.noaa.swpc.proton_flux'
+/**
+ * The highest frequency currently degraded by >=1dB at the vessel's own
+ * position, sampled from NOAA's D-RAP global grid -- the same "value at the
+ * vessel" treatment aurora gets, and for the same reason: the global grid
+ * itself is not useful on a boat.
+ */
+export const DRAP_BASE = 'environment.noaa.swpc.drap'
 
 export const SCALE_LETTERS = ['G', 'S', 'R'] as const
 export type ScaleLetter = (typeof SCALE_LETTERS)[number]

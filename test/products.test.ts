@@ -1,98 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
 import { settingsFrom } from '../src/config'
-import { Client } from '../src/noaa/client'
-import { ValueUpdate } from '../src/parse'
-import { Meta, Publisher } from '../src/publisher'
-import { ProductContext } from '../src/products/types'
+import { harness } from './harness'
 import { aIndex } from '../src/products/aIndex'
 import { f107 } from '../src/products/f107'
+import { goesFlux } from '../src/products/goesFlux'
 import { kp } from '../src/products/kp'
 import { outlook27 } from '../src/products/outlook27'
 import { scales } from '../src/products/scales'
 import { solarWind } from '../src/products/solarWind'
 import { sunspot } from '../src/products/sunspot'
-import { fixture, fixtureJson } from './fixtures'
-
-/**
- * The point of the products/ split: a product can be exercised with a fake
- * client and a fake publisher, with no server, no timers and no network. Each
- * of these drives the real refresh path over a captured payload and asserts on
- * what would reach Signal K.
- *
- * The stubs satisfy Client and Publisher rather than being cast at the call
- * site. A cast on `refresh(ctx)` accepts whatever the stubs happen to be, so a
- * product reaching for something they don't have -- `dataDirPath`, a second
- * argument to `client.text` -- would surface as an undefined at runtime.
- * `npm run typecheck` fails on it instead.
- */
-function harness(responses: Record<string, any>) {
-  const published: { values: ValueUpdate[]; timestamp: string }[] = []
-  const metas: Meta[] = []
-  const errors: string[] = []
-
-  const publisher: Publisher = {
-    meta: (m) => metas.push(...m),
-    values: (values, timestamp) => published.push({ values, timestamp }),
-    value(path, value, timestamp) {
-      this.values([{ path, value }], timestamp)
-    },
-    // Answers what this harness has already published, so a product that
-    // checks the tree before republishing sees what a server would show it:
-    // the newest update for that path, not the first, and the `.timestamp`
-    // leaf alongside the `.value` one.
-    selfPath: (path: string) => {
-      for (let i = published.length - 1; i >= 0; i--) {
-        const { values, timestamp } = published[i]
-        for (const update of values) {
-          if (`${update.path}.value` === path) return update.value
-          if (`${update.path}.timestamp` === path) return timestamp
-        }
-      }
-      return undefined
-    },
-    status: () => {},
-    fail: () => {},
-    error: (m, ...a) => errors.push(`${m} ${a.join(' ')}`),
-    debug: () => {},
-    // No product exercised here persists a file, and a stub handing back a
-    // real directory would let one start doing so without a test noticing.
-    dataDirPath: () => {
-      throw new Error('dataDirPath is not stubbed')
-    }
-  }
-
-  const client: Client = {
-    json: async (subPath) => {
-      if (!(subPath in responses)) throw new Error(`unstubbed ${subPath}`)
-      return responses[subPath]
-    },
-    text: async (subPath) => {
-      if (!(subPath in responses)) throw new Error(`unstubbed ${subPath}`)
-      return responses[subPath]
-    }
-  }
-
-  const ctx: ProductContext = {
-    client,
-    publisher,
-    settings: settingsFrom({}),
-    stopped: () => false
-  }
-
-  const flat = () => published.flatMap((p) => p.values)
-  return {
-    publisher,
-    client,
-    metas,
-    errors,
-    published,
-    ctx,
-    valueAt: (path: string) => flat().find((v) => v.path === path)?.value,
-    paths: () => flat().map((v) => v.path)
-  }
-}
-
-const FLARE_ENDPOINT = '/json/goes/primary/xray-flares-latest.json'
+import { FLARE_ENDPOINT, fixture, fixtureJson } from './fixtures'
 
 describe('scales product', () => {
   it('publishes observed levels and forecast probabilities from a captured payload', async () => {
@@ -226,6 +143,57 @@ describe('solar wind product', () => {
     await solarWind.refresh(h.ctx)
     expect(h.published).toEqual([])
     expect(h.errors.length).toBe(1)
+  })
+})
+
+describe('GOES flux product', () => {
+  it('publishes the latest X-ray and proton channel from a captured payload', async () => {
+    const h = harness({
+      '/json/goes/primary/xrays-6-hour.json': fixtureJson(
+        'xrays-6-hour.2026_08_20.json'
+      ),
+      '/json/goes/primary/integral-protons-6-hour.json': fixtureJson(
+        'integral-protons-6-hour.2026_08_20.json'
+      )
+    })
+    await goesFlux.refresh(h.ctx)
+
+    expect(h.errors).toEqual([])
+    expect(h.valueAt('environment.noaa.swpc.xray_flux')).toBeCloseTo(
+      1.3730890486840508e-6,
+      15
+    )
+    expect(h.valueAt('environment.noaa.swpc.proton_flux')).toBeCloseTo(
+      2175.9319305419922,
+      6
+    )
+  })
+
+  it('publishes nothing at all rather than NaN when the payload is unusable', async () => {
+    const h = harness({
+      '/json/goes/primary/xrays-6-hour.json': [],
+      '/json/goes/primary/integral-protons-6-hour.json': []
+    })
+    await goesFlux.refresh(h.ctx)
+    expect(h.published).toEqual([])
+    expect(h.errors.length).toBe(1)
+  })
+
+  it('does not rebroadcast channels that have not moved', async () => {
+    const responses = {
+      '/json/goes/primary/xrays-6-hour.json': fixtureJson(
+        'xrays-6-hour.2026_08_20.json'
+      ),
+      '/json/goes/primary/integral-protons-6-hour.json': fixtureJson(
+        'integral-protons-6-hour.2026_08_20.json'
+      )
+    }
+    const h = harness(responses)
+    await goesFlux.refresh(h.ctx)
+    await goesFlux.refresh(h.ctx)
+
+    expect(h.errors).toEqual([])
+    expect(h.published.length).toBe(1)
   })
 })
 

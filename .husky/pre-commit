@@ -1,27 +1,13 @@
-# Auto-bumps the patch version when nothing staged on this branch has
-# already given it an explicit one, so a real release never depends on
-# remembering to bump the version by hand. Compares against the latest
-# tag, not the immediate parent commit -- a feature branch's parent isn't
-# necessarily what's currently on main.
+# Patch-bumps package.json when the staged work ships something and the version
+# isn't already past the last release, so nobody has to remember to.
+#
+# The convenience, not the guarantee: a hook only runs where a hook runs.
+# .github/workflows/version-gate.yml is what blocks an unversioned change.
 
-# Paths that cannot change how the plugin behaves, so a bump here would burn
-# a version number on nothing. Most of these are simply outside package.json's
-# "files" and never reach the published tarball at all.
-#
-# docs/ is the one judgement call: it IS in "files", so screenshots really do
-# ship. It sits here anyway because they change often and change nothing a
-# boat can observe -- the tarball's copy just lags a release behind. Reverse
-# that by dropping docs/ from this list; nothing else depends on it.
-#
-# Deliberately absent, and keep them that way: src/ compiles into dist/, and
-# tsconfig.json changes what dist/ emits.
-#
-# A skipped bump is safe downstream. .github/workflows/auto-version.yml sees
-# package.json's version already matching the latest tag, logs "Already
-# tagged; nothing to publish" and exits without triggering publish.yml.
-NO_PUBLISH_IMPACT='^(\.github/|\.husky/|\.gitignore|\.prettierrc|\.editorconfig|scripts/|test/|examples/|docs/|CLAUDE\.md|AGENTS\.md|kanban\.md|vitest\.config\.ts)'
-STAGED=$(git diff --cached --name-only)
-if [ -n "$STAGED" ] && ! echo "$STAGED" | grep -qvE "$NO_PUBLISH_IMPACT"; then
+. "$(git rev-parse --show-toplevel)/scripts/publish-impact.sh"
+
+STAGED=$(git diff --cached --name-only --no-renames)
+if [ -z "$STAGED" ] || ! echo "$STAGED" | publish_impacting; then
   exit 0
 fi
 
@@ -29,12 +15,13 @@ PKG_VERSION=$(node -p "require('./package.json').version")
 LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n1)
 LATEST_VERSION="${LATEST_TAG#v}"
 
-if [ "$PKG_VERSION" != "$LATEST_VERSION" ]; then
-  # Already differs from the last release -- an explicit, conscious choice
-  # by whoever/whatever changed it, however far back on this branch.
+if version_is_ahead "$PKG_VERSION" "$LATEST_VERSION"; then
+  # Already past the last release -- an explicit, conscious choice by
+  # whoever/whatever changed it, however far back on this branch.
   exit 0
 fi
 
-npm version patch --no-git-tag-version >/dev/null
+NEXT=$(next_patch_version "$PKG_VERSION" "$LATEST_VERSION")
+npm version "$NEXT" --no-git-tag-version >/dev/null
 git add package.json package-lock.json
-echo "Auto-bumped to $(node -p "require('./package.json').version") (no explicit version bump was staged)"
+echo "Auto-bumped $PKG_VERSION -> $NEXT (nothing staged had given it a version past ${LATEST_TAG:-the first release})"

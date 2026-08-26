@@ -118,6 +118,39 @@ describe('heroState', () => {
     expect(result.also).toEqual([])
   })
 
+  it('lists a scale as quiet as the one leading a below-floor banner', () => {
+    // The banner exists at all because level 2 is worth describing, so
+    // suppressing a second scale at that same level would be describing it
+    // by two different rules on one line.
+    const result = state({ observed: { G: 2, S: 0, R: 2 } })
+    expect(result.level).toBe(2)
+    expect(result.also).toEqual([{ letter: 'R', level: 2 }])
+  })
+
+  // Issue #126: NOAA's front page and the WWV bulletin both called this
+  // moderate while the banner called it quiet. Alarm thresholds are not
+  // involved -- an R2 still raises no notification.
+  it('describes a storm NOAA names even below the alert floor', () => {
+    const result = state({ observed: { G: 0, S: 0, R: 2 } })
+    expect(result.kind).toBe('storm')
+    expect(result.letter).toBe('R')
+    expect(result.level).toBe(2)
+  })
+
+  it('describes the day when the 24-hour maximum beats what is in force', () => {
+    // The live #120/#126 case: the instantaneous sample reads 0 through an
+    // R2, and NOAA reports the 24-hour maximum as the condition.
+    const result = state({ observed: { G: 0, S: 0, R: 0 }, peak24h: { R: 2 } })
+    expect(result.kind).toBe('recent')
+    expect(result.peak).toEqual({ letter: 'R', level: 2 })
+  })
+
+  it('leads with what is in force once it catches the day maximum up', () => {
+    const result = state({ observed: { R: 2 }, peak24h: { R: 2 } })
+    expect(result.kind).toBe('storm')
+    expect(result.level).toBe(2)
+  })
+
   it('is brewing when now is quiet but the forecast is not', () => {
     const result = state({
       observed: { G: 1, S: 0, R: 0 },
@@ -151,16 +184,56 @@ describe('heroState', () => {
     expect(result.peak).toEqual({ letter: 'G', level: 3 })
   })
 
-  it('is quiet after a G1 or G2, which is an ordinary day', () => {
+  it('reports the day maximum rather than the quieter level in force', () => {
     const result = state({ observed: { G: 1 }, peak24h: { G: 2 } })
-    expect(result.kind).toBe('quiet')
+    expect(result.kind).toBe('recent')
     expect(result.peak).toEqual({ letter: 'G', level: 2 })
   })
 
-  it('carries no peak when nothing rose above background', () => {
+  it('carries the level still in force under a bigger earlier peak', () => {
+    // Both states lead with the day's maximum, and the page used to append
+    // "nothing in force" / "conditions have since eased" to each. Neither is
+    // true while a quieter level is still running.
+    const clear = state({
+      observed: { R: 2 },
+      peak24h: { R: 3 },
+      series: series(2, 3)
+    })
+    expect(clear.kind).toBe('all-clear')
+    expect(clear.inForce).toEqual({ letter: 'R', level: 2 })
+
+    const recent = state({ observed: { G: 1 }, peak24h: { G: 2 } })
+    expect(recent.kind).toBe('recent')
+    expect(recent.inForce).toEqual({ letter: 'G', level: 1 })
+  })
+
+  it('reports nothing in force when the day peaked and then went quiet', () => {
+    const result = state({
+      observed: { G: 0, S: 0, R: 0 },
+      peak24h: { G: 3 },
+      series: series(2, 2)
+    })
+    expect(result.kind).toBe('all-clear')
+    expect(result.inForce).toBeNull()
+  })
+
+  it('is quiet only when nothing rose above background at all', () => {
     const result = state({ observed: { G: 0 }, peak24h: { G: 0, S: 0, R: 0 } })
     expect(result.kind).toBe('quiet')
     expect(result.peak).toBeNull()
+  })
+
+  it('never calls a day quiet when NOAA put a level on it', () => {
+    // The whole of #126 as one property: no combination of an observed and a
+    // 24-hour-maximum level above 0 may reach the quiet banner.
+    for (const now of [0, 1, 2, 3, 4, 5]) {
+      for (const peak of [0, 1, 2, 3, 4, 5]) {
+        const result = state({ observed: { R: now }, peak24h: { R: peak } })
+        expect(result.kind === 'quiet', `R${now} now, R${peak} peak`).toBe(
+          now === 0 && peak === 0
+        )
+      }
+    }
   })
 })
 
