@@ -34,7 +34,10 @@ const argv = parseArgs(process.argv.slice(2))
 const OUT_DIR = path.resolve(ROOT, argv.out || '.hero-states')
 const PORT = Number(argv.port || 8732)
 const BASE = `http://127.0.0.1:${PORT}`
-const THEMES = argv.theme ? [argv.theme] : ['dark', 'light']
+// The app is dark by default and that's the only rendering worth reviewing
+// on a pull request; --theme light still works for a one-off light-mode
+// check, it's just not part of the default contact sheet anymore.
+const THEMES = argv.theme ? [argv.theme] : ['dark']
 
 // Wide enough that the hero copy wraps the way it does on a laptop, and tall
 // enough that the whole banner is in the viewport before it is clipped.
