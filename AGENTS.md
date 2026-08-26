@@ -215,6 +215,43 @@ for anything with a question in it. `kanban.md` is this project's board, and
 the home for loose ends that cannot become a commit: a stale review-bot
 learning, an account setting, a decision only the maintainer can make.
 
+**A board edit is its own pull request, and it is merged in the session that
+opened it.** A card is capture — it exists so a loop survives the session, and
+a card sitting on an unmerged branch has failed at the one job it had. So don't
+carry `kanban.md` along on a feature branch, and don't leave the board PR for
+the maintainer to notice: open it, and merge it yourself.
+
+A pull request whose diff touches **only** `kanban.md` needs no review and no
+approval to ask for. Merge it as soon as the `version` check is green — the
+repo already allows auto-merge, requires no approving review, and deletes the
+branch on merge, so one command does all of it:
+
+```shell
+gh pr merge --squash --auto --delete-branch
+```
+
+**The review bots don't race that merge, because they don't start.** Left to
+themselves they would: `version` is the only required check, so it goes green
+in seconds while a reviewer is still booting, and whatever it eventually found
+would be posted into a pull request that closed minutes earlier — a comment on
+a merged PR is not a finding, it is a message nobody is going to read. So both
+reviewers are filtered on the same diff test the merge rule uses, in
+`.github/workflows/claude-review.yml` (`paths-ignore`) and `.coderabbit.yaml`
+(`path_filters`). Both filters skip a run only when `kanban.md` is the entire
+diff, which is exactly the case that merges without waiting.
+
+That trade is deliberate and it is not free: a card with a dead link or a
+duplicate of a card three lines up now ships unreviewed. It is worth it because
+the board is not code — nothing installs it, and the next session to pull from
+it reads every line and can fix one in the same breath. Keep the two filters
+and the merge rule matched to each other. Widening the merge rule without
+widening the filters gives back the unread review; widening the filters without
+the merge rule silently drops review from PRs that still want it.
+
+That authorisation is exactly the diff test and nothing wider: one file, no
+other path in the diff. A board edit riding alongside any source, doc or
+config change is an ordinary pull request and waits like one.
+
 The card contract, writing one at discovery instead of at wrap-up, and closing
 a session with a paste-ready prompt instead of a status bullet are standing
 orders now, in `~/.claude/CLAUDE.md`'s "Open loops" section
