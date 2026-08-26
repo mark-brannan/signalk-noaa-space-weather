@@ -36,6 +36,33 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Add a live-proxy state to `scripts/mock-webapp.mjs` — a `--upstream`
+      flag that passes its ten routes through to a real Signal K server
+      instead of the fabricated payloads, so a branch's `public/` can be seen
+      against today's real sky without repointing
+      `~/.signalk/node_modules/signalk-noaa-space-weather` at that worktree.
+      Keep it dependency-free and invisible to `npm ci`/`build`/`test`
+      ([mock](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/scripts/mock-webapp.mjs))
+- [ ] Design the review rig with Mark — what portable environment it runs in
+      (a compose file in this repo with overridable ports, or a command that
+      builds and links into a dedicated plugin-dev Signal K), not one host's
+      `~/.signalk`; purpose and both mechanisms are settled, the environment is
+      not
+      ([#125](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/125)),
+      blocked: a one-on-one design pass, deliberately not blocking the rest of
+      the #121 plan
+- [ ] Range-check the columns in `outlookRow` (`src/parse.ts:1069`) — NOAA
+      shipped `1151` in the Sep 01 radio-flux column on 2026-08-24 and
+      corrected it by reissuing the same Monday 15 hours later. Only
+      `Number.isFinite` guards it, so the bad value went straight onto
+      `...outlook27.series`. A corrupt Kp column would likewise reach
+      `gScaleForKp`, which has no upper bound, and publish a false level on
+      `...outlook27.maxNoaaScale` — a wrong number, not an alarm: outlook27
+      carries no `zones` on any path by design and no webapp surface reads
+      one. Fixtures for the pair are
+      `examples/27-day-outlook.2026_08_24_0259.txt` (corrupt) and
+      `...1801.txt` (corrected)
+      ([#144](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/144))
 - [ ] Add a `.coderabbit.yaml` scoping AGENTS.md's rules by path — with none in
       the repo it reads the whole file as coding guidelines and applied the
       commit-subject format to a CHANGELOG entry
