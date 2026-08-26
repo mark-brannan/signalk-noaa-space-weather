@@ -46,7 +46,12 @@ export const goesFlux: Product = {
             ' D-region absorption floor is rising and HF is getting worse;' +
             ' below 1 a blackout is clearing. Says nothing about the F2' +
             ' ceiling -- the X-ray channel acts on the D region only.',
-          units: 'ratio',
+          // No `units`, and not `'ratio'`: CLAUDE.md reserves that string for
+          // a probability normalised to 0-1 (PROBABILITY_META in scales.ts
+          // and aurora.ts). This is a quotient of two same-dimension flux
+          // samples with no upper bound -- test/hf-render.test.ts exercises
+          // ratios past 40 -- so it belongs with the dimensionless indices
+          // (Kp, G/S/R) that carry no units key at all.
           timeout: 60 * 60
           // No `zones`, deliberately. A rate is not a condition: a ratio of 3
           // is alarming from an M-class floor and meaningless from a B-class
