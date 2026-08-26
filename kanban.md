@@ -160,7 +160,7 @@ what it is blocked by. Delete it when it is done.
       two flare values with a dated `xray-flares-7-day` fixture (the
       endpoint is measured in `docs/noaa-products.md`); the X-ray trend,
       derived from the ~700 records already fetched every poll and currently
-      discarded; the F10.7 bands as a labelled guess; and zone metadata on
+      discarded; the F10.7 bands as a labelled convention; and zone metadata on
       the HF paths — reading the
       two hazards in `hf-operator-view.md` first, since F10.7 is inverted and
       D-RAP's value is a frequency rather than a severity

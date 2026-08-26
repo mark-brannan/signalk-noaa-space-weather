@@ -131,16 +131,18 @@ S1 begins at **10 pfu** at ≥10 MeV, each subsequent level ×10 (S2 = 100,
 S3 = 1000, S4 = 10⁴, S5 = 10⁵). Published in SI as m⁻².s⁻¹.sr⁻¹; the pfu
 figures above are NOAA's own units and the conversion lives in `parse.ts`.
 
-### Solar flux (F10.7) — guess
+### Solar flux (F10.7) — convention
 
 The bands every operator quotes, borrowed from hamqsl.com's panel — the
 most-embedded version — but **no published derivation exists**:
 [its FAQ](https://www.hamqsl.com/FAQ.html) describes inputs and a confidence
-factor, not the mapping. That makes reusing them here a Guess by this file's
-own definition above, not a Convention: hamqsl's numbers are real operator
-practice, but nobody has published or validated a formula connecting F10.7 to
-actual band conditions, so this needs revisiting rather than standing as
-settled.
+factor, not the mapping. Real operator practice with no published derivation
+is this file's own definition of Convention, above — not a Guess, which this
+file reserves for numbers chosen by us rather than borrowed from established
+practice. Whether hamqsl's mapping itself holds up is a separate question,
+tracked against a GIRO calibration pass
+([#85](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/85)),
+not a reason to relabel the provenance.
 
 | SFI     | Reading                       |
 | ------- | ----------------------------- |
@@ -150,10 +152,10 @@ settled.
 | 120–149 | Good                          |
 | ≥ 150   | Excellent                     |
 
-Adopted deliberately as a guess rather than a derivation — Mark's explicit
+Adopted deliberately as convention rather than derivation — Mark's explicit
 call, 2026-08-26 — on the reasoning that a defensible derivation is a scoping
 decision we are choosing to descope, not a correctness problem. Ship it,
-label it, revisit it.
+label it.
 
 ### foF2 and MUF — not yet, and deliberately not guessed here
 
