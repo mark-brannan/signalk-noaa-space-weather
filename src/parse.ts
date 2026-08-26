@@ -811,17 +811,36 @@ export function parseXrayFlare(json: any): XrayFlare | null {
   if (!entry) return null
   const peak = flareRecord(entry)
   if (peak) return peak
-  if (typeof entry.current_class !== 'string' || !entry.current_class)
-    return null
+  const flareClass = flareClassOf(entry.current_class)
+  if (flareClass === null) return null
   if (typeof entry.time_tag !== 'string' || !entry.time_tag) return null
-  return { flareClass: entry.current_class, time: entry.time_tag }
+  return { flareClass, time: entry.time_tag }
 }
 
 /** One record's peak, or null when either half of the pair is unusable. */
 function flareRecord(entry: any): XrayFlare | null {
-  if (typeof entry?.max_class !== 'string' || !entry.max_class) return null
+  const flareClass = flareClassOf(entry?.max_class)
+  if (flareClass === null) return null
   if (typeof entry.max_time !== 'string' || !entry.max_time) return null
-  return { flareClass: entry.max_class, time: entry.max_time }
+  return { flareClass, time: entry.max_time }
+}
+
+/**
+ * The flare class if the field is one, else null -- the boundary check on the
+ * only NOAA field this plugin publishes as a free string rather than a number.
+ * Every other value on these paths is parsed into a number, so `class` is the
+ * one that reaches a consumer's DOM as whatever NOAA sent; validating it here
+ * covers Freeboard and Grafana too, where escaping in `public/index.html`
+ * would only have covered this plugin's own page.
+ *
+ * Reuses `fluxForFlareClass` rather than repeating its regex: "is a class" and
+ * "abbreviates a flux we can rank on" are the same question, and a second
+ * pattern would be free to drift from the one the ranking uses.
+ */
+export function flareClassOf(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return fluxForFlareClass(trimmed) === null ? null : trimmed
 }
 
 /**
