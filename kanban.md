@@ -7,6 +7,17 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Review the corpus-canary deletion in `test/scales-render.test.ts` —
+      [#146](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/146)
+      moved "no number the card draws is dead across the whole corpus" into
+      the broader `test/dead-fields.test.ts` sweep rather than deleting the
+      coverage outright, and pinned the two storm days by name in the new
+      home; worth eyeballing that nothing was lost in the move
+- [ ] Decide the fate of the scratch signalk-server on port 3110 — still
+      running this branch against live NOAA, spun up during the #146
+      false-regression chase
+      ([log](https://github.com/mark-brannan/claude_prompts_scratch/blob/main/state/global/log/2026-08-25-dead-field-sweep-and-a-false-regression.md)).
+      Kill it once you're done, or fold it into a standing test-rig strategy
 - [ ] Enable **private vulnerability reporting** (Settings → Code security), so
       the advisory link in
       [SECURITY.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/SECURITY.md)
