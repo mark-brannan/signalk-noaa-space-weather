@@ -8,6 +8,7 @@ import { AURORA_BASE } from '../src/paths'
 import { ValueUpdate } from '../src/parse'
 import { Meta } from '../src/publisher'
 import { readAuroraCache, writeAuroraCache } from '../src/cache/auroraCache'
+import { writeDrapCache } from '../src/cache/drapCache'
 import { writeAdvisoryCache } from '../src/cache/advisoryCache'
 import { fixtureJson } from './fixtures'
 
@@ -289,6 +290,125 @@ describe('plugin module', () => {
     it('answers 404 when the cached payload has no usable grid', async () => {
       const { router } = serving({ coordinates: [] })
       const response = await router.invoke(ROUTE, { z: '1', x: '0', y: '0' })
+      expect(response.status).toBe(404)
+    })
+  })
+
+  describe('the D-RAP grid and tile routes', () => {
+    const GRID = '/signalk-noaa-space-weather/drap-grid'
+    const TILE = '/signalk-noaa-space-weather/drap-tile/:z/:x/:y.png'
+    let dataDir: string
+    beforeEach(() => {
+      dataDir = mkdtempSync(join(tmpdir(), 'plugin-datadir-'))
+    })
+    afterEach(() => {
+      rmSync(dataDir, { recursive: true, force: true })
+    })
+
+    /** A dayside cap over the Atlantic, in NOAA's documented grid shape. */
+    function grid(peakMHz = 20) {
+      const latitudes = Array.from({ length: 90 }, (_, i) => 89 - i * 2)
+      const longitudes = Array.from({ length: 90 }, (_, i) => -178 + i * 4)
+      return {
+        validTime: '2026-08-20T04:42:00.000Z',
+        latitudes,
+        longitudes,
+        frequenciesMHz: latitudes.map((lat) =>
+          longitudes.map((lon) =>
+            Math.abs(lat) < 40 && Math.abs(lon) < 40 ? peakMHz : 0
+          )
+        )
+      }
+    }
+
+    function serving(cached: any) {
+      writeDrapCache(dataDir, cached)
+      const router = fakeRouter()
+      createPlugin(fakeApp(dataDir)).signalKApiRoutes(router)
+      return router
+    }
+
+    it('answers 404 with an explanation when nothing is cached yet', async () => {
+      const router = fakeRouter()
+      createPlugin(fakeApp(dataDir)).signalKApiRoutes(router)
+
+      const gridResponse = await router.invoke(GRID)
+      expect(gridResponse.status).toBe(404)
+      expect(gridResponse.json.error.length).toBeGreaterThan(0)
+
+      const tileResponse = await router.invoke(TILE, {
+        z: '2',
+        x: '1',
+        y: '1'
+      })
+      expect(tileResponse.status).toBe(404)
+      expect(tileResponse.sent).toBeUndefined()
+    })
+
+    it('serves back exactly what the D-RAP product cached', async () => {
+      const router = serving(grid())
+      const response = await router.invoke(GRID)
+
+      expect(response.status).toBe(200)
+      expect(response.json.grid.validTime).toBe('2026-08-20T04:42:00.000Z')
+      expect(response.json.grid.frequenciesMHz.length).toBe(90)
+    })
+
+    it('serves a PNG for a tile inside the pyramid, and rejects one outside', async () => {
+      const router = serving(grid())
+      const response = await router.invoke(TILE, { z: '2', x: '1', y: '1' })
+      expect(response.status).toBe(200)
+      expect(response.headers['Content-Type']).toBe('image/png')
+      expect([...response.sent.subarray(0, 8)]).toEqual([
+        137, 80, 78, 71, 13, 10, 26, 10
+      ])
+
+      const bad = await router.invoke(TILE, { z: '2', x: '9', y: '0' })
+      expect(bad.status).toBe(400)
+      expect(bad.sent).toBeUndefined()
+    })
+
+    it('renders from the newer grid after a refresh replaces the cache', async () => {
+      const router = serving(grid(20))
+      const before = await router.invoke(TILE, { z: '1', x: '0', y: '0' })
+
+      // Fake timers again: the memo is keyed on the entry's `fetchedAt`.
+      vi.advanceTimersByTime(1000)
+      writeDrapCache(dataDir, grid(0))
+      const after = await router.invoke(TILE, { z: '1', x: '0', y: '0' })
+
+      expect(after.sent.equals(before.sent)).toBe(false)
+      expect(after.headers.ETag).not.toBe(before.headers.ETag)
+    })
+
+    /**
+     * The two layers hold separate tile caches: they are refreshed on
+     * separate schedules, and a D-RAP fetch has no business evicting a
+     * screenful of aurora tiles -- or, worse, answering with one.
+     */
+    it('does not serve aurora tiles from the D-RAP cache, or the reverse', async () => {
+      writeAuroraCache(dataDir, {
+        coordinates: Array.from({ length: 360 }, (_, lon) =>
+          Array.from({ length: 181 }, (_, i) => [lon, i - 90, 40])
+        ).flat()
+      })
+      const router = serving(grid())
+
+      const auroraTile = await router.invoke(
+        '/signalk-noaa-space-weather/aurora-tile/:z/:x/:y.png',
+        { z: '1', x: '0', y: '0' }
+      )
+      const drapTile = await router.invoke(TILE, { z: '1', x: '0', y: '0' })
+      expect(auroraTile.status).toBe(200)
+      expect(drapTile.status).toBe(200)
+      expect(drapTile.sent.equals(auroraTile.sent)).toBe(false)
+    })
+
+    it('answers 404 when the cached grid is not the shape it must be', async () => {
+      const torn = grid()
+      torn.frequenciesMHz = torn.frequenciesMHz.slice(0, 40)
+      const router = serving(torn)
+      const response = await router.invoke(TILE, { z: '1', x: '0', y: '0' })
       expect(response.status).toBe(404)
     })
   })

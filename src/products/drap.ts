@@ -2,12 +2,17 @@
  * https://services.swpc.noaa.gov/text/drap_global_frequencies.txt
  *
  * NOAA's D-RAP model as a global grid of the highest frequency currently
- * degraded by >=1dB (the "band is dead" threshold). A global grid is not
- * useful on a boat, so this publishes a single number: the value at the
- * vessel's own position -- the same treatment aurora.ts gives OVATION, for
- * the same reason. The map overlay the issue also proposes is a separate,
- * much larger piece of work (a second tile layer) and is not part of this.
+ * degraded by >=1dB (the "band is dead" threshold). Two readers, from one
+ * fetch: the number at the vessel's own position, published on a path the
+ * way every other product here publishes one, and the whole grid, cached to
+ * disk for the absorption map and the tile route (src/cache/drapCache.ts).
+ *
+ * The grid is the more useful half. A cutoff at the boat says which bands are
+ * absorbed *here*; only the grid says whether the far end of the path is
+ * under a blackout, which is the question anyone raising a net, a shore
+ * contact or Winlink is actually asking.
  */
+import { writeDrapCache } from '../cache/drapCache.js'
 import { DRAP_BASE } from '../paths.js'
 import {
   drapFrequencyAt,
@@ -61,20 +66,34 @@ export const drap: Product = {
   },
 
   async refresh({ client, publisher, stopped }) {
-    // Check for a position before spending a fetch on a grid we cannot index
-    // into -- the same reasoning aurora.ts uses.
-    const position = vesselPosition(publisher)
-    if (!position) {
-      publisher.debug('No vessel position yet; deferring the D-RAP fetch')
-      return 'not-ready'
-    }
-
+    // No position gate, unlike aurora.ts. That gate is there so a metered
+    // link is not spent on a ~900 KB grid nothing can be read out of yet;
+    // this payload is a hundredth of the size, and it is not read out of at
+    // a point any more -- the map draws the whole grid, and a boat with no
+    // fix yet is exactly when somebody is looking at the map to decide
+    // whether the radio is worth switching on.
     const text = await client.text('/text/drap_global_frequencies.txt', 'D-RAP')
     if (stopped()) return
 
     const grid = parseDrapGrid(text)
     if (!grid) {
       publisher.error('D-RAP payload contained no usable grid')
+      return
+    }
+
+    // Cache the grid for the map and the tile route. Best effort: a disk
+    // write failing here must not stop the value below from publishing, the
+    // same rule aurora.ts applies to its own cache.
+    try {
+      writeDrapCache(publisher.dataDirPath(), grid)
+    } catch (err) {
+      publisher.error(`Failed to cache the D-RAP grid: ${err}`)
+    }
+
+    // The grid is cached either way; only the vessel's own cell needs a fix.
+    const position = vesselPosition(publisher)
+    if (!position) {
+      publisher.debug('No vessel position yet; D-RAP cached but not published')
       return
     }
 

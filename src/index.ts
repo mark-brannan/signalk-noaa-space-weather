@@ -9,6 +9,7 @@
 import { Settings, schema, settingsFrom } from './config.js'
 import { createClient } from './noaa/client.js'
 import { readAuroraCache } from './cache/auroraCache.js'
+import { readDrapCache } from './cache/drapCache.js'
 import { readAdvisoryCache } from './cache/advisoryCache.js'
 import { createPublisher } from './publisher.js'
 import { advisory } from './products/advisory.js'
@@ -27,8 +28,10 @@ import { Product } from './products/types.js'
 import {
   MAX_ZOOM,
   auroraGridFrom,
+  drapGridFrom,
   isValidTile,
-  renderAuroraTile
+  renderAuroraTile,
+  renderDrapTile
 } from './tiles.js'
 
 const PRODUCTS: Product[] = [
@@ -136,31 +139,147 @@ export default function (app: any): Plugin {
    * flattened grid and the rendered tiles are memoised against the cache
    * entry's `fetchedAt`, and the whole lot is dropped when a newer fetch
    * lands -- a stale tile is worse than a slow one.
+   *
+   * One of these per grid the plugin draws (aurora, D-RAP): they hold
+   * separate caches because they are refreshed on separate schedules, and a
+   * D-RAP fetch has no business evicting a screenful of aurora tiles.
    */
-  let tileGridKey: string | null = null
-  let tileGrid: Uint8Array | null = null
-  const tileCache = new Map<string, Buffer>()
-
-  function auroraGridForTiles(): { grid: Uint8Array; key: string } | null {
-    const cached = readAuroraCache(publisher.dataDirPath())
-    if (!cached) return null
-    if (tileGridKey !== cached.fetchedAt || !tileGrid) {
-      const grid = auroraGridFrom(cached.grid?.coordinates)
-      if (!grid) return null
-      tileGrid = grid
-      tileGridKey = cached.fetchedAt
-      tileCache.clear()
-    }
-    return { grid: tileGrid, key: cached.fetchedAt }
+  interface TileLayer {
+    name: string
+    /** The flattened grid and the cache instant it came from, or null. */
+    source(): { grid: any; key: string } | null
+    render(grid: any, z: number, x: number, y: number): Promise<Buffer>
+    /** What to say when nothing has been cached yet. */
+    notCached: string
+    clear(): void
   }
 
-  function rememberTile(key: string, png: Buffer) {
-    if (tileCache.size >= TILE_CACHE_LIMIT) {
-      // Map iterates in insertion order, so the first key is the oldest.
-      const oldest = tileCache.keys().next()
-      if (!oldest.done) tileCache.delete(oldest.value)
+  function tileLayer<Grid, Entry extends { fetchedAt: string }>(spec: {
+    name: string
+    read(): Entry | null
+    flatten(entry: Entry): Grid | null
+    render(grid: Grid, z: number, x: number, y: number): Promise<Buffer>
+    notCached: string
+  }): TileLayer {
+    let gridKey: string | null = null
+    let grid: Grid | null = null
+    const tiles = new Map<string, Buffer>()
+
+    return {
+      name: spec.name,
+      notCached: spec.notCached,
+      source() {
+        const cached = spec.read()
+        if (!cached) return null
+        if (gridKey !== cached.fetchedAt || !grid) {
+          const flattened = spec.flatten(cached)
+          if (!flattened) return null
+          grid = flattened
+          gridKey = cached.fetchedAt
+          tiles.clear()
+        }
+        return { grid, key: cached.fetchedAt }
+      },
+      async render(source: Grid, z: number, x: number, y: number) {
+        const cacheKey = `${z}/${x}/${y}`
+        const held = tiles.get(cacheKey)
+        if (held) return held
+        const png = await spec.render(source, z, x, y)
+        // The grid can be replaced by a refresh while a render is in flight;
+        // caching the result under the new grid's key would serve a tile
+        // drawn from the old one.
+        if (grid === source) {
+          if (tiles.size >= TILE_CACHE_LIMIT) {
+            // Map iterates in insertion order, so the first key is the oldest.
+            const oldest = tiles.keys().next()
+            if (!oldest.done) tiles.delete(oldest.value)
+          }
+          tiles.set(cacheKey, png)
+        }
+        return png
+      },
+      clear() {
+        tiles.clear()
+        grid = null
+        gridKey = null
+      }
     }
-    tileCache.set(key, png)
+  }
+
+  const auroraLayer = tileLayer({
+    name: 'aurora',
+    read: () => readAuroraCache(publisher.dataDirPath()),
+    flatten: (entry) => auroraGridFrom(entry.grid?.coordinates),
+    render: renderAuroraTile,
+    // A chart plotter has no button to offer, so this points at the setting
+    // rather than at the webapp's on-demand fetch: an overlay that only
+    // refreshes when somebody opens a browser is not an overlay anyone
+    // should be navigating by.
+    notCached:
+      'No aurora data cached yet. Turn on automatic aurora updates in the' +
+      ' plugin configuration.'
+  })
+
+  const drapLayer = tileLayer({
+    name: 'D-RAP',
+    read: () => readDrapCache(publisher.dataDirPath()),
+    flatten: (entry) => drapGridFrom(entry.grid),
+    render: renderDrapTile,
+    notCached:
+      'No D-RAP data cached yet. Turn on "Publish HF absorption (NOAA' +
+      ' D-RAP)" in the plugin configuration.'
+  })
+
+  const tileLayers = [auroraLayer, drapLayer]
+
+  /** The route handler both tile layers are served by. */
+  function serveTile(layer: TileLayer) {
+    return async (req: any, res: any) => {
+      const z = Number(req.params.z)
+      const x = Number(req.params.x)
+      const y = Number(req.params.y)
+      if (!isValidTile(z, x, y)) {
+        res.status(400).json({
+          error: `Tile out of range. Zoom must be 0-${MAX_ZOOM}, and x and y within 0..2^z-1.`
+        })
+        return
+      }
+
+      const source = layer.source()
+      if (!source) {
+        res.status(404).json({ error: layer.notCached })
+        return
+      }
+
+      let png: Buffer
+      try {
+        png = await layer.render(source.grid, z, x, y)
+      } catch (err) {
+        publisher.error(
+          `Failed to render ${layer.name} tile ${z}/${x}/${y}: ${err}`
+        )
+        res.status(500).json({ error: 'Tile could not be rendered.' })
+        return
+      }
+
+      res.setHeader('Content-Type', 'image/png')
+      // Tiles are only as fresh as the fetch behind them. ETag lets a client
+      // revalidate cheaply across a refresh instead of guessing at an age.
+      res.setHeader('ETag', `"${source.key}-${z}/${x}/${y}"`)
+      res.setHeader('Cache-Control', 'public, max-age=300')
+      // How old the grid behind the tile is. Every other reader of these
+      // caches says so -- the webapp's maps print it -- but a chart plotter
+      // has only what is on the wire, and the ETag carries the same instant
+      // as a token no client may parse. It matters more now that leaving a
+      // schedule off is a supported way to run: the cache then moves only
+      // when somebody presses the button. Reported, not enforced; what
+      // counts as too old belongs to whoever is navigating by it.
+      const fetchedAt = Date.parse(source.key)
+      if (Number.isFinite(fetchedAt)) {
+        res.setHeader('Last-Modified', new Date(fetchedAt).toUTCString())
+      }
+      res.send(png)
+    }
   }
 
   function intervalFor(product: Product, settings: Settings): number {
@@ -326,79 +445,42 @@ export default function (app: any): Plugin {
         }
       )
 
-      // The aurora grid as Web Mercator PNG tiles, so a chart plotter can
-      // draw the oval over the actual chart. `@signalk/charts-plugin` takes
-      // an online chart source as a {z}/{x}/{y} URL, so this needs no
-      // resource-provider registration and no Freeboard-SK change: point a
-      // chart source at this route and the overlay appears.
+      // The grids as Web Mercator PNG tiles, so a chart plotter can draw
+      // them over the actual chart. `@signalk/charts-plugin` takes an online
+      // chart source as a {z}/{x}/{y} URL, so this needs no resource-provider
+      // registration and no Freeboard-SK change: point a chart source at one
+      // of these routes and the overlay appears.
       //
       // GET-only and on the same namespace as the reads above, for the same
-      // reason -- it serves the same data the webapp already reads, in a
+      // reason -- they serve the same data the webapp already reads, in a
       // different shape.
       router.get(
         '/signalk-noaa-space-weather/aurora-tile/:z/:x/:y.png',
-        async (req: any, res: any) => {
-          const z = Number(req.params.z)
-          const x = Number(req.params.x)
-          const y = Number(req.params.y)
-          if (!isValidTile(z, x, y)) {
-            res.status(400).json({
-              error: `Tile out of range. Zoom must be 0-${MAX_ZOOM}, and x and y within 0..2^z-1.`
-            })
+        serveTile(auroraLayer)
+      )
+
+      // D-RAP's is the one that answers a question the vessel's own reading
+      // cannot: a path to a station crosses cells the boat is not sitting in,
+      // and a band that works here can be dead a thousand miles down the
+      // bearing. See docs/hf-operator-view.md.
+      router.get(
+        '/signalk-noaa-space-weather/drap-tile/:z/:x/:y.png',
+        serveTile(drapLayer)
+      )
+
+      // The cached D-RAP grid itself, for the webapp's absorption map --
+      // aurora-grid above, for the other grid, and for the same reason: one
+      // server-side fetch, and a browser that only talks to the server it
+      // loaded the page from.
+      router.get(
+        '/signalk-noaa-space-weather/drap-grid',
+        (_req: any, res: any) => {
+          const cached = readDrapCache(publisher.dataDirPath())
+          if (!cached) {
+            res.status(404).json({ error: drapLayer.notCached })
             return
           }
-
-          const source = auroraGridForTiles()
-          if (!source) {
-            // A chart plotter has no button to offer, so this one points at
-            // the setting rather than at the webapp's on-demand fetch: an
-            // overlay that only refreshes when somebody opens a browser is
-            // not an overlay anyone should be navigating by.
-            res.status(404).json({
-              error:
-                'No aurora data cached yet. Turn on automatic aurora updates' +
-                ' in the plugin configuration.'
-            })
-            return
-          }
-
-          const cacheKey = `${z}/${x}/${y}`
-          let png = tileCache.get(cacheKey)
-          if (!png) {
-            try {
-              png = await renderAuroraTile(source.grid, z, x, y)
-            } catch (err) {
-              publisher.error(
-                `Failed to render aurora tile ${cacheKey}: ${err}`
-              )
-              res.status(500).json({ error: 'Tile could not be rendered.' })
-              return
-            }
-            // The grid can be replaced by a refresh while a render is in
-            // flight; caching the result under the new grid's key would serve
-            // a tile drawn from the old one.
-            if (tileGridKey === source.key) rememberTile(cacheKey, png)
-          }
-
-          res.setHeader('Content-Type', 'image/png')
-          // Tiles are only as fresh as the fetch behind them, and the aurora
-          // interval is 120 minutes by default. ETag lets a client revalidate
-          // cheaply across a refresh instead of guessing at an age.
-          res.setHeader('ETag', `"${source.key}-${cacheKey}"`)
-          res.setHeader('Cache-Control', 'public, max-age=300')
-          // How old the grid behind the tile is. Every other reader of this
-          // cache says so -- the webapp's map prints it, and the tile says
-          // when updates are off -- but a chart plotter has only what is on
-          // the wire, and the ETag carries the same instant as a token no
-          // client may parse. It matters more now that leaving the schedule
-          // off is a supported way to run: the cache then moves only when
-          // somebody presses the button. Reported, not enforced; what counts
-          // as too old belongs to whoever is navigating by it.
-          const fetchedAt = Date.parse(source.key)
-          if (Number.isFinite(fetchedAt)) {
-            res.setHeader('Last-Modified', new Date(fetchedAt).toUTCString())
-          }
-          res.send(png)
+          res.json(cached)
         }
       )
 
@@ -539,9 +621,7 @@ export default function (app: any): Plugin {
       productTimers.clear()
       // Several MB of rendered tiles and the flattened grid have no reason to
       // outlive the plugin being switched off.
-      tileCache.clear()
-      tileGrid = null
-      tileGridKey = null
+      tileLayers.forEach((layer) => layer.clear())
     }
   }
 }

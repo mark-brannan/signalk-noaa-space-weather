@@ -290,3 +290,228 @@ export async function renderAuroraTile(
 ): Promise<Buffer> {
   return encodePng(TILE_SIZE, TILE_SIZE, rasterizeTile(grid, z, x, y))
 }
+
+// --- D-RAP -----------------------------------------------------------------
+
+/**
+ * NOAA's D-RAP grid: 90 latitude rows from 89 down to -89 in 2-degree steps,
+ * and 90 longitude columns from -178 to 178 in 4-degree steps, both naming
+ * cell *centres*. parse.ts already refuses a grid of any other shape, and so
+ * does `drapGridFrom` below -- a grid that does not match this geometry has
+ * no defensible mapping onto the globe, and drawing it anyway would put an
+ * absorption blob over the wrong ocean.
+ */
+const DRAP_LAT_STEPS = 90
+const DRAP_LON_STEPS = 90
+const DRAP_LAT_ORIGIN = 89
+const DRAP_LAT_STEP = -2
+const DRAP_LON_ORIGIN = -178
+const DRAP_LON_STEP = 4
+
+/**
+ * The grid flattened to `[latitude row][longitude column]` in MHz, once per
+ * fetch, for the same reason `auroraGridFrom` flattens OVATION: per-pixel
+ * sampling reads it ~65,000 times per tile.
+ *
+ * Float32 rather than the Uint8Array aurora uses -- these are tenths of a
+ * megahertz, and rounding 4.9 to 5 moves a band edge.
+ */
+export function drapGridFrom(source: unknown): Float32Array | null {
+  const grid = source as {
+    latitudes?: unknown
+    longitudes?: unknown
+    frequenciesMHz?: unknown
+  } | null
+  if (!grid) return null
+  const { latitudes, longitudes, frequenciesMHz } = grid
+  if (
+    !Array.isArray(latitudes) ||
+    !Array.isArray(longitudes) ||
+    !Array.isArray(frequenciesMHz)
+  ) {
+    return null
+  }
+  if (
+    latitudes.length !== DRAP_LAT_STEPS ||
+    longitudes.length !== DRAP_LON_STEPS ||
+    frequenciesMHz.length !== DRAP_LAT_STEPS
+  ) {
+    return null
+  }
+  if (
+    latitudes[0] !== DRAP_LAT_ORIGIN ||
+    latitudes[1] !== DRAP_LAT_ORIGIN + DRAP_LAT_STEP ||
+    longitudes[0] !== DRAP_LON_ORIGIN ||
+    longitudes[1] !== DRAP_LON_ORIGIN + DRAP_LON_STEP
+  ) {
+    return null
+  }
+
+  const flat = new Float32Array(DRAP_LAT_STEPS * DRAP_LON_STEPS)
+  for (let row = 0; row < DRAP_LAT_STEPS; row++) {
+    const cells = frequenciesMHz[row]
+    if (!Array.isArray(cells) || cells.length !== DRAP_LON_STEPS) return null
+    for (let col = 0; col < DRAP_LON_STEPS; col++) {
+      const value = cells[col]
+      if (!Number.isFinite(value)) return null
+      flat[row * DRAP_LON_STEPS + col] = value < 0 ? 0 : value
+    }
+  }
+  return flat
+}
+
+/**
+ * Bilinear sample in MHz, wrapping longitude and clamping latitude at the
+ * poles -- `sample` above, over a coarser grid whose rows run north to south.
+ */
+function sampleDrap(
+  grid: Float32Array,
+  latitude: number,
+  longitude: number
+): number {
+  const lat = latitude > 90 ? 90 : latitude < -90 ? -90 : latitude
+  const lon = ((((longitude + 180) % 360) + 360) % 360) - 180
+
+  // Fractional grid indices. Latitude clamps: there is no cell beyond 89 or
+  // -89, and the pole is one degree past the last row's centre.
+  const fy = (DRAP_LAT_ORIGIN - lat) / -DRAP_LAT_STEP
+  const y0 = Math.min(DRAP_LAT_STEPS - 1, Math.max(0, Math.floor(fy)))
+  const y1 = Math.min(DRAP_LAT_STEPS - 1, y0 + 1)
+  const ty = Math.min(1, Math.max(0, fy - y0))
+
+  // Longitude wraps: the column at 178 and the column at -178 are neighbours.
+  const fx = (lon - DRAP_LON_ORIGIN) / DRAP_LON_STEP
+  const x0 =
+    ((Math.floor(fx) % DRAP_LON_STEPS) + DRAP_LON_STEPS) % DRAP_LON_STEPS
+  const x1 = (x0 + 1) % DRAP_LON_STEPS
+  const tx = fx - Math.floor(fx)
+
+  const v00 = grid[y0 * DRAP_LON_STEPS + x0]
+  const v10 = grid[y0 * DRAP_LON_STEPS + x1]
+  const v01 = grid[y1 * DRAP_LON_STEPS + x0]
+  const v11 = grid[y1 * DRAP_LON_STEPS + x1]
+  const upper = v00 + (v10 - v00) * tx
+  const lower = v01 + (v11 - v01) * tx
+  return upper + (lower - upper) * ty
+}
+
+/**
+ * The colour ramp, keyed to the marine SSB band edges rather than to a round
+ * number of megahertz.
+ *
+ * The published value is a frequency, not a severity -- `zonesForDrap` says
+ * why -- so the map's job is to answer "which of my bands does this kill",
+ * and it can only do that if a colour change lands where a band does. Each
+ * stop below is a band edge in MHz: cross a boundary on the map and a band
+ * has gone under the cutoff.
+ *
+ * Not NOAA's own D-RAP ramp: that one is keyed to plain megahertz, on a white
+ * background, next to a legend. This draws over a chart, next to a band
+ * strip, on a dark page.
+ */
+export const DRAP_STOPS: ReadonlyArray<
+  readonly [number, number, number, number]
+> = [
+  [2.045, 90, 200, 255], // 2 MHz gone: distress and coastal work
+  [4.0, 80, 235, 190],
+  [6.2, 150, 240, 120],
+  [8.1, 240, 226, 70], // 8 MHz gone: the workhorse offshore band
+  [12.23, 255, 176, 50],
+  [16.36, 255, 128, 40],
+  [18.78, 255, 90, 50],
+  [22.0, 240, 50, 60],
+  [25.07, 200, 20, 90] // everything a marine SSB can reach is absorbed
+]
+
+/** Beyond the top stop the picture has nothing further to say. */
+const DRAP_MAX_MHZ = DRAP_STOPS[DRAP_STOPS.length - 1][0]
+
+/**
+ * RGBA for a cutoff in MHz, interpolated between the band-edge stops.
+ *
+ * Fully transparent below the lowest marine band: a cutoff under 2.045 MHz
+ * absorbs nothing anyone here is transmitting on, and painting it would put
+ * colour over most of the globe on a quiet day. Alpha then rises with the
+ * ramp, capped short of opaque so a chart stays readable underneath -- the
+ * same bargain the aurora overlay strikes.
+ */
+export function drapColor(mhz: number): [number, number, number, number] {
+  if (!Number.isFinite(mhz) || mhz < DRAP_STOPS[0][0]) return [0, 0, 0, 0]
+  const value = Math.min(mhz, DRAP_MAX_MHZ)
+  let seg = 0
+  while (seg < DRAP_STOPS.length - 2 && value >= DRAP_STOPS[seg + 1][0]) seg++
+  const [aMhz, ar, ag, ab] = DRAP_STOPS[seg]
+  const [bMhz, br, bg, bb] = DRAP_STOPS[seg + 1]
+  const t = bMhz === aMhz ? 0 : (value - aMhz) / (bMhz - aMhz)
+  const fraction =
+    (value - DRAP_STOPS[0][0]) / (DRAP_MAX_MHZ - DRAP_STOPS[0][0])
+  return [
+    Math.round(ar + (br - ar) * t),
+    Math.round(ag + (bg - ag) * t),
+    Math.round(ab + (bb - ab) * t),
+    Math.round(255 * (0.3 + 0.55 * Math.min(1, Math.max(0, fraction))))
+  ]
+}
+
+const DRAP_LUT_SCALE = 8
+const DRAP_LUT_MAX_INDEX = Math.round(DRAP_MAX_MHZ * DRAP_LUT_SCALE)
+
+const DRAP_LUT = (() => {
+  const lut = new Uint8Array((DRAP_LUT_MAX_INDEX + 1) * 4)
+  for (let i = 0; i <= DRAP_LUT_MAX_INDEX; i++) {
+    const [r, g, b, a] = drapColor(i / DRAP_LUT_SCALE)
+    lut[i * 4] = r
+    lut[i * 4 + 1] = g
+    lut[i * 4 + 2] = b
+    lut[i * 4 + 3] = a
+  }
+  return lut
+})()
+
+/** `rasterizeTile`, over the D-RAP grid and its ramp. */
+export function rasterizeDrapTile(
+  grid: Float32Array,
+  z: number,
+  x: number,
+  y: number
+): Buffer {
+  const n = 2 ** z
+  const stride = 1 + TILE_SIZE * 4
+  const raw = Buffer.allocUnsafe(TILE_SIZE * stride)
+  const lonSpan = 360 / n / TILE_SIZE
+
+  for (let py = 0; py < TILE_SIZE; py++) {
+    const rowStart = py * stride
+    raw[rowStart] = 0
+    const gy = (y * TILE_SIZE + py + 0.5) / (n * TILE_SIZE)
+    const lat = (Math.atan(Math.sinh(Math.PI * (1 - 2 * gy))) * 180) / Math.PI
+    const lonBase = (x / n) * 360 - 180 + lonSpan * 0.5
+
+    for (let px = 0; px < TILE_SIZE; px++) {
+      const scaled =
+        sampleDrap(grid, lat, lonBase + px * lonSpan) * DRAP_LUT_SCALE
+      const index =
+        (scaled < 0
+          ? 0
+          : scaled > DRAP_LUT_MAX_INDEX
+            ? DRAP_LUT_MAX_INDEX
+            : scaled | 0) * 4
+      const out = rowStart + 1 + px * 4
+      raw[out] = DRAP_LUT[index]
+      raw[out + 1] = DRAP_LUT[index + 1]
+      raw[out + 2] = DRAP_LUT[index + 2]
+      raw[out + 3] = DRAP_LUT[index + 3]
+    }
+  }
+  return raw
+}
+
+/** One D-RAP tile as PNG bytes. */
+export async function renderDrapTile(
+  grid: Float32Array,
+  z: number,
+  x: number,
+  y: number
+): Promise<Buffer> {
+  return encodePng(TILE_SIZE, TILE_SIZE, rasterizeDrapTile(grid, z, x, y))
+}

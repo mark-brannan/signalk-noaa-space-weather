@@ -104,6 +104,54 @@ const ADVISORY = {
   ].join('\n')
 }
 
+/**
+ * A fabricated D-RAP grid, in NOAA's documented 90x90 shape.
+ *
+ * The aurora map deliberately has no mock -- faking OVATION would be mocking
+ * tiles.ts rather than the webapp. This is the opposite case: the absorption
+ * map *is* the picture, the states worth looking at (an X-class flare over
+ * the Pacific, a proton event shutting the polar caps) are exactly the ones
+ * nobody can wait for, and the shape is physical rather than a screenshot --
+ * a dayside cap centred on the subsolar point, plus polar caps when S is up.
+ * The webapp's own drawing code decides what it looks like.
+ */
+function drapGrid(state, now = new Date()) {
+  const level = Math.max(state.observed.R, state.observed.S)
+  const peak = [0, 6, 12, 18, 24, 30][level]
+  const proton = [0, 4, 10, 16, 22, 28][state.observed.S]
+  // The subsolar longitude, near enough for a mock: 15 degrees an hour, noon
+  // UTC over Greenwich.
+  const sunLon = 180 - (now.getUTCHours() + now.getUTCMinutes() / 60) * 15
+  const sunLat = 15 * Math.sin(((now.getUTCMonth() - 2) / 12) * 2 * Math.PI)
+  const latitudes = Array.from({ length: 90 }, (_, i) => 89 - i * 2)
+  const longitudes = Array.from({ length: 90 }, (_, i) => -178 + i * 4)
+  return {
+    validTime: iso(-8),
+    latitudes,
+    longitudes,
+    frequenciesMHz: latitudes.map((lat) =>
+      longitudes.map((lon) => {
+        let delta = Math.abs(((lon - sunLon + 540) % 360) - 180)
+        const zenith = Math.acos(
+          Math.max(
+            -1,
+            Math.min(
+              1,
+              Math.sin((lat * Math.PI) / 180) * Math.sin((sunLat * Math.PI) / 180) +
+                Math.cos((lat * Math.PI) / 180) *
+                  Math.cos((sunLat * Math.PI) / 180) *
+                  Math.cos((delta * Math.PI) / 180)
+            )
+          )
+        )
+        const day = Math.max(0, Math.cos(zenith)) ** 0.75
+        const polar = Math.abs(lat) > 60 ? (Math.abs(lat) - 60) / 30 : 0
+        return Math.round(Math.max(peak * day, proton * polar) * 10) / 10
+      })
+    )
+  }
+}
+
 const STATES = {
   quiet: {
     // Genuinely nothing: the only combination that reaches the quiet banner,
@@ -277,6 +325,10 @@ function payload(name, s) {
       return leaf({ latitude: 47.6578, longitude: -122.3773 }, -1)
     case 'advisory':
       return s.observed === null ? null : ADVISORY
+    case 'drapGrid':
+      return s.observed === null
+        ? null
+        : { fetchedAt: iso(age), grid: drapGrid(s) }
     case 'status':
       // auroraEnabled stays false: the map needs a real grid cache to draw,
       // and faking one would be mocking tiles.ts rather than the webapp.
@@ -297,6 +349,7 @@ const ROUTES = [
   [/swpc\/xray_flux$/, 'xrayFlux'],
   [/swpc\/proton_flux$/, 'protonFlux'],
   [/swpc\/drap$/, 'drap'],
+  [/signalk-noaa-space-weather\/drap-grid$/, 'drapGrid'],
   [/swpc\/f107$/, 'f107'],
   [/swpc\/a_index$/, 'aIndex'],
   [/swpc\/sunspot_number$/, 'sunspotNumber'],

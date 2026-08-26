@@ -1,4 +1,7 @@
+import { mkdtempSync } from 'fs'
+import { tmpdir } from 'os'
 import { describe, expect, it } from 'vitest'
+import { readDrapCache } from '../src/cache/drapCache'
 import { settingsFrom } from '../src/config'
 import { drap } from '../src/products/drap'
 import { fixture } from './fixtures'
@@ -6,6 +9,10 @@ import { fixture } from './fixtures'
 const REAL = 'drap-global-frequencies.2026_08_20.txt'
 
 function harness(position: any, response?: string) {
+  // A real directory, not a stub that throws: the grid the map and the tile
+  // route draw is written here, so a product that stopped writing it would
+  // otherwise pass every test while the map went blank.
+  const dataDir = mkdtempSync(`${tmpdir()}/drap-test-`)
   const published: any[] = []
   const errors: string[] = []
   const fetched: string[] = []
@@ -29,9 +36,7 @@ function harness(position: any, response?: string) {
     fail: () => {},
     error: (m: string) => errors.push(m),
     debug: () => {},
-    dataDirPath: () => {
-      throw new Error('dataDirPath is not stubbed')
-    }
+    dataDirPath: () => dataDir
   }
   const client = {
     json: async () => {
@@ -43,6 +48,8 @@ function harness(position: any, response?: string) {
     }
   }
   return {
+    dataDir,
+    cached: () => readDrapCache(dataDir),
     published,
     errors,
     fetched,
@@ -71,31 +78,40 @@ describe('D-RAP product', () => {
     )
   })
 
-  it('does not fetch at all when the vessel has no position', async () => {
-    const h = harness(undefined, fixture(REAL))
-    const result = await drap.refresh(h.ctx as any)
-
-    expect(h.fetched).toEqual([])
-    expect(h.published).toEqual([])
-    expect(h.errors).toEqual([])
-    expect(result).toBe('not-ready')
-  })
-
-  it('reports ready once a position appears', async () => {
+  it('caches the whole grid for the map and the tile route', async () => {
     const h = harness({ latitude: 41, longitude: -178 }, fixture(REAL))
-    expect(await drap.refresh(h.ctx as any)).not.toBe('not-ready')
+    await drap.refresh(h.ctx as any)
+
+    const cached = h.cached()
+    expect(cached?.grid.validTime).toBe('2026-08-20T04:42:00.000Z')
+    expect(cached?.grid.latitudes.length).toBe(90)
+    expect(cached?.grid.frequenciesMHz.length).toBe(90)
   })
 
-  it('ignores a position that is not usable', async () => {
-    for (const bad of [
-      {},
-      { latitude: 'x', longitude: 2 },
-      { latitude: null }
-    ]) {
+  it('still fetches and caches with no position, publishing nothing', async () => {
+    // Unlike aurora: the grid is the map's data, and it is readable without
+    // knowing where the boat is. Only the vessel's own cell needs a fix.
+    for (const bad of [undefined, {}, { latitude: 'x', longitude: 2 }]) {
       const h = harness(bad, fixture(REAL))
-      await drap.refresh(h.ctx as any)
-      expect(h.fetched).toEqual([])
+      const result = await drap.refresh(h.ctx as any)
+
+      expect(h.fetched).toEqual(['/text/drap_global_frequencies.txt'])
+      expect(h.published).toEqual([])
+      expect(h.errors).toEqual([])
+      expect(result).not.toBe('not-ready')
+      expect(h.cached()?.grid.latitudes.length).toBe(90)
     }
+  })
+
+  it('publishes the value even when the cache cannot be written', async () => {
+    const h = harness({ latitude: 41, longitude: -178 }, fixture(REAL))
+    h.ctx.publisher.dataDirPath = () => '/nonexistent/directory'
+    await drap.refresh(h.ctx as any)
+
+    expect(h.errors.length).toBe(1)
+    expect(
+      h.valueAt('environment.noaa.swpc.drap.highest_affected_frequency')
+    ).toBeCloseTo(2.9e6, 0)
   })
 
   it('reports a malformed payload without publishing', async () => {

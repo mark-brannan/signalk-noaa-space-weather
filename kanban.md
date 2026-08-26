@@ -147,12 +147,24 @@ what it is blocked by. Delete it when it is done.
       [#110](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/110)
       and
       [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md)
-- [ ] Render the D-RAP grid as map tiles beside the aurora overlay — the full
-      90x90 grid is already fetched and parsed, `tiles.ts` is nearly
-      grid-agnostic, and a map is the only surface that can answer _path_
-      absorption (see "Every reading here is at the vessel" in
-      [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md))
-      ([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32))
+- [ ] Give the absorption map some geography — it is a coloured grid with a
+      graticule, a vessel marker and the subsolar point, and a reader still
+      has to know where the continents are to place a blob. A coarse
+      coastline is ~50 KB of data in `public/`, which is weight the registry's
+      offline `npm ci` and the plugin install both carry, so decide whether it
+      earns that before drawing it
+      ([#167](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/167))
+- [ ] Decide whether the D-RAP grid needs a manual "fetch once" route like
+      `aurora-refresh`. With `drapEnabled` off nothing is ever cached and the
+      map's only advice is to turn the setting on; D-RAP is on by default and
+      costs ~3.3 KB a poll, so this may never bite
+      ([#167](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/167))
+- [ ] Decide whether a *named* destination is worth building on top of the
+      absorption map — a route waypoint, a saved station list, a callsign
+      lookup. The map answers the path question by clicking, so this is a
+      convenience now rather than the feature; wait until the map has been
+      used and it is clear which one gets reached for
+      ([#167](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/167))
 - [ ] Surface the D-RAP header fields the parser currently reads past —
       `Estimated Recovery Time`, `X-RAY Message` and `Proton Message` are
       NOAA's own "when does this blackout end", already inside a payload we

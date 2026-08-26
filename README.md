@@ -2,17 +2,17 @@
 
 ## Why should I care about space weather?
 
-**Q:** *Why would I, a mere **sailor**, care about "space weather"*?
+**Q:** _Why would I, a mere **sailor**, care about "space weather"_?
 
-A: Space weather such as solar activity and geomagnetic storms can directly effect satellite communication, satellite navigation, HF radio (frequently), and even VHF radio (rarely).  The most severe storm events have the potential to completely disrupt radio communications, completely disrupt GPS/GNSS navigation, damage sensitive onboard electronics systems, and even induce stray electrical currents that can disrupt power delivery systems onboard or on land!
+A: Space weather such as solar activity and geomagnetic storms can directly effect satellite communication, satellite navigation, HF radio (frequently), and even VHF radio (rarely). The most severe storm events have the potential to completely disrupt radio communications, completely disrupt GPS/GNSS navigation, damage sensitive onboard electronics systems, and even induce stray electrical currents that can disrupt power delivery systems onboard or on land!
 
 For more information on impact and risks, see:
 
-* [NOAA's Space Weather Impacts](https://www.spaceweather.gov/impacts)
-* This USGS story [5 Geomagnetic Storms That Reshaped Society](https://www.usgs.gov/news/featured-story/5-geomagnetic-storms-reshaped-society)
-* The [Carrington Event](https://en.wikipedia.org/wiki/Carrington_Event) on wikipedia
+- [NOAA's Space Weather Impacts](https://www.spaceweather.gov/impacts)
+- This USGS story [5 Geomagnetic Storms That Reshaped Society](https://www.usgs.gov/news/featured-story/5-geomagnetic-storms-reshaped-society)
+- The [Carrington Event](https://en.wikipedia.org/wiki/Carrington_Event) on wikipedia
 
-It is worth noting that *"[Solar cycles](https://en.wikipedia.org/wiki/Solar_cycle) have an average duration of about 11 years"*, and that periods of increased solar activity (and impact) are fortunately somewhat *predictable*.
+It is worth noting that _"[Solar cycles](https://en.wikipedia.org/wiki/Solar_cycle) have an average duration of about 11 years"_, and that periods of increased solar activity (and impact) are fortunately somewhat _predictable_.
 
 In addition, if you're crusing near the northern (or southern) polar regions then you might just want to get a good view of the [Aurora](https://www.spaceweather.gov/communities/aurora-dashboard-experimental)!
 
@@ -20,25 +20,25 @@ In addition, if you're crusing near the northern (or southern) polar regions the
 
 The plugin currently surfaces:
 
-* The weekly ["outlook advisory"](https://www.spaceweather.gov/products/space-weather-advisory-outlook) as a signalk notification
-* The G/S/R storm "scales" for latest observed, prior 24-hour observed maximums, and a 3 day forecast (e.g `environment.noaa.swpc.scales.observations.24_hours_maximums.G`)
-* The GOES X-ray flare class of the most recent event (e.g. `M2.1`) at `environment.noaa.swpc.xray_flare.class` — the same measurement the R scale buckets into 0-5, at the resolution HF operators actually use
-* NOAA SWPC Alerts, Warnings, and Watches as signalk notifications, one per message code under `notifications.noaa.swpc.alerts` (e.g. `alerts.WARK05`), carrying only the conditions currently in force — see [Alerts, watches and warnings](#alerts-watches-and-warnings)
-* The [solar wind](https://en.wikipedia.org/wiki/Solar_wind) speed, along with [IMF](https://en.wikipedia.org/wiki/Interplanetary_magnetic_field) strength (Bt) and direction (Bz)
-* The [Kp index](https://en.wikipedia.org/wiki/K-index) — most recent observed value, a forecast summary under `environment.noaa.swpc.kp.forecast` (the peak Kp expected in the next 24 and 72 hours, and the time the next storm-level interval begins), and the full 3-hourly series (`forecast.series`) from 24h in the past to 72h ahead for plotting a timeline
-* The [27-day outlook](https://www.swpc.noaa.gov/products/27-day-outlook-107-cm-radio-flux-and-geomagnetic-indices) under `environment.noaa.swpc.kp.forecast.outlook27` — the peak Kp expected over the next solar rotation, the day it falls on, the first day forecast to reach storm level, and the full daily series (`series`) of 10.7cm flux, planetary A index and largest Kp — see [The 27-day outlook](#the-27-day-outlook)
-* The [planetary A index](https://www.swpc.noaa.gov/products/geophysical-alert-wwv-text) at `environment.noaa.swpc.a_index` and the [sunspot number](https://www.swpc.noaa.gov/products/solar-cycle-progression) at `environment.noaa.swpc.sunspot_number` — with the 10.7cm flux and Kp above, the four numbers HF operators read conditions in, see [Reading conditions like an HF operator](#reading-conditions-like-an-hf-operator)
-* Aurora probability at the vessel's own position (`environment.noaa.swpc.aurora.probability`), from NOAA's OVATION model — not fetched on a schedule by default, on bandwidth, and fetchable on demand from the webapp even then, see [Configuration](#configuration)
+- The weekly ["outlook advisory"](https://www.spaceweather.gov/products/space-weather-advisory-outlook) as a signalk notification
+- The G/S/R storm "scales" for latest observed, prior 24-hour observed maximums, and a 3 day forecast (e.g `environment.noaa.swpc.scales.observations.24_hours_maximums.G`)
+- The GOES X-ray flare class of the most recent event (e.g. `M2.1`) at `environment.noaa.swpc.xray_flare.class` — the same measurement the R scale buckets into 0-5, at the resolution HF operators actually use
+- NOAA SWPC Alerts, Warnings, and Watches as signalk notifications, one per message code under `notifications.noaa.swpc.alerts` (e.g. `alerts.WARK05`), carrying only the conditions currently in force — see [Alerts, watches and warnings](#alerts-watches-and-warnings)
+- The [solar wind](https://en.wikipedia.org/wiki/Solar_wind) speed, along with [IMF](https://en.wikipedia.org/wiki/Interplanetary_magnetic_field) strength (Bt) and direction (Bz)
+- The [Kp index](https://en.wikipedia.org/wiki/K-index) — most recent observed value, a forecast summary under `environment.noaa.swpc.kp.forecast` (the peak Kp expected in the next 24 and 72 hours, and the time the next storm-level interval begins), and the full 3-hourly series (`forecast.series`) from 24h in the past to 72h ahead for plotting a timeline
+- The [27-day outlook](https://www.swpc.noaa.gov/products/27-day-outlook-107-cm-radio-flux-and-geomagnetic-indices) under `environment.noaa.swpc.kp.forecast.outlook27` — the peak Kp expected over the next solar rotation, the day it falls on, the first day forecast to reach storm level, and the full daily series (`series`) of 10.7cm flux, planetary A index and largest Kp — see [The 27-day outlook](#the-27-day-outlook)
+- The [planetary A index](https://www.swpc.noaa.gov/products/geophysical-alert-wwv-text) at `environment.noaa.swpc.a_index` and the [sunspot number](https://www.swpc.noaa.gov/products/solar-cycle-progression) at `environment.noaa.swpc.sunspot_number` — with the 10.7cm flux and Kp above, the four numbers HF operators read conditions in, see [Reading conditions like an HF operator](#reading-conditions-like-an-hf-operator)
+- Aurora probability at the vessel's own position (`environment.noaa.swpc.aurora.probability`), from NOAA's OVATION model — not fetched on a schedule by default, on bandwidth, and fetchable on demand from the webapp even then, see [Configuration](#configuration)
 
 NOAA explains their "scales" and effects for geomagnetic storms ("G"), solar radiation storms ("S"), and radio blackouts ("R") here: <https://www.spaceweather.gov/noaa-scales-explanation>
 
 ### Why the Kp forecast is the useful one
 
-The G scale is defined directly in terms of Kp (G1 = Kp5 through G5 = Kp9). NOAA's `noaa-scales.json` gives one G value per forecast *day*; the planetary K-index forecast gives a value every three hours out to three days. It is the feed that tells you **when**, which is the part you can actually plan a passage around.
+The G scale is defined directly in terms of Kp (G1 = Kp5 through G5 = Kp9). NOAA's `noaa-scales.json` gives one G value per forecast _day_; the planetary K-index forecast gives a value every three hours out to three days. It is the feed that tells you **when**, which is the part you can actually plan a passage around.
 
 ### The 27-day outlook
 
-Everything else here stops at 72 hours. The 27-day outlook runs a full solar rotation at one row per UTC day, which is the only thing in the plugin that speaks to *next week* — whether a passage a fortnight out is likely to fall in a disturbed stretch.
+Everything else here stops at 72 hours. The 27-day outlook runs a full solar rotation at one row per UTC day, which is the only thing in the plugin that speaks to _next week_ — whether a passage a fortnight out is likely to fall in a disturbed stretch.
 
 It buys that horizon by being a **recurrence** forecast. 27 days is the solar rotation period, so the outlook is largely the last rotation repeated, on the assumption that the same coronal holes come back around. It has far less skill than the 3-day products and gives a whole-day maximum rather than a time.
 
@@ -55,10 +55,10 @@ broadcast at 18 minutes past the hour says it. The plugin publishes all of it,
 and the webapp's status bar shows the phrase with the sunspot number on the
 end:
 
-* **SFI** — 10.7cm solar radio flux, `environment.noaa.swpc.f107`
-* **A** — the estimated planetary A index, `environment.noaa.swpc.a_index`
-* **K** — the observed planetary K index, `environment.noaa.swpc.kp.observed`
-* **SSN** — the SESC sunspot number, `environment.noaa.swpc.sunspot_number`
+- **SFI** — 10.7cm solar radio flux, `environment.noaa.swpc.f107`
+- **A** — the estimated planetary A index, `environment.noaa.swpc.a_index`
+- **K** — the observed planetary K index, `environment.noaa.swpc.kp.observed`
+- **SSN** — the SESC sunspot number, `environment.noaa.swpc.sunspot_number`
 
 A and K are the same geomagnetic field seen at two speeds: K is a 3-hourly
 sample on a quasi-logarithmic scale, A the linearised daily average of it. A
@@ -73,7 +73,7 @@ describe a day that has mostly already happened, and the storm worth waking for
 is the one the Kp forecast and the alerts are already shouting about. K is the
 exception and keeps the zones it has always had — see
 [Alarm zones](#alarm-zones) — because it is the only one of the four that says
-what the field is doing *now*.
+what the field is doing _now_.
 
 ### Alarm zones
 
@@ -81,13 +81,13 @@ Every scale and Kp path except the 27-day outlook carries Signal K [`zones`](htt
 
 Zones also cause the server to raise notifications on your behalf, so the default is deliberately quiet. NOAA's published event frequencies over an 11-year solar cycle, and what each level does at the defaults:
 
-| Level | Geomagnetic (G) | Radio blackout (R) | Radiation storm (S) | At the default |
-| ----- | --------------- | ------------------ | ------------------- | -------------- |
-| 1 (Minor)    | 900 days | 950 days | 50 events | recorded |
-| 2 (Moderate) | 360 days | 300 days | 25 events | recorded |
-| 3 (Strong)   | 130 days | 140 days | 10 events | listed, silent |
-| 4 (Severe)   | 60 days  | 8 days   | 3 events  | popup |
-| 5 (Extreme)  | 4 days   | 1 day    | 1 event   | popup + sound |
+| Level        | Geomagnetic (G) | Radio blackout (R) | Radiation storm (S) | At the default |
+| ------------ | --------------- | ------------------ | ------------------- | -------------- |
+| 1 (Minor)    | 900 days        | 950 days           | 50 events           | recorded       |
+| 2 (Moderate) | 360 days        | 300 days           | 25 events           | recorded       |
+| 3 (Strong)   | 130 days        | 140 days           | 10 events           | listed, silent |
+| 4 (Severe)   | 60 days         | 8 days             | 3 events            | popup          |
+| 5 (Extreme)  | 4 days          | 1 day              | 1 event             | popup + sound  |
 
 The three scales are not interchangeable; [docs/noaa-products.md](docs/noaa-products.md) compares them.
 
@@ -132,66 +132,95 @@ Tiles are drawn on demand from the same cached fetch the webapp reads — enabli
 
 Each tile carries `Last-Modified` from the fetch behind it, so a client can tell how old the oval is. That matters with `auroraEnabled` off, where the grid only moves when someone asks for one: the plugin serves the last one it has and lets you judge it, rather than picking an expiry on your behalf.
 
+### HF absorption, as a map and as a chart layer
+
+The vessel's own D-RAP cutoff answers "which bands are absorbed _here_". It
+cannot answer the question a skipper is usually asking — whether a band will
+reach _the other end_: a path crossing the dayside or a polar cap can be dead
+while the boat sits under a clear cell.
+
+So the whole grid is drawn, not just the cell under the boat. The webapp's
+**HF Absorption** panel shows the global grid with the subsolar point marked
+(D-region absorption is a dayside phenomenon, so the blob belongs near the
+sun), and clicking anywhere on it scores the great circle from the vessel to
+that point: the worst cutoff along the path, the mean, the bearing and the
+distance. The worst is the honest headline — absorption anywhere on the path
+attenuates the whole path — and the mean is reported beside it because one bad
+cell on a long path is a different situation from a path that is bad end to
+end.
+
+The same grid is served as map tiles, on the same terms as the aurora ones:
+
+```
+http://<your-server>:3000/signalk/v1/api/signalk-noaa-space-weather/drap-tile/{z}/{x}/{y}.png
+```
+
+Colours change at the marine SSB band edges rather than at round megahertz, so
+crossing a boundary on the map means a band has gone under the cutoff.
+
 ### Planned
 
-* Registering the overlay as a Signal K `charts` resource, so it appears in Freeboard-SK with no chart-source configuration at all
+- Scoring the path to a _named_ station — a route waypoint, or a configured
+  list ([#167](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/167))
+- Registering the overlay as a Signal K `charts` resource, so it appears in Freeboard-SK with no chart-source configuration at all
 
 ## Configuration
 
 Six settings, all optional, all with working defaults:
 
-* `alarmLevel` (default 5, "Extreme") — which NOAA level is visible **and audible**. "Never" removes the sound without hiding the storm.
-* `popupLevel` (default 4, "Severe") — which NOAA level is visible and silent. Never louder than `alarmLevel`; moving one past the other takes it along, except a "Never" popup, which leaves the alarm where it is. Both apply to the G, S and R scales and to Kp. See [Alarm zones](#alarm-zones).
+- `alarmLevel` (default 5, "Extreme") — which NOAA level is visible **and audible**. "Never" removes the sound without hiding the storm.
+- `popupLevel` (default 4, "Severe") — which NOAA level is visible and silent. Never louder than `alarmLevel`; moving one past the other takes it along, except a "Never" popup, which leaves the alarm where it is. Both apply to the G, S and R scales and to Kp. See [Alarm zones](#alarm-zones).
 
 In the plugin's own configuration screen these two are lines you drag across the ladder — the band is everything above the line, and pushing one above Extreme empties it, which is "Never". Arrow keys work too. On a server that renders the generated form instead, they are two dropdowns labelled with how often each level happens.
-* `sendAdvisoryOutlook` (default on) — NOAA's weekly outlook bulletin, as a single `alert`-state notification with no popup and no sound.
-* `auroraEnabled` (default off) — fetches the OVATION grid every `auroraInterval`, publishing `aurora.probability` and keeping the chart overlay tiles current. Off by default because the payload is 145 KB per fetch, about thirty times everything else this plugin downloads combined; needs a vessel position. It governs the recurring fetch and nothing else: with it off, the webapp can still fetch the grid once, when you ask it to.
-* `updateInterval` — how often to fetch from NOAA, in minutes, 60 by default. Covers observations, forecasts and alerts alike.
-* `auroraInterval` — separate poll interval for the aurora payload, 120 minutes by default.
+
+- `sendAdvisoryOutlook` (default on) — NOAA's weekly outlook bulletin, as a single `alert`-state notification with no popup and no sound.
+- `auroraEnabled` (default off) — fetches the OVATION grid every `auroraInterval`, publishing `aurora.probability` and keeping the chart overlay tiles current. Off by default because the payload is 145 KB per fetch, about thirty times everything else this plugin downloads combined; needs a vessel position. It governs the recurring fetch and nothing else: with it off, the webapp can still fetch the grid once, when you ask it to.
+- `updateInterval` — how often to fetch from NOAA, in minutes, 60 by default. Covers observations, forecasts and alerts alike.
+- `auroraInterval` — separate poll interval for the aurora payload, 120 minutes by default.
 
 On a server new enough to load it, these are edited on the plugin's own configuration screen rather than the form Signal K generates from the JSON schema. Same five settings, saving the same values, with a running total underneath the two interval fields of what they cost per day and per month — it moves as you type, so the price of a tighter aurora interval is visible before you commit to it. The generated form is still there and is what an older server, or a failed load, falls back to.
 
 Five settings were removed in 0.13.0. Configs that set the old keys still work — the intervals carry over, the rest are ignored — and the plugin's own configuration screen writes the six current keys and nothing else, so saving once clears the old ones out of the file. It cannot change what the plugin is running: every current key is written explicitly, so a dropped key had nothing left to say.
 
-* `zoneAlertThreshold` — replaced by `alarmLevel`, which names the level that sounds rather than the level worth noticing. A saved value carries over and keeps behaving the same way. A config saved before `popupLevel` existed gets the band one below its alarm level, which is the ladder it already had.
-* `notificationVisual` / `notificationSound` — see [Alarm zones](#alarm-zones).
-* `alertMaxAgeHours` — now a fixed 24 hours.
-* `observationsInterval` / `notificationsInterval` — now one `updateInterval`.
-* `sendAlertsWatchesWarnings` — the alerts product is always on. Neither justification for a switch survived being measured: severity is `alarmLevel`'s job, and the bandwidth is ~5 KB gzipped per poll, about 120 KB a day at the default interval, because NOAA serves this endpoint gzipped.
+- `zoneAlertThreshold` — replaced by `alarmLevel`, which names the level that sounds rather than the level worth noticing. A saved value carries over and keeps behaving the same way. A config saved before `popupLevel` existed gets the band one below its alarm level, which is the ladder it already had.
+- `notificationVisual` / `notificationSound` — see [Alarm zones](#alarm-zones).
+- `alertMaxAgeHours` — now a fixed 24 hours.
+- `observationsInterval` / `notificationsInterval` — now one `updateInterval`.
+- `sendAlertsWatchesWarnings` — the alerts product is always on. Neither justification for a switch survived being measured: severity is `alarmLevel`'s job, and the bandwidth is ~5 KB gzipped per poll, about 120 KB a day at the default interval, because NOAA serves this endpoint gzipped.
 
 ## References
 
 ### NOAA Dashboards of interest
 
-* <https://www.spaceweather.gov/communities/radio-communications>
-* <https://www.spaceweather.gov/communities/global-positioning-system-gps-community-dashboard>
-* <https://www.spaceweather.gov/communities/aurora-dashboard-experimental>
-* <https://www.swpc.noaa.gov/products/planetary-k-index>
+- <https://www.spaceweather.gov/communities/radio-communications>
+- <https://www.spaceweather.gov/communities/global-positioning-system-gps-community-dashboard>
+- <https://www.spaceweather.gov/communities/aurora-dashboard-experimental>
+- <https://www.swpc.noaa.gov/products/planetary-k-index>
 
 ### NOAA json resources of interest
 
-* <https://services.swpc.noaa.gov/products/noaa-scales.json>
-* <https://services.swpc.noaa.gov/products/alerts.json>
-* <https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json>
-* <https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json>
-* <https://services.swpc.noaa.gov/products/summary/solar-wind-speed.json>
-* <https://services.swpc.noaa.gov/products/summary/solar-wind-mag-field.json>
-* <https://services.swpc.noaa.gov/json/icao-space-weather-advisories.json>
+- <https://services.swpc.noaa.gov/products/noaa-scales.json>
+- <https://services.swpc.noaa.gov/products/alerts.json>
+- <https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json>
+- <https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json>
+- <https://services.swpc.noaa.gov/products/summary/solar-wind-speed.json>
+- <https://services.swpc.noaa.gov/products/summary/solar-wind-mag-field.json>
+- <https://services.swpc.noaa.gov/json/icao-space-weather-advisories.json>
 
 ### NOAA text resources of interest
 
 Note that the outlook advisory is not available as json, so the plugin is doing some parsing of raw text.
 
-* <https://services.swpc.noaa.gov/text/advisory-outlook.txt>
-* <https://services.swpc.noaa.gov/text/27-day-outlook.txt>
-* <https://services.swpc.noaa.gov/text/current-space-weather-indices.txt>
-* <https://services.swpc.noaa.gov/text/3-day-forecast.txt>
-* <https://services.swpc.noaa.gov/text/wwv.txt>
-* <https://services.swpc.noaa.gov/text/daily-solar-indices.txt>
+- <https://services.swpc.noaa.gov/text/advisory-outlook.txt>
+- <https://services.swpc.noaa.gov/text/27-day-outlook.txt>
+- <https://services.swpc.noaa.gov/text/current-space-weather-indices.txt>
+- <https://services.swpc.noaa.gov/text/3-day-forecast.txt>
+- <https://services.swpc.noaa.gov/text/wwv.txt>
+- <https://services.swpc.noaa.gov/text/daily-solar-indices.txt>
 
 ### Other resources
 
-* <http://www.spaceweather.org/ISES/code/fmt/exam.html>
+- <http://www.spaceweather.org/ISES/code/fmt/exam.html>
 
 ## Webapp
 
@@ -203,12 +232,12 @@ The plugin ships a companion webapp — no configuration needed, it reads whatev
 
 The banner answers one question — is anything happening right now? — and a quiet page has to mean a quiet sky rather than a plugin that stopped fetching. The clock always counts to whatever changes next.
 
-| | |
-| --- | --- |
-| ![A storm in force](docs/screenshots/hero-storm.png) | ![A storm forecast](docs/screenshots/hero-brewing.png) |
-| A storm in force. Any other scale at level 3 or above gets named alongside it, so a radiation storm doesn't hide behind a geomagnetic one. | Quiet now, storm forecast — counting down to the window it opens in. |
-| ![Quiet after a storm](docs/screenshots/hero-all-clear.png) | ![Stale data](docs/screenshots/hero-stale.png) |
-| Quiet, and specific about what the last 24 hours actually held. | No update in three hours. Not an all-clear — go look at the server log. |
+|                                                                                                                                            |                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| ![A storm in force](docs/screenshots/hero-storm.png)                                                                                       | ![A storm forecast](docs/screenshots/hero-brewing.png)                  |
+| A storm in force. Any other scale at level 3 or above gets named alongside it, so a radiation storm doesn't hide behind a geomagnetic one. | Quiet now, storm forecast — counting down to the window it opens in.    |
+| ![Quiet after a storm](docs/screenshots/hero-all-clear.png)                                                                                | ![Stale data](docs/screenshots/hero-stale.png)                          |
+| Quiet, and specific about what the last 24 hours actually held.                                                                            | No update in three hours. Not an all-clear — go look at the server log. |
 
 The Aurora tile has a **Show map** button that draws probability near your position from the plugin's own cached NOAA fetch, only loaded when you click it. Both the tile and the map have a button to fetch fresh data on demand instead of waiting for the next scheduled interval; it's rate-limited to once a minute.
 
@@ -218,10 +247,10 @@ That button works whether or not `auroraEnabled` is on, and with it off — wher
 
 ## Screenshots
 
-| | |
-| --- | --- |
+|                                                                    |                                                    |
+| ------------------------------------------------------------------ | -------------------------------------------------- |
 | ![Plugin configuration](docs/screenshots/plugin-configuration.png) | ![Data browser](docs/screenshots/data-browser.png) |
-| Plugin configuration | The published paths in the data browser |
+| Plugin configuration                                               | The published paths in the data browser            |
 
 ![Notifications](docs/screenshots/notifications.png)
 

@@ -4,11 +4,16 @@ import {
   MAX_ZOOM,
   TILE_SIZE,
   auroraGridFrom,
+  drapColor,
+  drapGridFrom,
   isValidTile,
+  rasterizeDrapTile,
   rasterizeTile,
-  renderAuroraTile
+  renderAuroraTile,
+  renderDrapTile
 } from '../src/tiles'
-import { fixtureJson } from './fixtures'
+import { MARINE_SSB_BAND_EDGES_HZ, parseDrapGrid } from '../src/parse'
+import { fixture, fixtureJson } from './fixtures'
 
 const REAL = 'ovation-aurora.2026_08_01.json'
 
@@ -300,5 +305,180 @@ describe('renderAuroraTile', () => {
       const png = await renderAuroraTile(grid, z, 0, 0)
       expect(readPng(png).width).toBe(TILE_SIZE)
     }
+  })
+})
+
+// --- D-RAP -----------------------------------------------------------------
+
+/** A D-RAP grid in NOAA's documented shape, from a cell function in MHz. */
+function drapGridOf(cell: (lat: number, lon: number) => number) {
+  const latitudes = Array.from({ length: 90 }, (_, i) => 89 - i * 2)
+  const longitudes = Array.from({ length: 90 }, (_, i) => -178 + i * 4)
+  return {
+    validTime: '2026-08-20T04:42:00.000Z',
+    latitudes,
+    longitudes,
+    frequenciesMHz: latitudes.map((lat) =>
+      longitudes.map((lon) => cell(lat, lon))
+    )
+  }
+}
+
+function drapFlat(cell: (lat: number, lon: number) => number): Float32Array {
+  const grid = drapGridFrom(drapGridOf(cell))
+  if (!grid) throw new Error('grid was rejected')
+  return grid
+}
+
+describe('drapGridFrom', () => {
+  it('accepts the grid the parser produces from a real payload', () => {
+    const grid = parseDrapGrid(
+      fixture('drap-global-frequencies.2026_08_20.txt')
+    )
+    expect(drapGridFrom(grid)).toBeInstanceOf(Float32Array)
+  })
+
+  /**
+   * The geometry is what maps a cell onto the globe. A grid of some other
+   * shape has no defensible mapping, and drawing it anyway would put an
+   * absorption blob over the wrong ocean -- the same reason parse.ts refuses
+   * a torn grid rather than snapping to the nearest surviving row.
+   */
+  it("refuses a grid that is not NOAA's documented geometry", () => {
+    const short = drapGridOf(() => 1)
+    short.latitudes = short.latitudes.slice(0, 89)
+    expect(drapGridFrom(short)).toBeNull()
+
+    const shifted = drapGridOf(() => 1)
+    shifted.longitudes = shifted.longitudes.map((lon) => lon + 2)
+    expect(drapGridFrom(shifted)).toBeNull()
+
+    const flipped = drapGridOf(() => 1)
+    flipped.latitudes = [...flipped.latitudes].reverse()
+    expect(drapGridFrom(flipped)).toBeNull()
+
+    const ragged = drapGridOf(() => 1)
+    ragged.frequenciesMHz[10] = ragged.frequenciesMHz[10].slice(0, 80)
+    expect(drapGridFrom(ragged)).toBeNull()
+
+    const notNumbers = drapGridOf(() => 1)
+    ;(notNumbers.frequenciesMHz[0] as any)[0] = 'quiet'
+    expect(drapGridFrom(notNumbers)).toBeNull()
+
+    expect(drapGridFrom(null)).toBeNull()
+    expect(drapGridFrom({})).toBeNull()
+  })
+})
+
+describe('drapColor', () => {
+  it('draws nothing at all below the lowest marine band', () => {
+    // A cutoff under 2.045 MHz absorbs nothing anyone here is transmitting
+    // on, and on a quiet day that is most of the globe.
+    for (const mhz of [0, 1, 2.04]) expect(drapColor(mhz)[3]).toBe(0)
+    expect(drapColor(NaN)[3]).toBe(0)
+  })
+
+  /**
+   * The colour has to change where a band does, because that is the only
+   * reading of this number that is the same for every reader -- the argument
+   * `zonesForDrap` makes about the ladder, applied to the picture.
+   */
+  it('changes colour at each marine SSB band edge', () => {
+    const edges = MARINE_SSB_BAND_EDGES_HZ.map((hz) => hz / 1e6)
+    const colors = edges.map((mhz) => drapColor(mhz).join(','))
+    expect(new Set(colors).size).toBe(colors.length)
+  })
+
+  it('gets more opaque as more bands go under the cutoff', () => {
+    const alphas = [2.045, 6.2, 12.23, 22, 25.07].map((m) => drapColor(m)[3])
+    for (let i = 1; i < alphas.length; i++) {
+      expect(alphas[i]).toBeGreaterThan(alphas[i - 1])
+    }
+  })
+
+  it('clamps above the top band rather than running off the ramp', () => {
+    expect(drapColor(35)).toEqual(drapColor(25.07))
+  })
+})
+
+describe('rasterizeDrapTile', () => {
+  it('is fully transparent where no marine band is absorbed', () => {
+    const raw = rasterizeDrapTile(
+      drapFlat(() => 0),
+      0,
+      0,
+      0
+    )
+    for (let y = 0; y < TILE_SIZE; y += 16) {
+      for (let x = 0; x < TILE_SIZE; x += 16) {
+        expect(pixel(raw, x, y).a).toBe(0)
+      }
+    }
+  })
+
+  /**
+   * The whole point of the map: absorption sits over one part of the globe
+   * and the reader has to be able to tell which. A dayside-shaped blob at
+   * 0 degrees longitude must land at the middle of a z0 tile and nowhere near
+   * its edges.
+   */
+  it('puts absorption where the grid says it is', () => {
+    const raw = rasterizeDrapTile(
+      drapFlat((lat, lon) =>
+        Math.abs(lon) < 30 && Math.abs(lat) < 30 ? 20 : 0
+      ),
+      0,
+      0,
+      0
+    )
+    expect(pixel(raw, 128, 128).a).toBeGreaterThan(0)
+    expect(pixel(raw, 8, 128).a).toBe(0)
+    expect(pixel(raw, 248, 128).a).toBe(0)
+  })
+
+  /** The column at 178 and the column at -178 are neighbours, not a cliff. */
+  it('wraps at the antimeridian instead of drawing a seam', () => {
+    const raw = rasterizeDrapTile(
+      drapFlat((_lat, lon) => (Math.abs(lon) > 150 ? 20 : 0)),
+      0,
+      0,
+      0
+    )
+    expect(pixel(raw, 1, 128).a).toBeGreaterThan(0)
+    expect(pixel(raw, 254, 128).a).toBeGreaterThan(0)
+    expect(pixel(raw, 128, 128).a).toBe(0)
+  })
+
+  it('writes every byte it allocates', () => {
+    const raw = rasterizeDrapTile(
+      drapFlat(() => 0),
+      1,
+      0,
+      0
+    )
+    const seen = new Set<number>()
+    for (let y = 0; y < TILE_SIZE; y++) {
+      for (let x = 0; x < TILE_SIZE; x++) {
+        const p = pixel(raw, x, y)
+        seen.add((p.r << 24) | (p.g << 16) | (p.b << 8) | p.a)
+      }
+    }
+    expect(seen.size).toBe(1)
+  })
+})
+
+describe('renderDrapTile', () => {
+  it('produces a well-formed 256x256 RGBA PNG', async () => {
+    const png = await renderDrapTile(
+      drapFlat(() => 12),
+      0,
+      0,
+      0
+    )
+    const read = readPng(png)
+    expect(read.width).toBe(TILE_SIZE)
+    expect(read.height).toBe(TILE_SIZE)
+    expect(read.bitDepth).toBe(8)
+    expect(read.colourType).toBe(6)
   })
 })

@@ -436,6 +436,21 @@
   .btn-outline:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   .map-body { margin-top: 14px; }
   #auroraMapCanvas { display: block; width: 100%; height: 320px; border-radius: 4px; }
+  /* The D-RAP map is the whole globe -- an HF path does not stay local -- so
+     it is drawn 2:1 and sized by its own width rather than to a fixed box. */
+  /* 2:1, because the projection is equirectangular and anything else lies
+     about where a path goes. Capped so a wide screen does not turn the whole
+     dashboard into one map. */
+  #drapMapCanvas { display: block; width: 100%; max-width: 880px; margin: 0 auto; border-radius: 4px; cursor: crosshair; color: var(--text-dim); }
+  .drap-legend { display: flex; align-items: center; gap: 0; }
+  .drap-legend .swatch { width: 22px; height: 10px; }
+  .drap-legend .swatch:first-of-type { border-radius: 2px 0 0 2px; }
+  .drap-legend .swatch:last-of-type { border-radius: 0 2px 2px 0; }
+  .drap-legend .caption { margin-right: 8px; }
+  .drap-legend .edge { margin-left: 8px; }
+  .drap-probe { margin-top: 10px; font-size: 0.78rem; line-height: 1.5; }
+  .drap-probe b { color: var(--text); font-weight: 400; }
+  .drap-probe .verdict { display: block; margin-top: 2px; color: var(--text-dim); }
   .map-footer {
     display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
     gap: 10px; margin-top: 10px; font-size: 0.72rem; color: var(--text-dim);
@@ -628,6 +643,20 @@
       </div>
     </div>
 
+    <div class="tile span-12 drap-map-tile">
+      <div class="map-header">
+        <div>
+          <h2>HF Absorption</h2>
+          <span class="map-extent">Highest frequency D-region absorption is blocking, worldwide &mdash;
+            click anywhere for the path from <span id="drapVesselPos">the vessel</span></span>
+        </div>
+        <button type="button" id="drapMapToggle" class="btn-outline">Show map</button>
+      </div>
+      <div id="drapMapBody" class="map-body" hidden>
+        <div class="empty-state">Waiting for data&hellip;</div>
+      </div>
+    </div>
+
   </div>
 
   <div class="learn-more">
@@ -660,9 +689,10 @@
 <script type="module">
 import { heroState, kpFloorForG, uncapitalise } from './hero.js';
 import { scalesCard } from './scales.js';
-import { hfCard, solarCard } from './hf.js';
+import { bandStrip, hfCard, solarCard } from './hf.js';
 import { leafTime, leafValue, readAll } from './signalk.js';
 import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
+import { cutoffAt, drawDrapMap, gridSummary, legendStops, pathAbsorption, positionAt } from './drapMap.js';
 (() => {
   'use strict';
   const REFRESH_MS = 60000;
@@ -1732,6 +1762,151 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     handleAuroraRefreshClick(document.getElementById('auroraRefresh'))
   )
 
+  // --- the D-RAP absorption map -------------------------------------------
+  //
+  // The vessel's own cutoff says which bands are absorbed *here*; this says
+  // whether the far end of the path is under a blackout, which is the
+  // question anyone raising a net, a shore contact or Winlink is asking.
+  // Click anywhere and it scores the great circle to that point -- no station
+  // list, no callsign lookup, nothing to configure: the map is the input.
+  const DRAP_GRID_URL = '/signalk/v1/api/signalk-noaa-space-weather/drap-grid'
+  let drapMapState = 'idle'
+  let drapEntry = null
+  let drapProbe = null
+
+  async function fetchDrapGrid() {
+    const res = await fetch(DRAP_GRID_URL, { headers: { Accept: 'application/json' } })
+    if (res.status === 401 || res.status === 403) throw new AuthRequiredError(DRAP_GRID_URL)
+    const body = await res.json().catch(() => null)
+    if (res.status === 404) {
+      const err = new Error((body && body.error) || 'No D-RAP data cached yet.')
+      err.notCached = true
+      throw err
+    }
+    if (!res.ok) throw new Error(`Server responded ${res.status}`)
+    return body // { fetchedAt, grid }
+  }
+
+  const MHZ = 1e6
+  const KM_TO_NM = 0.539957
+  const fmtLat = (lat) => `${Math.abs(lat).toFixed(1)}\u00b0${lat < 0 ? 'S' : 'N'}`
+  const fmtLon = (lon) => `${Math.abs(lon).toFixed(1)}\u00b0${lon < 0 ? 'W' : 'E'}`
+
+  function drapLegendHtml() {
+    const swatches = legendStops()
+      .map((stop) => `<span class="swatch" style="background:${stop.color}" title="${stop.mhz} MHz absorbed"></span>`)
+      .join('')
+    return `<div class="map-legend drap-legend"><span class="caption">Cutoff</span>${swatches}<span class="edge">2 &rarr; 25 MHz</span></div>`
+  }
+
+  // What the number means for somebody about to transmit: the bands it takes
+  // out, named. The same band list the HF tile's strip is drawn from.
+  function absorbedWording(mhz) {
+    const absorbed = bandStrip(mhz * MHZ).filter((band) => band.absorbed)
+    if (!absorbed.length) return 'No marine SSB band is absorbed on this path.'
+    if (absorbed.length === bandStrip(mhz * MHZ).length)
+      return 'Every marine SSB band is absorbed somewhere on this path.'
+    return `Marine bands up to ${absorbed[absorbed.length - 1].label} MHz are absorbed somewhere on this path.`
+  }
+
+  function drapProbeHtml() {
+    if (!drapEntry) return ''
+    // A grid with nothing on it draws a blank map, which is the right picture
+    // and an ambiguous one -- blank is also what a failed load looks like.
+    const summary = gridSummary(drapEntry.grid)
+    if (summary && summary.quiet) {
+      return `<div class="drap-probe">Nothing anywhere on the globe is absorbing a marine SSB band right now
+        &mdash; the worst cell on the grid is <b>${summary.maxMHz.toFixed(1)} MHz</b>, below the 2 MHz band.
+        <span class="verdict">The map is blank because the model is quiet, not because it failed to load.</span></div>`
+    }
+    if (!lastPosition) {
+      return `<div class="drap-probe">No vessel position yet, so there is nothing to draw a path from. The map above is the whole grid.</div>`
+    }
+    const here = cutoffAt(drapEntry.grid, lastPosition.latitude, lastPosition.longitude)
+    const atVessel = here === null
+      ? 'no reading'
+      : here === 0 ? 'nothing absorbed' : `${here.toFixed(1)} MHz`
+    if (!drapProbe) {
+      return `<div class="drap-probe">At the vessel: <b>${atVessel}</b>.
+        <span class="verdict">Click the map to score the path from here to anywhere &mdash; the worst cell
+        along a great circle is what a band has to clear, not the cell you are sitting in.</span></div>`
+    }
+    const end = drapProbe.points[drapProbe.points.length - 1]
+    return `<div class="drap-probe">
+      Path to <b>${fmtLat(end.latitude)} ${fmtLon(end.longitude)}</b>,
+      <b>${Math.round(drapProbe.distanceKm * KM_TO_NM).toLocaleString()} nmi</b>
+      at <b>${Math.round(drapProbe.bearingDeg).toString().padStart(3, '0')}&deg;T</b>.
+      Worst cutoff <b>${drapProbe.worstMHz.toFixed(1)} MHz</b>
+      (${fmtLat(drapProbe.worstAt.latitude)} ${fmtLon(drapProbe.worstAt.longitude)}),
+      mean <b>${drapProbe.meanMHz.toFixed(1)} MHz</b>. At the vessel: <b>${atVessel}</b>.
+      <span class="verdict">${absorbedWording(drapProbe.worstMHz)}</span></div>`
+  }
+
+  function redrawDrapMap() {
+    const canvas = document.getElementById('drapMapCanvas')
+    if (!canvas || !drapEntry) return
+    drawDrapMap(canvas, drapEntry.grid, { position: lastPosition, probe: drapProbe })
+    const probe = document.getElementById('drapProbe')
+    if (probe) probe.innerHTML = drapProbeHtml()
+  }
+
+  async function loadDrapMap() {
+    const body = document.getElementById('drapMapBody')
+    drapMapState = 'loading'
+    body.innerHTML = `<div class="empty-state">Loading the cached D-RAP grid&hellip;</div>`
+    try {
+      drapEntry = await fetchDrapGrid()
+      drapMapState = 'ready'
+      body.innerHTML = `
+        <canvas id="drapMapCanvas"></canvas>
+        <div id="drapProbe"></div>
+        <div class="map-footer">
+          ${drapLegendHtml()}
+          <div>
+            <span>Valid <b>${fmtTime(drapEntry.grid && drapEntry.grid.validTime)}</b></span>
+            &nbsp;&middot;&nbsp;
+            <span>Cached <b>${fmtTime(drapEntry.fetchedAt)}</b></span>
+          </div>
+        </div>`
+      const canvas = document.getElementById('drapMapCanvas')
+      canvas.addEventListener('click', (event) => {
+        if (!lastPosition) return
+        const rect = canvas.getBoundingClientRect()
+        const target = positionAt(canvas, event.clientX - rect.left, event.clientY - rect.top)
+        drapProbe = target && pathAbsorption(drapEntry.grid, lastPosition, target)
+        redrawDrapMap()
+      })
+      redrawDrapMap()
+    } catch (err) {
+      drapMapState = 'error'
+      if (err instanceof AuthRequiredError) document.getElementById('authBanner').classList.add('show')
+      // Unlike the aurora map there is no button to offer here: D-RAP rides
+      // along with the ordinary poll rather than having a fetch of its own,
+      // so the fix is the setting, not a press.
+      const message = err && err.notCached
+        ? 'No D-RAP grid has been fetched yet. Turn on \u201cPublish HF absorption\u201d in the plugin configuration, or wait for the next poll.'
+        : err instanceof AuthRequiredError
+          ? 'Not logged in to this Signal K server.'
+          : `Could not load the D-RAP grid from the server (${String((err && err.message) || err)}).`
+      body.innerHTML = `<div class="empty-state">${message}
+        <button type="button" id="drapMapRetry" class="btn-outline" style="padding:4px 10px;font-size:0.66rem;">Retry</button></div>`
+      document.getElementById('drapMapRetry').addEventListener('click', loadDrapMap)
+    }
+  }
+
+  document.getElementById('drapMapToggle').addEventListener('click', () => {
+    const body = document.getElementById('drapMapBody')
+    const btn = document.getElementById('drapMapToggle')
+    if (!body.hidden) {
+      body.hidden = true
+      btn.textContent = 'Show map'
+      return
+    }
+    body.hidden = false
+    btn.textContent = 'Hide map'
+    if (drapMapState === 'idle' || drapMapState === 'error') loadDrapMap()
+  })
+
   document.getElementById('mapToggle').addEventListener('click', () => {
     const body = document.getElementById('mapBody')
     const btn = document.getElementById('mapToggle')
@@ -1747,6 +1922,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   })
 
   window.addEventListener('resize', () => {
+    if (drapMapState === 'ready') redrawDrapMap()
     if (mapState !== 'ready') return
     const canvas = document.getElementById('auroraMapCanvas')
     if (canvas && canvas._grid) drawAuroraMap(canvas, canvas._grid, canvas._position)
@@ -1806,13 +1982,30 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     // Position reads as the aurora map's extent now ("+/-25 degrees latitude
     // around <here>"), which is the only thing the webapp ever did with it.
     // The fallback has to stay a noun phrase that sentence can end on.
-    document.getElementById('vesselPos').textContent = pos
+    const posText = pos
       ? `${pos.latitude.toFixed(4)}°, ${pos.longitude.toFixed(4)}°`
       : 'the vessel';
+    document.getElementById('vesselPos').textContent = posText;
+    document.getElementById('drapVesselPos').textContent = posText;
     // A single failed/empty poll (e.g. the position source hasn't published
     // yet right after a server restart) must not erase a good position the
     // map is already centered on -- only overwrite it with an actual value.
-    if (pos) lastPosition = pos;
+    if (pos) {
+      const moved =
+        !lastPosition ||
+        lastPosition.latitude !== pos.latitude ||
+        lastPosition.longitude !== pos.longitude;
+      lastPosition = pos;
+      // The absorption map's paths all start at the boat, so a boat that has
+      // moved makes the drawn path and its numbers stale.
+      if (moved && drapMapState === 'ready') {
+        if (drapProbe) {
+          const end = drapProbe.points[drapProbe.points.length - 1];
+          drapProbe = pathAbsorption(drapEntry.grid, pos, end);
+        }
+        redrawDrapMap();
+      }
+    }
   }
 
   refresh();
