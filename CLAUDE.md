@@ -114,14 +114,16 @@ exist specifically to pin this.
 **`auroraEnabled` governs the schedule, not the capability** — `aurora-refresh`
 fetches whether or not the product is scheduled, since a press is not the
 plugin's own initiative. Four things follow and none are optional: `start()`
-publishes aurora's `metadata()` even when it isn't scheduled; a successful
-manual fetch defers the next scheduled run by a full interval, and
-`refreshOnce` holds one refresh per product so a second caller joins it rather
-than starting its own; a `'not-ready'` result refunds the cooldown; and a
-`refresh()` that returns without publishing is not a success — the route
-diffs the cache's `fetchedAt` and answers 502 rather than claim a refresh that
-didn't happen. The webapp's own polling never turns into a NOAA fetch;
-`plugin.test.ts` pins that an on-demand fetch starts no schedule of its own.
+only publishes metadata for products it schedules, so when aurora isn't one
+of them the `aurora-refresh` route has to publish aurora's `metadata()`
+itself, before the first value; a successful manual fetch defers the next
+scheduled run by a full interval, and `refreshOnce` holds one refresh per
+product so a second caller joins it rather than starting its own; a
+`'not-ready'` result refunds the cooldown; and a `refresh()` that returns
+without publishing is not a success — the route diffs the cache's
+`fetchedAt` and answers 502 rather than claim a refresh that didn't happen.
+The webapp's own polling never turns into a NOAA fetch; `plugin.test.ts`
+pins that an on-demand fetch starts no schedule of its own.
 Argument in
 [docs/design-decisions.md](docs/design-decisions.md#auroraenabled-governs-the-schedule-not-the-capability).
 
