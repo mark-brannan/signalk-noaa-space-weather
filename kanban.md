@@ -168,6 +168,9 @@ what it is blocked by. Delete it when it is done.
       absorption (see "Every reading here is at the vessel" in
       [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md))
       ([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32)).
+      The coastline under it is done — `public/geo.js`, drawn through whatever
+      projection the caller has, so this map gets it for free
+      ([#172](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/172));
       blocked: the color-gradient decision below
       ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170))
 - [ ] Surface the D-RAP header fields the parser currently reads past —
