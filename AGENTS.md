@@ -204,6 +204,17 @@ branch on merge, so one command does all of it:
 gh pr merge --squash --auto --delete-branch
 ```
 
+**When that merge doesn't land, assume another session's board PR merged
+first.** `kanban.md` has no publish impact, so `version` goes green before the
+branch has finished pushing — the rule shortens the collision window to
+minutes, it does not close it. Rebase onto `main` and push again, and
+**resolve the conflict by keeping both sides.** A conflict here is two
+sessions having captured different loops, so taking `ours` deletes a card
+somebody else just wrote — the one failure the board exists to prevent. If two
+cards genuinely contradict, still keep both: the next session to read the
+board settles it in the same breath. A duplicate costs a line. A dropped card
+costs the loop.
+
 **The review bots don't race that merge, because they don't start.** Left to
 themselves they would: `version` is the only required check, so it goes green
 in seconds while a reviewer is still booting, and whatever it eventually found
