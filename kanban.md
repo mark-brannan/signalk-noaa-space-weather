@@ -85,6 +85,15 @@ what it is blocked by. Delete it when it is done.
       The antipodal half of this card and the hardcoded grid geometry shipped
       in
       [#183](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/183)
+- [ ] Smooth the webapp D-RAP map — `drawDrapMap` in `public/drapMap.js` is the
+      last blocky surface; NOAA's own image and this plugin's chart-overlay
+      tiles both interpolate the same 90x90 grid. An offscreen `ImageData` plus
+      one smoothed `drawImage` replaces 8,100 `fillRect` calls, so it is faster
+      as well as smoother; the measurements and the two caveats are on the issue
+      ([#186](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/186)).
+      Independent of the colour-match decision
+      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170)),
+      but it lands in the same function
 - [ ] Cut the README down — 246 lines and still growing, and every feature
       lands one more paragraph in it. The getting-started path is buried under
       design rationale that belongs in
