@@ -709,6 +709,7 @@ describe('plugin module', () => {
       'alarmLevel',
       'auroraEnabled',
       'auroraInterval',
+      'drapEnabled',
       'updateInterval'
     ]) {
       expect(properties[key], key).toBeTruthy()
