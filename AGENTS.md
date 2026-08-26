@@ -230,6 +230,10 @@ branch on merge, so one command does all of it:
 gh pr merge --squash --auto --delete-branch
 ```
 
+The review workflows will still start, and `--auto` will beat them to it. That
+is the intent, not a race to fix: `version` is the only required check, and a
+line of prose on a board has nothing for a reviewer to find.
+
 That authorisation is exactly the diff test and nothing wider: one file, no
 other path in the diff. A board edit riding alongside any source, doc or
 config change is an ordinary pull request and waits like one.
