@@ -152,35 +152,62 @@ data:
 - the planetary K-index forecast alternates between a header-row table and a
   list of records
 
-## `auroraEnabled` governs the schedule, not the capability
+## A global grid is worth fetching before there is anywhere to index it
 
-`auroraEnabled` says what the plugin may spend on its own initiative; a press
-is not the plugin's own initiative. So `aurora-refresh` fetches whether or not
-the product is scheduled, and the setting being off is exactly the case it
+Aurora and D-RAP both used to check for `navigation.position` and return
+before spending a fetch. That looked frugal and was not: NOAA serves one grid
+for the whole globe, the same bytes wherever the boat is, so a position
+changes nothing about what the fetch costs or returns. What it bought was a
+plugin that published nothing at all until a GPS fix arrived — no map, no
+chart-plotter tiles, no cached grid — and a configuration panel that had to
+explain the dependency to the reader twice.
+
+So the fetch is unconditional, the grid is cached
+(`src/cache/entryCache.ts` and the two wrappers over it), and the value at the
+vessel is published *out of* the cache — straight away when there is a
+position, and otherwise the moment one turns up. `refresh()` says which by
+returning `'awaiting-position'`, and the scheduler then retries through
+`publishFromCache()` rather than through `refresh()`, on the same geometric
+backoff: waiting for a fix is exactly the case that must not turn into repeat
+NOAA traffic. The retry gives up after one interval, at which point either the
+recurring schedule takes over with a fresh grid — an overlay drawn from an
+hours-old capture is worse than one that says it has nothing — or, for an
+unscheduled product refreshed once by hand, there was never anything more to
+do. That last case is why the position-retry timers are a separate map from
+`productTimers`: membership of `productTimers` is what says a product is on a
+schedule, and a manual refresh must not quietly become one.
+
+## `auroraEnabled` and `drapEnabled` govern the schedule, not the capability
+
+Either setting says what the plugin may spend on its own initiative; a press
+is not the plugin's own initiative. So `aurora-refresh` and `drap-refresh`
+fetch whether or not the product is scheduled, and the setting being off is exactly the case it
 exists for — otherwise the only route to one aurora reading is to turn the
 recurring fetch on, wait out an interval, and turn it off again, which is four
 steps and leaves a recurring cost behind when the last one is forgotten. Four
 things fall out of that and none are optional:
 
 - `start()` publishes `metadata()` only for the products it schedules, so the
-  route publishes aurora's itself before the first value. Without it the
-  probability lands on a path with no units, no zones and no display name.
+  route publishes the product's metadata before the first value. Without it the
+  value lands on a path with no units, no zones and no display name.
 - A successful manual fetch defers the next scheduled run by a full interval.
   The payload has just been bought; a refresh a minute before the tick must
   not buy it twice, which is the same argument the two-hour default rests on.
   Deferring cannot cover a run whose timer has already fired, so `refreshOnce`
   holds one refresh per product and a second caller joins it rather than
   starting its own.
-- The cooldown counts fetches, not presses — a scheduled one holds it down too
-  — and `'not-ready'` refunds it: the position check is ahead of the fetch, so
-  nothing went to NOAA and there is nothing to bound. That case lands on a
-  boat still waiting for its first fix, which is the worst one to make wait
-  another minute.
+- The cooldown counts fetches, not presses — a scheduled one holds it down
+  too. It no longer needs a refund path: every refresh now reaches NOAA, so
+  the stamp is unconditional. While the grid products waited for a fix, one
+  could return having sent nothing, and the stamp had to be rolled back so a
+  boat still waiting for its first position was not also made to wait out a
+  cooldown for traffic it never sent.
 - A `refresh()` that returns without publishing is not a success. It returns
   normally when the payload carried no usable grid, so the route compares the
   cache's `fetchedAt` across the call and answers 502 when nothing new
   landed; otherwise the button reports a refresh that did not happen, over a
-  reading that has not moved.
+  reading that has not moved. `'awaiting-position'` is not one of those cases:
+  the grid is what was asked for and the grid arrived.
 
 The webapp may never turn its own polling into a NOAA fetch — the map draws
 from cache, the poll reads Signal K, and only a press reaches NOAA.
