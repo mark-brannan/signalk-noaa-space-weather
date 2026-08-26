@@ -100,17 +100,17 @@ export const schema = {
     },
     drapEnabled: {
       type: 'boolean',
-      title: "Publish NOAA's D-RAP HF absorption forecast",
+      title: 'Publish HF absorption at the vessel (NOAA D-RAP)',
       // Same reasoning as auroraEnabled: the user is being told what the
-      // setting costs, so the measured number lives here. Per fetch, on the
-      // interval below; public/config-panel.js does the daily arithmetic.
+      // setting costs, so the measured number lives here. Per fetch;
+      // public/config-panel.js does the daily arithmetic.
       description:
-        'Publishes the highest HF frequency currently degraded by D-region' +
-        ' absorption at the vessel position — the frequency below which the' +
-        ' band is effectively dead. Fetched on the interval below, at about' +
-        ' 3.3 KB a time: small next to the aurora grid, but two thirds again' +
-        ' on top of everything else that interval fetches, which is why it' +
-        ' has a switch. Nothing is fetched until the vessel has a position.',
+        'The highest frequency D-region absorption is degrading at the' +
+        ' vessel position: everything below it is dead, everything above it' +
+        ' is getting through. Fetched on the interval below, hourly by' +
+        ' default, adding about 3.3 KB to each of those fetches against 5 KB' +
+        ' for everything else in them. Nothing is fetched until the vessel' +
+        ' has a position.',
       default: true
     },
     auroraInterval: {
@@ -128,8 +128,7 @@ export const schema = {
       title: 'How often to fetch from NOAA',
       description:
         'in minutes. Covers observations, forecasts and alerts alike, which' +
-        ' together come to about 5 KB per poll — plus another 3.3 KB when the' +
-        ' D-RAP forecast above is on.',
+        ' together come to about 5 KB per poll, plus 3.3 KB when D-RAP is on.',
       default: 60
     }
   }

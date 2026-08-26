@@ -454,10 +454,9 @@ function createPanel(React) {
       'div',
       { className: 'bg-body-tertiary border rounded p-3 small' },
       row('Observations, forecasts and alerts', day.other),
-      row(
-        settings.drapEnabled ? 'HF absorption (D-RAP)' : 'HF absorption (off)',
-        day.drap
-      ),
+      // No parenthetical for the off case, unlike aurora above: switched off
+      // this one really is zero, and the zero says so.
+      row('HF absorption (D-RAP)', day.drap),
       row(
         // Zero a day, but not zero: the webapp can still be asked for a grid,
         // and a bill that reads "off" would be understating what a press costs.
@@ -654,16 +653,16 @@ function createPanel(React) {
         id: 'noaa-drap-enabled',
         checked: settings.drapEnabled,
         onChange: (value) => set('drapEnabled', value),
-        label: "Publish NOAA's D-RAP HF absorption forecast",
+        label: 'Publish HF absorption at the vessel (NOAA D-RAP)',
         help: h(
           'span',
           null,
-          'Publishes the highest HF frequency degraded by D-region absorption' +
-            ' at the vessel position — the frequency below which the band is' +
-            ' effectively dead. Fetched on the "everything else" interval' +
-            ' below, and about two thirds again on top of what that interval' +
-            ' otherwise costs, which is why it has a switch of its own.' +
-            ' Nothing is fetched until the vessel has a position. ',
+          'The highest frequency D-region absorption is degrading at the' +
+            ' vessel position: everything below it is dead, everything above' +
+            ' it is getting through. Fetched on the "everything else"' +
+            ' interval below, hourly by default, and it adds about 3.3 KB to' +
+            ' each of those fetches. Nothing is fetched until the vessel has' +
+            ' a position. ',
           h(NoaaLink, { href: DRAP_URL, text: "NOAA's D-RAP model" })
         )
       }),
