@@ -78,7 +78,7 @@ what it is blocked by. Delete it when it is done.
       commit-subject format to a CHANGELOG entry
       ([#119](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/119#discussion_r3857388486))
 - [ ] Move the settled arguments out of CLAUDE.md's `## Non-obvious
-      constraints` — 229 of its 524 lines, loaded by every session; keep the
+    constraints` — 229 of its 524 lines, loaded by every session; keep the
       imperative and the issue number, move the defence to the issue or a
       `docs/decisions/` note
       ([audit](https://claude.ai/code/artifact/6150bdd6-8257-43fe-992c-e24263e340c7))
@@ -128,3 +128,53 @@ what it is blocked by. Delete it when it is done.
       from the same sweep (the `SCALE_WORDS` reference that never existed,
       `isRaised` typed `any`, a truncated-grid test that passes on an empty
       payload); they are not this card, so split them out
+- [ ] Revisit the HF Radio tile's design when any of its four deferred inputs
+      lands — MUF/foF2
+      ([#82](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/82)),
+      the guessed ceiling and SFI thresholds plus their GIRO calibration pass
+      ([#85](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/85)),
+      the day/night terminator, or the X-ray/proton overlay
+      ([#108](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/108));
+      the tile is designed _around_ not having them, so each one reopens the
+      design rather than adding a number. Context, mockups and the reasoning:
+      [#110](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/110)
+      and
+      [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md)
+- [ ] Render the D-RAP grid as map tiles beside the aurora overlay — the full
+      90x90 grid is already fetched and parsed, `tiles.ts` is nearly
+      grid-agnostic, and a map is the only surface that can answer _path_
+      absorption (see "Every reading here is at the vessel" in
+      [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md))
+      ([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32))
+- [ ] Surface the D-RAP header fields the parser currently reads past —
+      `Estimated Recovery Time`, `X-RAY Message` and `Proton Message` are
+      NOAA's own "when does this blackout end", already inside a payload we
+      fetch and throw away. Capture a dated fixture while an R1+ event is in
+      force before writing the parser — quiet-day payloads can't pin the
+      field's in-event shape
+      ([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32))
+- [ ] Build the HF Radio tile and the data behind it
+      ([#110](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/110)) —
+      design is settled and recorded on the issue and in
+      [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md);
+      this is the implementation. Six paths reach `ENDPOINTS` in
+      `public/signalk.js`; the three-across row (aurora / Solar Activity / HF
+      Radio, all `span-4`) with Solar Wind renamed and dropped from `span-8`;
+      the band strip filling only the measured floor;
+      [#122](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/122)'s
+      two flare values with a dated `xray-flares-7-day` fixture (the
+      endpoint is measured in `docs/noaa-products.md`); the X-ray trend,
+      derived from the ~700 records already fetched every poll and currently
+      discarded; the F10.7 bands as a labelled convention; and zone metadata on
+      the HF paths — reading the
+      two hazards in `hf-operator-view.md` first, since F10.7 is inverted and
+      D-RAP's value is a frequency rather than a severity
+- [ ] Review the two HF markdown docs for accuracy and overlap —
+      [hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md)
+      is new and unreviewed, and it deliberately splits from
+      [ham-radio-research.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/ham-radio-research.md)
+      along products-versus-reading, which is a line worth checking someone
+      else agrees with. Verify every threshold's provenance label, and confirm
+      nothing restates a measurement that belongs in
+      [noaa-products.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/noaa-products.md)
+      ([#153](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/153))
