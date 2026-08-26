@@ -230,9 +230,23 @@ branch on merge, so one command does all of it:
 gh pr merge --squash --auto --delete-branch
 ```
 
-The review workflows will still start, and `--auto` will beat them to it. That
-is the intent, not a race to fix: `version` is the only required check, and a
-line of prose on a board has nothing for a reviewer to find.
+**The review bots don't race that merge, because they don't start.** Left to
+themselves they would: `version` is the only required check, so it goes green
+in seconds while a reviewer is still booting, and whatever it eventually found
+would be posted into a pull request that closed minutes earlier — a comment on
+a merged PR is not a finding, it is a message nobody is going to read. So both
+reviewers are filtered on the same diff test the merge rule uses, in
+`.github/workflows/claude-review.yml` (`paths-ignore`) and `.coderabbit.yaml`
+(`path_filters`). Both filters skip a run only when `kanban.md` is the entire
+diff, which is exactly the case that merges without waiting.
+
+That trade is deliberate and it is not free: a card with a dead link or a
+duplicate of a card three lines up now ships unreviewed. It is worth it because
+the board is not code — nothing installs it, and the next session to pull from
+it reads every line and can fix one in the same breath. Keep the two filters
+and the merge rule matched to each other. Widening the merge rule without
+widening the filters gives back the unread review; widening the filters without
+the merge rule silently drops review from PRs that still want it.
 
 That authorisation is exactly the diff test and nothing wider: one file, no
 other path in the diff. A board edit riding alongside any source, doc or
