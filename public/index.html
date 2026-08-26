@@ -1103,11 +1103,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
       row('IMF orientation (Bz)', bz !== null ? (bz * 1e9).toFixed(1) : DASH, 'nT', `color:${bzColor}`) +
       // The latest flare, where the Storm Scales card takes the 24-hour peak:
       // this tile is "what is the Sun doing", that row is "what did today do".
-      // `flareClass` is the NOAA class string, not a number like every other
-      // row here -- flareRecord in src/parse.ts only checks it is non-empty,
-      // so a compromised upstream payload could carry markup. Stripped the
-      // same way flareMarkup above handles its own non-matching case.
-      row('Latest flare', flareClass !== null ? String(flareClass).replace(/[<>&]/g, '') : DASH, '') +
+      row('Latest flare', flareClass ?? DASH, '') +
       row('Planetary A-index', aIndex !== null ? aIndex.toFixed(0) : DASH, '') +
       row('Sunspot number', sunspotNumber !== null ? sunspotNumber.toFixed(0) : DASH, '');
   }

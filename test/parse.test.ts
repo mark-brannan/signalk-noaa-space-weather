@@ -450,6 +450,24 @@ describe('parseXrayFlare', () => {
     ).toEqual({ flareClass: 'M2.1', time: '2026-08-06T03:46:00Z' })
   })
 
+  it('rejects a class that is not one, on either field', () => {
+    // The only free string this plugin publishes, so it is validated where it
+    // enters rather than escaped where it is drawn -- a consumer that is not
+    // this plugin's own page gets the same guarantee.
+    const time = '2026-08-06T03:46:00Z'
+    for (const bad of ['<img src=x onerror=alert(1)>', 'Q1', 'M-1', '  ']) {
+      expect(parseXrayFlare([{ max_class: bad, max_time: time }])).toBeNull()
+      expect(
+        parseXrayFlare([{ current_class: bad, time_tag: time }])
+      ).toBeNull()
+    }
+    // A bare letter is NOAA's own way of writing the decade boundary.
+    expect(parseXrayFlare([{ max_class: ' M ', max_time: time }])).toEqual({
+      flareClass: 'M',
+      time
+    })
+  })
+
   it('returns null rather than throwing on unusable input', () => {
     for (const input of [null, undefined, {}, [], [{}], 'nope']) {
       expect(parseXrayFlare(input as any)).toBeNull()
