@@ -23,7 +23,10 @@ what it is blocked by. Delete it when it is done.
       false-regression chase
       ([log](https://github.com/mark-brannan/claude_prompts_scratch/blob/main/state/global/log/2026-08-25-dead-field-sweep-and-a-false-regression.md)).
       Kill it once you're done, or fold it into a standing test-rig strategy
-      (2026-08-26: nothing listening on 3110 on the dev host — may be gone already)
+      (2026-08-26: nothing listening on 3110 on the dev host — may be gone
+      already). Deferred — may overlap with the review-rig design card below
+      (portable Docker test instance vs. one-host `~/.signalk`); check there
+      first before designing this separately
 - [ ] Enable **private vulnerability reporting** (Settings → Code security), so
       the advisory link in
       [SECURITY.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/SECURITY.md)
