@@ -1666,6 +1666,10 @@ import { drawCoastline } from './geo.js';
       }
     }
 
+    // Over the cells, under the vessel marker: the absorption is the reading,
+    // the coastline is only what makes it locatable.
+    drawCoastline(ctx, x, y, { color: text, lonCenter })
+
     // Vessel marker, drawn the same way the aurora map draws it.
     const px = x(position.longitude), py = y(position.latitude)
     ctx.beginPath()

@@ -134,8 +134,8 @@ Argument in
 [docs/design-decisions.md](docs/design-decisions.md#auroraenabled-and-drapenabled-govern-the-schedule-not-the-capability).
 
 **A webapp map takes its geography from `public/geo.js`; `tiles.ts` draws
-none.** The aurora map does today and the D-RAP absorption map will when it
-lands. A grid of numbers without geography is not a map, and no chart
+none.** Both the aurora map and the D-RAP absorption map do. A grid of
+numbers without geography is not a map, and no chart
 source Signal K can offer works here — they are all Web Mercator, which cannot
 show a pole. The chart overlay is the opposite case: it sits on the user's own
 charts, so a second coastline on top of theirs would be a bug. The asset is

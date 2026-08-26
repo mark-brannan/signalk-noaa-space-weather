@@ -324,8 +324,8 @@ a plugin that meters its own NOAA polling to the byte — and OSMF's tile policy
 disallows that use anyway.
 
 So `public/geo.js` carries a coastline and draws it through whatever projection
-the caller hands it — the aurora map today, the D-RAP absorption map when it
-lands. The cost is the thing that was actually in question, and it was
+the caller hands it — the aurora map and the D-RAP absorption map both. The
+cost is the thing that was actually in question, and it was
 measured
 ([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32#issuecomment-5429065591)):
 Natural Earth's 110m coastline is 140 KB as published, but simplified to a
