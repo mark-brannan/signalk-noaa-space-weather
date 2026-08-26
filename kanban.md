@@ -56,6 +56,21 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Cut the README down — 246 lines and still growing, and every feature
+      lands one more paragraph in it. The getting-started path is buried under
+      design rationale that belongs in
+      [docs/design-decisions.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md)
+      and measurements that belong in
+      [docs/noaa-products.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/noaa-products.md);
+      the settings list has drifted twice already (a count that said six when
+      there were seven, a precondition that had stopped being true), which is
+      the tell that it is restating what `src/config.ts` already says rather
+      than pointing at it. Mark has asked for hands off it until now, so agree
+      what the first screen is *for* before cutting: what an installer needs,
+      what a reader deciding whether to install needs, and what moves out to a
+      `docs/` page. Blocked: that call is Mark's, and the cut is not worth
+      making twice
+
 - [ ] Design the review rig with Mark — what portable environment it runs in
       (a compose file in this repo with overridable ports, or a command that
       builds and links into a dedicated plugin-dev Signal K), not one host's
