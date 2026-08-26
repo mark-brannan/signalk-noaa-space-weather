@@ -246,6 +246,13 @@ describe('GOES flux product', () => {
     expect(h.errors).toEqual([])
     expect(h.published.length).toBe(1)
   })
+
+  it('carries no units on the trend, an unbounded quotient rather than a probability', () => {
+    const meta = goesFlux.metadata!(settingsFrom({})).find(
+      (m) => m.path === 'environment.noaa.swpc.xray_flux.trend'
+    )
+    expect(meta?.value.units).toBeUndefined()
+  })
 })
 
 describe('f107 product', () => {

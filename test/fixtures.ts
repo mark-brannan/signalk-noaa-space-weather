@@ -138,6 +138,20 @@ export const SYNTHETIC_TEXT_FIXTURES = [
 
 export const AURORA_FIXTURES = ['ovation-aurora.2026_08_01.json']
 
+export const F107_FIXTURES = [
+  'f107_cm_flux.2026_08_06.json',
+  'f107_cm_flux.2026_08_25.json',
+  'f107_cm_flux.2026_08_25_2.json'
+]
+
+export const WWV_FIXTURES = ['wwv.2026_08_20.txt', 'wwv.2026_08_25.txt']
+
+export const DAILY_SOLAR_FIXTURES = [
+  'daily-solar-indices.2026_08_20.txt',
+  'daily-solar-indices.2026_08_25.txt',
+  'daily-solar-indices.2026_08_26.txt'
+]
+
 export const OUTLOOK27_FIXTURES = ['27-day-outlook.2026_08_12.txt']
 
 export const KP_FORECAST_FIXTURES = [

@@ -832,8 +832,12 @@ function flareRecord(entry: any): XrayFlare | null {
  * The letter is a decade and the number a multiplier within it, which is the
  * same definition the R-scale table in docs/hf-operator-view.md is built on.
  * Returns null for anything that is not a class, including the empty string.
+ * Takes `unknown` rather than `string` -- it normalises with `String(...)`
+ * below regardless, so the wider signature is what it already tolerates at
+ * runtime, and lets a caller (or a test) pass a NOAA payload's raw field
+ * straight through without a cast.
  */
-export function fluxForFlareClass(flareClass: string): number | null {
+export function fluxForFlareClass(flareClass: unknown): number | null {
   const match = /^([ABCMX])\s*([0-9]+(?:\.[0-9]+)?)?$/i.exec(
     String(flareClass ?? '').trim()
   )

@@ -490,7 +490,7 @@ describe('fluxForFlareClass', () => {
 
   it('returns null for anything that is not a class', () => {
     for (const input of ['', 'Q1', 'M-1', 'nope', null, undefined])
-      expect(fluxForFlareClass(input as any)).toBeNull()
+      expect(fluxForFlareClass(input)).toBeNull()
   })
 })
 
@@ -545,7 +545,7 @@ describe('parseXrayFlarePeak', () => {
   it('returns null rather than throwing on unusable input', () => {
     const now = new Date('2026-08-26T06:00:00Z')
     for (const input of [null, undefined, {}, [], [{}], 'nope'])
-      expect(parseXrayFlarePeak(input as any, now)).toBeNull()
+      expect(parseXrayFlarePeak(input, now)).toBeNull()
   })
 })
 
@@ -579,19 +579,19 @@ describe('xrayFluxTrend', () => {
     // Only the recent window is populated; the half hour behind it is a gap,
     // which is not the same measurement as "unchanged".
     const only = quiet().filter(
-      (r: any) => Date.parse(r.time_tag) > Date.parse('2026-08-20T04:28:00Z')
+      (r) => Date.parse(r.time_tag) > Date.parse('2026-08-20T04:28:00Z')
     )
     expect(xrayFluxTrend(only)).toBeNull()
   })
 
   it('ignores the other energy channel', () => {
-    const short = quiet().filter((r: any) => r.energy !== '0.1-0.8nm')
+    const short = quiet().filter((r) => r.energy !== '0.1-0.8nm')
     expect(xrayFluxTrend(short)).toBeNull()
   })
 
   it('returns null rather than throwing on unusable input', () => {
     for (const input of [null, undefined, {}, [], [{}], 'nope'])
-      expect(xrayFluxTrend(input as any)).toBeNull()
+      expect(xrayFluxTrend(input)).toBeNull()
   })
 })
 
