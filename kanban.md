@@ -36,6 +36,13 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Add a live-proxy state to `scripts/mock-webapp.mjs` — a `--upstream`
+      flag that passes its ten routes through to a real Signal K server
+      instead of the fabricated payloads, so a branch's `public/` can be seen
+      against today's real sky without repointing
+      `~/.signalk/node_modules/signalk-noaa-space-weather` at that worktree.
+      Keep it dependency-free and invisible to `npm ci`/`build`/`test`
+      ([mock](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/scripts/mock-webapp.mjs))
 - [ ] Add a `.coderabbit.yaml` scoping AGENTS.md's rules by path — with none in
       the repo it reads the whole file as coding guidelines and applied the
       commit-subject format to a CHANGELOG entry
