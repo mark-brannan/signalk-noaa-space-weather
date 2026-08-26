@@ -18,6 +18,7 @@ what it is blocked by. Delete it when it is done.
       false-regression chase
       ([log](https://github.com/mark-brannan/claude_prompts_scratch/blob/main/state/global/log/2026-08-25-dead-field-sweep-and-a-false-regression.md)).
       Kill it once you're done, or fold it into a standing test-rig strategy
+      (2026-08-26: nothing listening on 3110 on the dev host — may be gone already)
 - [ ] Enable **private vulnerability reporting** (Settings → Code security), so
       the advisory link in
       [SECURITY.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/SECURITY.md)
@@ -47,13 +48,6 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
-- [ ] Add a live-proxy state to `scripts/mock-webapp.mjs` — a `--upstream`
-      flag that passes its ten routes through to a real Signal K server
-      instead of the fabricated payloads, so a branch's `public/` can be seen
-      against today's real sky without repointing
-      `~/.signalk/node_modules/signalk-noaa-space-weather` at that worktree.
-      Keep it dependency-free and invisible to `npm ci`/`build`/`test`
-      ([mock](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/scripts/mock-webapp.mjs))
 - [ ] Design the review rig with Mark — what portable environment it runs in
       (a compose file in this repo with overridable ports, or a command that
       builds and links into a dedicated plugin-dev Signal K), not one host's
@@ -93,11 +87,6 @@ what it is blocked by. Delete it when it is done.
       and #133's cron adds more; fail a test on any file `test/fixtures.ts`
       does not list, rather than pruning by hand again
       ([audit](https://claude.ai/code/artifact/6150bdd6-8257-43fe-992c-e24263e340c7))
-- [ ] Build the dead-field sweep — no field a user-facing surface draws may be
-      `0`/null across every fixture — on top of #124's `public/scales.js`, now
-      landed. A sweep over `src/` alone cannot catch
-      [#120](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/120),
-      because the plugin published both paths correctly
 - [ ] Replace `examples/synthetic/wwv.no-storms.txt` with a real quiet bulletin
       once `capture.mjs fast` catches one — the invented wording is a guess and
       nothing should parse against it
