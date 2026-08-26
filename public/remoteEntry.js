@@ -653,19 +653,18 @@ function createPanel(React) {
         id: 'noaa-drap-enabled',
         checked: settings.drapEnabled,
         onChange: (value) => set('drapEnabled', value),
-        label: 'Publish HF absorption at the vessel (NOAA D-RAP)',
+        label: 'Publish HF absorption (NOAA D-RAP)',
         help: h(
           'span',
           null,
-          'The highest radio frequency D-region absorption is blocking at' +
-            " the vessel's position. Frequencies below it are absorbed; those" +
-            ' above it should get through, barring other factors. NOAA serves' +
-            ' one grid covering the whole globe, so the cost is the same' +
-            ' wherever the boat is: about 3.3 KB on each fetch of the' +
-            ' "everything else" interval below, hourly by default. Nothing is' +
-            ' fetched until the vessel has a position, and switching it off' +
-            ' stops it completely \u2014 unlike the aurora grid there is no' +
-            ' on-demand fetch, so the reading just stops. ',
+          'The highest radio frequency D-region absorption is blocking.' +
+            ' Frequencies below it are absorbed; those above it should get' +
+            ' through, barring other factors. NOAA serves one grid covering' +
+            ' the whole globe, so it costs the same everywhere: about 3.3 KB' +
+            ' on each fetch of the "everything else" interval below, hourly' +
+            ' by default. Needs a position fix. Switching it off stops it' +
+            ' completely \u2014 unlike the aurora grid there is no on-demand' +
+            ' fetch. ',
           h(NoaaLink, { href: DRAP_URL, text: "NOAA's D-RAP model" })
         )
       }),

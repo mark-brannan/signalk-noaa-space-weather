@@ -100,20 +100,19 @@ export const schema = {
     },
     drapEnabled: {
       type: 'boolean',
-      title: 'Publish HF absorption at the vessel (NOAA D-RAP)',
+      title: 'Publish HF absorption (NOAA D-RAP)',
       // Same reasoning as auroraEnabled: the user is being told what the
       // setting costs, so the measured number lives here. Per fetch;
       // public/config-panel.js does the daily arithmetic.
       description:
-        'The highest radio frequency D-region absorption is blocking at the' +
-        " vessel's position. Frequencies below it are absorbed; those above" +
-        ' it should get through, barring other factors. NOAA serves one grid' +
-        ' covering the whole globe, so the cost is the same wherever the boat' +
-        ' is: about 3.3 KB added to each fetch on the interval below, hourly' +
-        ' by default, against 5 KB for everything else in them. Nothing is' +
-        ' fetched until the vessel has a position, and switching this off' +
+        'The highest radio frequency D-region absorption is blocking.' +
+        ' Frequencies below it are absorbed; those above it should get' +
+        ' through, barring other factors. NOAA serves one grid covering the' +
+        ' whole globe, so it costs the same everywhere: about 3.3 KB on each' +
+        ' fetch of the interval below, hourly by default, against 5 KB for' +
+        ' everything else in them. Needs a position fix. Switching this off' +
         ' stops it completely \u2014 unlike the aurora grid there is no' +
-        ' on-demand fetch, so the reading simply stops.',
+        ' on-demand fetch.',
       default: true
     },
     auroraInterval: {
