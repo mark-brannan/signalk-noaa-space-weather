@@ -26,10 +26,13 @@ import { sunspot } from './products/sunspot.js'
 import { solarWind } from './products/solarWind.js'
 import { Product } from './products/types.js'
 import {
+  Lattice,
   MAX_ZOOM,
   auroraGridFrom,
+  auroraLattice,
+  drapLattice,
   isValidTile,
-  renderAuroraTile
+  renderTile
 } from './tiles.js'
 
 const PRODUCTS: Product[] = [
@@ -138,35 +141,62 @@ export default function (app: any): Plugin {
    * Tile rendering reads the same disk cache the webapp's map does, but
    * re-parsing 900 KB of JSON and reflattening the grid costs ~33ms, which
    * would dwarf the ~4ms of actual drawing on every request. So both the
-   * flattened grid and the rendered tiles are memoised against the cache
-   * entry's `fetchedAt`, and the whole lot is dropped when a newer fetch
-   * lands -- a stale tile is worse than a slow one.
+   * lattice and the rendered tiles are memoised against the cache entry's
+   * `fetchedAt`, and the whole lot is dropped when a newer fetch lands -- a
+   * stale tile is worse than a slow one.
+   *
+   * One of these per product with tiles: they are independent captures on
+   * independent intervals, and a shared cache keyed only by tile coordinates
+   * would serve one product's picture for the other's.
    */
-  let tileGridKey: string | null = null
-  let tileGrid: Uint8Array | null = null
-  const tileCache = new Map<string, Buffer>()
+  function tileSource<T extends { fetchedAt: string }>(
+    read: (dataDirPath: string) => T | null,
+    latticeOf: (entry: T) => Lattice | null
+  ) {
+    let key: string | null = null
+    let lattice: Lattice | null = null
+    const tiles = new Map<string, Buffer>()
 
-  function auroraGridForTiles(): { grid: Uint8Array; key: string } | null {
-    const cached = readAuroraCache(publisher.dataDirPath())
-    if (!cached) return null
-    if (tileGridKey !== cached.fetchedAt || !tileGrid) {
-      const grid = auroraGridFrom(cached.grid?.coordinates)
-      if (!grid) return null
-      tileGrid = grid
-      tileGridKey = cached.fetchedAt
-      tileCache.clear()
+    return {
+      current(): { lattice: Lattice; key: string } | null {
+        const cached = read(publisher.dataDirPath())
+        if (!cached) return null
+        if (key !== cached.fetchedAt || !lattice) {
+          const next = latticeOf(cached)
+          if (!next) return null
+          lattice = next
+          key = cached.fetchedAt
+          tiles.clear()
+        }
+        return { lattice, key: cached.fetchedAt }
+      },
+      get: (tile: string) => tiles.get(tile),
+      /** Only under the key the render was actually drawn from; a refresh can
+       * replace the lattice while a render is in flight. */
+      remember(sourceKey: string, tile: string, png: Buffer) {
+        if (key !== sourceKey) return
+        if (tiles.size >= TILE_CACHE_LIMIT) {
+          // Map iterates in insertion order, so the first key is the oldest.
+          const oldest = tiles.keys().next()
+          if (!oldest.done) tiles.delete(oldest.value)
+        }
+        tiles.set(tile, png)
+      },
+      clear() {
+        tiles.clear()
+        lattice = null
+        key = null
+      }
     }
-    return { grid: tileGrid, key: cached.fetchedAt }
   }
 
-  function rememberTile(key: string, png: Buffer) {
-    if (tileCache.size >= TILE_CACHE_LIMIT) {
-      // Map iterates in insertion order, so the first key is the oldest.
-      const oldest = tileCache.keys().next()
-      if (!oldest.done) tileCache.delete(oldest.value)
-    }
-    tileCache.set(key, png)
-  }
+  const auroraTiles = tileSource(readAuroraCache, (entry) => {
+    const grid = auroraGridFrom(entry.grid?.coordinates)
+    return grid ? auroraLattice(grid) : null
+  })
+  const drapTiles = tileSource(readDrapCache, (entry) =>
+    drapLattice(entry.grid)
+  )
 
   function intervalFor(product: Product, settings: Settings): number {
     return product.intervalMinutes(settings) * 60 * 1000
@@ -373,6 +403,26 @@ export default function (app: any): Plugin {
         }
       )
 
+      // Same idea again, for D-RAP: one server-side fetch of a global grid,
+      // read back by the webapp's map. Parsed rather than raw, because that
+      // is what the cache holds -- see src/cache/drapCache.ts.
+      router.get(
+        '/signalk-noaa-space-weather/drap-grid',
+        (_req: any, res: any) => {
+          const cached = readDrapCache(publisher.dataDirPath())
+          if (!cached) {
+            res.status(404).json({
+              error:
+                'No D-RAP data cached yet. Fetch one on demand from this' +
+                " plugin's webapp, or turn on HF absorption in the plugin" +
+                ' configuration.'
+            })
+            return
+          }
+          res.json(cached)
+        }
+      )
+
       // Same idea as aurora-grid above, for the weekly advisory outlook: the
       // webapp reads the plugin's own cached bulletin instead of a
       // notification path, which has changed shape before for other products.
@@ -390,18 +440,22 @@ export default function (app: any): Plugin {
         }
       )
 
-      // The aurora grid as Web Mercator PNG tiles, so a chart plotter can
-      // draw the oval over the actual chart. `@signalk/charts-plugin` takes
-      // an online chart source as a {z}/{x}/{y} URL, so this needs no
-      // resource-provider registration and no Freeboard-SK change: point a
-      // chart source at this route and the overlay appears.
+      // The grids as Web Mercator PNG tiles, so a chart plotter can draw the
+      // oval, or the absorption footprint, over the actual chart.
+      // `@signalk/charts-plugin` takes an online chart source as a {z}/{x}/{y}
+      // URL, so this needs no resource-provider registration and no
+      // Freeboard-SK change: point a chart source at one of these routes and
+      // the overlay appears.
       //
       // GET-only and on the same namespace as the reads above, for the same
-      // reason -- it serves the same data the webapp already reads, in a
+      // reason -- they serve the same data the webapp already reads, in a
       // different shape.
-      router.get(
-        '/signalk-noaa-space-weather/aurora-tile/:z/:x/:y.png',
-        async (req: any, res: any) => {
+      function tileHandler(
+        source: ReturnType<typeof tileSource>,
+        label: string,
+        emptyError: string
+      ) {
+        return async (req: any, res: any) => {
           const z = Number(req.params.z)
           const x = Number(req.params.x)
           const y = Number(req.params.y)
@@ -412,43 +466,32 @@ export default function (app: any): Plugin {
             return
           }
 
-          const source = auroraGridForTiles()
-          if (!source) {
-            // A chart plotter has no button to offer, so this one points at
-            // the setting rather than at the webapp's on-demand fetch: an
-            // overlay that only refreshes when somebody opens a browser is
-            // not an overlay anyone should be navigating by.
-            res.status(404).json({
-              error:
-                'No aurora data cached yet. Turn on automatic aurora updates' +
-                ' in the plugin configuration.'
-            })
+          const current = source.current()
+          if (!current) {
+            res.status(404).json({ error: emptyError })
             return
           }
 
           const cacheKey = `${z}/${x}/${y}`
-          let png = tileCache.get(cacheKey)
+          let png = source.get(cacheKey)
           if (!png) {
             try {
-              png = await renderAuroraTile(source.grid, z, x, y)
+              png = await renderTile(current.lattice, z, x, y)
             } catch (err) {
               publisher.error(
-                `Failed to render aurora tile ${cacheKey}: ${err}`
+                `Failed to render ${label} tile ${cacheKey}: ${err}`
               )
               res.status(500).json({ error: 'Tile could not be rendered.' })
               return
             }
-            // The grid can be replaced by a refresh while a render is in
-            // flight; caching the result under the new grid's key would serve
-            // a tile drawn from the old one.
-            if (tileGridKey === source.key) rememberTile(cacheKey, png)
+            source.remember(current.key, cacheKey, png)
           }
 
           res.setHeader('Content-Type', 'image/png')
           // Tiles are only as fresh as the fetch behind them, and the aurora
           // interval is 120 minutes by default. ETag lets a client revalidate
           // cheaply across a refresh instead of guessing at an age.
-          res.setHeader('ETag', `"${source.key}-${cacheKey}"`)
+          res.setHeader('ETag', `"${current.key}-${cacheKey}"`)
           res.setHeader('Cache-Control', 'public, max-age=300')
           // How old the grid behind the tile is. Every other reader of this
           // cache says so -- the webapp's map prints it, and the tile says
@@ -458,12 +501,35 @@ export default function (app: any): Plugin {
           // off is a supported way to run: the cache then moves only when
           // somebody presses the button. Reported, not enforced; what counts
           // as too old belongs to whoever is navigating by it.
-          const fetchedAt = Date.parse(source.key)
+          const fetchedAt = Date.parse(current.key)
           if (Number.isFinite(fetchedAt)) {
             res.setHeader('Last-Modified', new Date(fetchedAt).toUTCString())
           }
           res.send(png)
         }
+      }
+
+      // A chart plotter has no button to offer, so these point at the setting
+      // rather than at the webapp's on-demand fetch: an overlay that only
+      // refreshes when somebody opens a browser is not an overlay anyone
+      // should be navigating by.
+      router.get(
+        '/signalk-noaa-space-weather/aurora-tile/:z/:x/:y.png',
+        tileHandler(
+          auroraTiles,
+          'aurora',
+          'No aurora data cached yet. Turn on automatic aurora updates in the' +
+            ' plugin configuration.'
+        )
+      )
+      router.get(
+        '/signalk-noaa-space-weather/drap-tile/:z/:x/:y.png',
+        tileHandler(
+          drapTiles,
+          'D-RAP',
+          'No D-RAP data cached yet. Turn on HF absorption in the plugin' +
+            ' configuration.'
+        )
       )
 
       // Manual "refresh now" for the webapp: a one-shot fetch of one product
@@ -620,11 +686,10 @@ export default function (app: any): Plugin {
       productTimers.clear()
       positionRetryTimers.forEach((timer) => clearTimeout(timer))
       positionRetryTimers.clear()
-      // Several MB of rendered tiles and the flattened grid have no reason to
+      // Several MB of rendered tiles and the flattened grids have no reason to
       // outlive the plugin being switched off.
-      tileCache.clear()
-      tileGrid = null
-      tileGridKey = null
+      auroraTiles.clear()
+      drapTiles.clear()
     }
   }
 }

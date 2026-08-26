@@ -5,9 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import createPlugin, { retryDelayMs } from '../src/index'
 import { settingsFrom } from '../src/config'
 import { AURORA_BASE, DRAP_BASE } from '../src/paths'
-import { ValueUpdate } from '../src/parse'
+import { ValueUpdate, parseDrapGrid } from '../src/parse'
 import { Meta } from '../src/publisher'
 import { readAuroraCache, writeAuroraCache } from '../src/cache/auroraCache'
+import { readDrapCache, writeDrapCache } from '../src/cache/drapCache'
 import { writeAdvisoryCache } from '../src/cache/advisoryCache'
 import { fixture, fixtureJson } from './fixtures'
 
@@ -290,6 +291,72 @@ describe('plugin module', () => {
       const { router } = serving({ coordinates: [] })
       const response = await router.invoke(ROUTE, { z: '1', x: '0', y: '0' })
       expect(response.status).toBe(404)
+    })
+  })
+
+  describe('GET /signalk-noaa-space-weather/drap-tile/:z/:x/:y.png', () => {
+    const ROUTE = '/signalk-noaa-space-weather/drap-tile/:z/:x/:y.png'
+    const GRID_ROUTE = '/signalk-noaa-space-weather/drap-grid'
+    let dataDir: string
+    beforeEach(() => {
+      dataDir = mkdtempSync(join(tmpdir(), 'plugin-datadir-'))
+    })
+    afterEach(() => {
+      rmSync(dataDir, { recursive: true, force: true })
+    })
+
+    const GRID = parseDrapGrid(
+      fixture('drap-global-frequencies.2026_08_20.txt')
+    )!
+
+    function serving() {
+      writeDrapCache(dataDir, GRID)
+      const plugin = createPlugin(fakeApp(dataDir))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      return { plugin, router }
+    }
+
+    it('answers 404 when no grid has been cached yet', async () => {
+      const plugin = createPlugin(fakeApp(dataDir))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      expect(
+        (await router.invoke(ROUTE, { z: '0', x: '0', y: '0' })).status
+      ).toBe(404)
+      expect((await router.invoke(GRID_ROUTE)).status).toBe(404)
+      plugin.stop()
+    })
+
+    it('serves the cached grid back for the webapp map', async () => {
+      const { plugin, router } = serving()
+      const response = await router.invoke(GRID_ROUTE)
+      expect(response.status).toBe(200)
+      expect(response.json.grid.validTime).toBe(GRID.validTime)
+      plugin.stop()
+    })
+
+    it('renders a PNG carrying the cache instant, not the aurora one', async () => {
+      // Two independent captures on two intervals: a tile cache shared by
+      // coordinate alone would serve one product's picture for the other's.
+      writeAuroraCache(dataDir, { coordinates: [[0, 0, 100]] })
+      const { plugin, router } = serving()
+      const response = await router.invoke(ROUTE, { z: '0', x: '0', y: '0' })
+      expect(response.status).toBe(200)
+      expect(response.headers['Content-Type']).toBe('image/png')
+      expect(response.sent.subarray(1, 4).toString('ascii')).toBe('PNG')
+      expect(response.headers['ETag']).toContain(
+        readDrapCache(dataDir)!.fetchedAt
+      )
+      plugin.stop()
+    })
+
+    it('rejects a tile outside the pyramid', async () => {
+      const { plugin, router } = serving()
+      expect(
+        (await router.invoke(ROUTE, { z: '99', x: '0', y: '0' })).status
+      ).toBe(400)
+      plugin.stop()
     })
   })
 

@@ -4,11 +4,14 @@ import {
   MAX_ZOOM,
   TILE_SIZE,
   auroraGridFrom,
+  auroraLattice,
+  drapLattice,
   isValidTile,
   rasterizeTile,
-  renderAuroraTile
+  renderTile
 } from '../src/tiles'
-import { fixtureJson } from './fixtures'
+import { parseDrapGrid } from '../src/parse'
+import { fixture, fixtureJson } from './fixtures'
 
 const REAL = 'ovation-aurora.2026_08_01.json'
 
@@ -23,10 +26,16 @@ function coordinates(cell: (lon: number, lat: number) => number) {
   return out
 }
 
+/** The flat aurora grid, for the tests that index it directly. */
 function gridOf(cell: (lon: number, lat: number) => number): Uint8Array {
   const grid = auroraGridFrom(coordinates(cell))
   if (!grid) throw new Error('grid was rejected')
   return grid
+}
+
+/** The same grid as the lattice the renderer draws from. */
+function latticeOf(cell: (lon: number, lat: number) => number) {
+  return auroraLattice(gridOf(cell))
 }
 
 /** RGBA at a pixel, reading past each scanline's filter-type byte. */
@@ -112,7 +121,7 @@ describe('isValidTile', () => {
 describe('rasterizeTile', () => {
   it('is fully transparent where the model says nothing', () => {
     const raw = rasterizeTile(
-      gridOf(() => 0),
+      latticeOf(() => 0),
       0,
       0,
       0
@@ -126,7 +135,7 @@ describe('rasterizeTile', () => {
 
   it('is strongest and reddest at the top of the scale', () => {
     const raw = rasterizeTile(
-      gridOf(() => 100),
+      latticeOf(() => 100),
       0,
       0,
       0
@@ -140,7 +149,7 @@ describe('rasterizeTile', () => {
 
   it('is green in the low percentages, as NOAA draws it', () => {
     const raw = rasterizeTile(
-      gridOf(() => 10),
+      latticeOf(() => 10),
       0,
       0,
       0
@@ -152,7 +161,7 @@ describe('rasterizeTile', () => {
 
   it('emits a filter-type byte of 0 at the head of every scanline', () => {
     const raw = rasterizeTile(
-      gridOf(() => 5),
+      latticeOf(() => 5),
       2,
       1,
       1
@@ -175,7 +184,7 @@ describe('rasterizeTile', () => {
    */
   it('writes every byte it allocates', () => {
     const raw = rasterizeTile(
-      gridOf(() => 0),
+      latticeOf(() => 0),
       1,
       0,
       0
@@ -200,7 +209,7 @@ describe('rasterizeTile', () => {
   it('preserves fractional interpolation instead of banding it', () => {
     // 1 percent per degree of latitude, well inside the ramp's low end.
     const raw = rasterizeTile(
-      gridOf((_lon, lat) => Math.max(0, Math.min(20, lat - 50))),
+      latticeOf((_lon, lat) => Math.max(0, Math.min(20, lat - 50))),
       4,
       8,
       4
@@ -222,14 +231,14 @@ describe('rasterizeTile', () => {
       lat === 0 && (lon === 0 || lon === 359) ? 60 : 0
     )
     // z0 tile: x pixel 0 is longitude -180, pixel 128 is longitude 0.
-    const raw = rasterizeTile(grid, 0, 0, 0)
+    const raw = rasterizeTile(auroraLattice(grid), 0, 0, 0)
     expect(pixel(raw, 128, 128).a).toBeGreaterThan(0)
   })
 
   it('places the northern oval in the northern half of a z1 tile', () => {
     const grid = auroraGridFrom(fixtureJson(REAL).coordinates)!
     // z1 x=0 y=0 is the north-west quadrant: latitudes ~0..85.
-    const raw = rasterizeTile(grid, 1, 0, 0)
+    const raw = rasterizeTile(auroraLattice(grid), 1, 0, 0)
     let northAlpha = 0
     let southAlpha = 0
     for (let x = 0; x < TILE_SIZE; x += 4) {
@@ -240,10 +249,10 @@ describe('rasterizeTile', () => {
   })
 })
 
-describe('renderAuroraTile', () => {
+describe('renderTile', () => {
   it('produces a decodable 256x256 RGBA PNG', async () => {
-    const png = await renderAuroraTile(
-      gridOf(() => 12),
+    const png = await renderTile(
+      latticeOf(() => 12),
       3,
       4,
       2
@@ -257,8 +266,8 @@ describe('renderAuroraTile', () => {
   })
 
   it('emits IHDR, IDAT and IEND in that order and nothing else', async () => {
-    const png = await renderAuroraTile(
-      gridOf(() => 3),
+    const png = await renderTile(
+      latticeOf(() => 3),
       0,
       0,
       0
@@ -271,8 +280,8 @@ describe('renderAuroraTile', () => {
   })
 
   it('writes a CRC every chunk that matches its own contents', async () => {
-    const png = await renderAuroraTile(
-      gridOf(() => 7),
+    const png = await renderTile(
+      latticeOf(() => 7),
       2,
       2,
       1
@@ -297,7 +306,78 @@ describe('renderAuroraTile', () => {
   it('renders the captured NOAA grid at every zoom it serves', async () => {
     const grid = auroraGridFrom(fixtureJson(REAL).coordinates)!
     for (let z = 0; z <= MAX_ZOOM; z++) {
-      const png = await renderAuroraTile(grid, z, 0, 0)
+      const png = await renderTile(auroraLattice(grid), z, 0, 0)
+      expect(readPng(png).width).toBe(TILE_SIZE)
+    }
+  })
+})
+
+describe('drapLattice', () => {
+  const grid = parseDrapGrid(fixture('drap-global-frequencies.2026_08_20.txt'))!
+
+  it('turns NOAA-s north-to-south rows into a south-to-north lattice', () => {
+    const lattice = drapLattice(grid)!
+    expect(lattice.latStart).toBe(grid.latitudes[grid.latitudes.length - 1])
+    expect(lattice.latStep).toBe(2)
+    expect(lattice.lonStep).toBe(4)
+    expect(lattice.values.length).toBe(
+      grid.latitudes.length * grid.longitudes.length
+    )
+    // The northernmost row of the payload is the last row of the lattice.
+    const latCount = grid.latitudes.length
+    expect(lattice.values[0 * latCount + (latCount - 1)]).toBe(
+      grid.frequenciesMHz[0][0]
+    )
+  })
+
+  it('normalises a westernmost longitude past the antimeridian', () => {
+    // NOAA starts the row at -178, which is 182 going the other way. The
+    // sampler wraps, so a start past 180 is not a problem; a negative one
+    // would put every column half a globe out.
+    expect(drapLattice(grid)!.lonStart).toBe(182)
+  })
+
+  it('rejects a grid with nothing to draw', () => {
+    expect(
+      drapLattice({
+        validTime: 'x',
+        latitudes: [],
+        longitudes: [],
+        frequenciesMHz: []
+      })
+    ).toBeNull()
+  })
+
+  it('draws nothing where no marine SSB band is absorbed', () => {
+    const quiet = drapLattice({
+      ...grid,
+      frequenciesMHz: grid.frequenciesMHz.map((row) => row.map(() => 1))
+    })!
+    const raw = rasterizeTile(quiet, 0, 0, 0)
+    // 1 MHz is below the lowest marine band: absorption nobody aboard can
+    // hear is not worth putting ink on a chart for.
+    expect(pixel(raw, 128, 128).a).toBe(0)
+  })
+
+  it('gets louder as more bands go under the cutoff', () => {
+    const at = (mhz: number) => {
+      const lattice = drapLattice({
+        ...grid,
+        frequenciesMHz: grid.frequenciesMHz.map((row) => row.map(() => mhz))
+      })!
+      return pixel(rasterizeTile(lattice, 0, 0, 0), 128, 128)
+    }
+    const low = at(5)
+    const high = at(30)
+    expect(high.a).toBeGreaterThan(low.a)
+    expect(high.r).toBeGreaterThan(high.g)
+    expect(low.g).toBeGreaterThan(low.r)
+  })
+
+  it('renders the captured grid at every zoom it serves', async () => {
+    const lattice = drapLattice(grid)!
+    for (let z = 0; z <= MAX_ZOOM; z++) {
+      const png = await renderTile(lattice, z, 0, 0)
       expect(readPng(png).width).toBe(TILE_SIZE)
     }
   })
