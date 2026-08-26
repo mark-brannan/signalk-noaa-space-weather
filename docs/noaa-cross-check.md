@@ -5,13 +5,13 @@ around it. **Nothing here is built yet.** This file settles what is settled and
 says plainly what is not, so the parts that are ready are one reviewable step
 each rather than five arguments.
 
-Tier 1 is **in review, not landed**. PR #124 extracts the scales render out of
-`index.html` into `public/scales.js` and adds `test/scales-render.test.ts`,
-which runs the real product over every payload in `examples/` and fails if a
-rendered field is `0` across all of them. That catches a surface wired to a
-dead path. It cannot catch NOAA changing a payload shape tomorrow, because
-tomorrow's payload is not in `examples/`. **Anything below that calls
-`scalesCard()` is blocked on #124 landing**; nothing else is.
+Tier 1 **has landed**, in #124 (`7a912bd`). The scales render is out of
+`index.html` and in `public/scales.js` as `scalesCard()`, and
+`test/scales-render.test.ts` runs the real product over every payload in
+`examples/` and fails if a rendered field is `0` across all of them. That
+catches a surface wired to a dead path. It cannot catch NOAA changing a payload
+shape tomorrow, because tomorrow's payload is not in `examples/` — which is
+what everything below is for. Nothing in this document is blocked any more.
 
 ## Three environments
 
@@ -76,7 +76,7 @@ difference decides whether the quiet-day argument holds.
 
 `examples/wwv.2026_08_25.txt`:
 
-```
+```text
 Space weather for the past 24 hours has been moderate.
 Radio blackouts reaching the R2 level occurred.
 ```
@@ -93,7 +93,7 @@ past 24 hours has been moderate."* That adjective is NOAA's own scale word
 `Text` field), and it names the maximum across all three scales. So the
 load-bearing comparison is one line:
 
-```
+```text
 NoaaScaleNames[max(G, S, R) of the card's observed] === the bulletin's summary adjective
 ```
 
@@ -105,8 +105,9 @@ fully quiet — 2026-08-20 is *minor*, 2026-08-25 is *moderate*. The forecast
 half of the 08-20 bulletin reads "No space weather storms are predicted for the
 next 24 hours", which suggests the observed half has a matching form, but that
 is inference. **Capture a genuinely quiet dated pair — `wwv.txt` and
-`noaa-scales.json` from the same hour — before writing the matcher.** The
-2026-08-25 pair is already captured, uncommitted, and should land with it.
+`noaa-scales.json` from the same hour — before writing the matcher.** Both
+2026-08-25 files are on `main` already; the fixture cron from #133 is what will
+catch the quiet one, since a quiet day cannot be arranged.
 
 That pair is also the evidence that this check has teeth on an ordinary day:
 2026-08-25 was G0/S0, its `latest` block reads R0, its `-1` block reads R2, and
@@ -141,10 +142,22 @@ in this plugin's history (solar wind `Bt`→`bt`, the Kp table alternating form)
 would have tripped this on a dead-quiet day.
 
 **Say "unproven", not "green".** Agreement at 0/0/0 corroborates less than
-agreement at G4. The run records the last date any live source reported a
-non-zero level and reports how long it has been since the live comparison had a
-storm in it. Weeks of quiet is normal and not a failure; it is context the
-summary must carry, so a green streak is never mistaken for a proven one.
+agreement at G4, so the summary reports how long it has been since the live
+comparison had a storm in it. Weeks of quiet is normal and not a failure; it is
+context the summary must carry, so a green streak is never mistaken for a
+proven one.
+
+**That figure is derived, not stored.** A scheduled run holds no state between
+invocations, and every store that could carry one — a committed file, an
+artifact, the run cache — is a second thing to keep correct for a line of prose.
+It does not need one: `/products/alerts.json` is a rolling 30-day archive, each
+message carrying an `issue_datetime` and its `NOAA Scale:` line, and the run
+already fetches it for the third opinion. The most recent message naming a
+non-zero level *is* the date, computed fresh every run from a payload already in
+hand. Past 30 days the archive says nothing, and neither does the summary: it
+reports **"more than 30 days"** rather than a number, which is the honest
+statement and not a degraded one — the question the line answers is "has this
+check seen a storm lately", and past a month the answer is no either way.
 
 ## The review rig — deliberately not settled
 
@@ -239,17 +252,29 @@ a captured payload. `API` in `src/noaa/client.ts` is a single exported const,
 so the whole seam is:
 
 ```ts
-export const API = process.env.NOAA_API_BASE ?? 'https://services.swpc.noaa.gov'
+const NOAA = 'https://services.swpc.noaa.gov'
+export const API = (process.env.NOAA_API_BASE || NOAA).replace(/\/+$/, '')
 ```
 
 with the caller serving `examples/` on loopback under NOAA's own subpaths (a
 small path table, since fixture names are dated and endpoint names are not). In
 a container it is one `environment:` line.
 
+Two details that are not decoration. `||` rather than `??`, because
+`NOAA_API_BASE=` set to nothing is a harness that failed to compute a base, and
+resolving it to the empty string turns every request into a relative URL that
+fails somewhere less obvious. And the trailing slash goes, because the client
+builds requests as `API + subPath` and a base ending in `/` yields
+`//products/...`, which NOAA tolerates and a fixture server matching exact
+paths does not.
+
 The trade-off is worth stating: that is a line of production code whose only
 callers are harnesses. It rots silently if nothing else touches it, so the
 offline suite asserts both sides of the default with a stubbed `fetch` — no
-server, no network, a few lines.
+server, no network, a few lines. `API` is read once at import, so each case sets
+the environment, imports the module fresh (`vi.resetModules()`), and restores
+both afterwards; a test that only sets the variable asserts the value the *first*
+import happened to see.
 
 Considered and rejected: intercepting global `fetch` from a `--require` preload
 with undici's `MockAgent`. It needs no production change, but it works by
@@ -261,13 +286,29 @@ that arrives looking like a plugin bug rather than a harness one.
 **Open one issue, do not fail the job.** A red scheduled job is easy to stop
 seeing. The run opens an issue labelled `noaa-drift` on disagreement and
 updates that same issue rather than minting a new one per day — the
-`alerts.json` lesson from #45, applied to ourselves.
+`alerts.json` lesson from #45, applied to ourselves. One issue at a time, edited
+in place, is also what makes it usable as the check's memory below.
 
-**Disagree twice in a row before writing anything.** The 24-hour windows the
+**Disagree twice in a row before calling it drift.** The 24-hour windows the
 three sources describe do not start at the same minute, so a single-run
 one-level disagreement across a transition is expected and is not drift. Two
 consecutive runs disagreeing the same way is. This also absorbs a replay flake
-and a NOAA 502.
+— a NOAA outage is handled a paragraph further down, by not counting at all.
+
+**The streak is the one thing that must persist, and the issue is where it
+lives.** A run that disagrees for the first time opens `noaa-drift` and says so
+in the title — *unconfirmed* — rather than staying silent and needing somewhere
+else to remember; the second consecutive run confirms it in place. That keeps
+one store rather than two, and the store is the artifact a human reads anyway.
+An open `noaa-drift` naming the same disagreement as this run is the streak;
+absent or naming a different one, this run is the first. Nothing needs a
+fallback for missing state, because missing state *is* the initial state.
+
+**A failed or incomplete run neither confirms nor clears.** A NOAA 502, a
+replay that did not boot, a source that parsed to `null` — none of that is
+evidence of agreement, so the streak is only advanced by a run in which every
+compared value was read and parsed. An agreeing run closes `noaa-drift`; a
+failed one leaves it exactly as it found it.
 
 Each update carries the context the quiet-day argument requires: which rig
 disagreed, the three values, and how long since the live comparison last had a
@@ -276,7 +317,7 @@ storm in it.
 ## Off the registry path
 
 The registry clones the default branch and runs `npm ci`, `npm run build`,
-`npm test` under `firejail --net=none` with a 60 second cap. Everything here
+`npm test` under `firejail --net=none` with a 60-second cap. Everything here
 adds:
 
 - no root dependency (each rig its own `package.json`, the way
@@ -295,16 +336,19 @@ Ordered by what unblocks what. **Nothing here waits on the review rig.**
 1. **The `NOAA_API_BASE` seam**, plus its two-sided offline test. One line of
    `src/`, and it unblocks both the storm replay and whatever the review rig
    turns out to be.
-2. **Fixtures** — capture a fully quiet `wwv.txt` and its matching
-   `noaa-scales.json`, and commit the 2026-08-25 pair with them.
+2. **Fixtures** — a fully quiet `wwv.txt` and its matching `noaa-scales.json`.
+   Not a task so much as a wait: #133's cron captures what the sky gives, and
+   the matcher's quiet case cannot be written honestly until one arrives.
 3. **The WWV matcher** — summary adjective and the three storm sentences,
    offline-tested against the quiet, minor and moderate fixtures. It belongs in
    the check, not in `parse.ts`: the plugin has no use for a second source of a
    value already on a path.
 4. **Live cross-check** — fetch, transform, `scalesCard()`, compare against the
-   bulletin and the in-force alert scales. *Blocked on #124.*
+   bulletin and the in-force alert scales.
 5. **Measure the storm replay**, then build it in whichever form the numbers
-   justify. *Blocked on #124.*
+   justify. It reads the badges through a browser rather than by calling
+   `scalesCard()`, so it never depended on Tier 1 and can be measured first if
+   that is more convenient.
 6. **One scheduled workflow** for 4 and 5, opening or updating `noaa-drift` on
    a second consecutive disagreement.
 7. **Release check** — the same comparison behind a `--url`, on a local timer,
