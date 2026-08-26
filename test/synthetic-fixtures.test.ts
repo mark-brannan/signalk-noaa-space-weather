@@ -233,9 +233,10 @@ describe('synthetic fixtures', () => {
       ).toBe('M2.1')
     })
 
-    it('reads current and max as separate values when they differ', () => {
-      // #122 is this tile drawing the wrong one of the two. The peaked file
-      // has decayed to M2.1 from a max of X1.8; the rising one has not.
+    it('holds a decayed flare and a rising one, which differ only in max', () => {
+      // No parser reads `max_class` yet, so this asserts the pair's shape
+      // rather than any behaviour: a fix for #122 needs a payload where
+      // current and max disagree, and the one real capture has none.
       const peaked = syntheticJson('xray-flares-latest.x-class-peaked.json')
       expect(peaked[0].current_class).not.toBe(peaked[0].max_class)
       const rising = syntheticJson('xray-flares-latest.x-class-rising.json')

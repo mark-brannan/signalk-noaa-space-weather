@@ -12,24 +12,21 @@ a real sky does not produce often enough to wait for.
 
 ## Why they exist
 
-Issue #120 shipped a badge wired to NOAA's instantaneous scale field instead of
-the 24-hour observed maximum. That field reads `0` in all six real
-`noaa-scales` captures, including the day whose 24-hour maximum was G4. So the
-correct output and the broken output were the same bytes, and 441 tests stayed
-green.
-
-Waiting for real storms does not close that gap. Measured across the six real
-captures: the R probabilities are **identical for forecast days 1, 2 and 3 in
-every one of them**, because that is genuinely what NOAA publishes most days. A
-surface drawing day 3's numbers in day 1's cell is invisible in every real
-fixture there will ever be.
+A real capture cannot catch a surface reading the wrong slot, because the
+slots that get confused hold the same value on an ordinary day. The
+instantaneous scale field and the 24-hour observed maximum agree at `0`
+whenever nothing is happening; the forecast probabilities repeat across days 1,
+2 and 3 whenever NOAA has nothing to distinguish them by. Correct output and
+broken output are then the same bytes, which is what #120 shipped through.
+Waiting for a storm does not close that gap — the agreement is what a quiet sky
+*is*.
 
 So the rule these files follow: **every slot a surface reads carries a
 different value**, and a wrong slot therefore produces a wrong number rather
 than a coincidentally right one.
 
 `test/synthetic-fixtures.test.ts` drives all of them and asserts this list is
-complete — a fixture added here and never read is exactly how #120 survived.
+complete, so a fixture added here and never read cannot go unnoticed.
 
 ## What each one is for
 
@@ -57,8 +54,10 @@ complete — a fixture added here and never read is exactly how #120 survived.
 
 `xray-flares-latest.x-class-peaked.json` has decayed to M2.1 from a max of
 X1.8; `xray-flares-latest.x-class-rising.json` is at X2.4 and still climbing,
-so current equals max. #122 is this tile drawing the wrong one of that pair,
-and the only real capture is a single B3.3 nothing-day.
+so current equals max. The only real capture is a single B3.3 nothing-day,
+where the two are equal and a tile drawing either reads the same. Nothing in
+`src/` or `public/` reads `max_class` yet — these two are the payloads a fix
+for #122 would need, not evidence that one exists.
 `xray-flares-latest.hostile-empty.json` is `[]` (NOAA serves this between
 flares) and `xray-flares-latest.hostile-nulls.json` has null classes with
 numbers as strings.
