@@ -21,7 +21,8 @@ from different layers of the ionosphere with different drivers:
 - **The floor** — D-region absorption. Flare X-rays over-ionise the D layer
   within minutes and it _absorbs_ rather than reflects, lowest frequencies
   hardest. Solar protons do the same over the polar caps for days. Below the
-  floor, nothing gets out.
+  floor, loss climbs roughly as 1/f² — a decibel at the cutoff, tens of dB
+  further down.
 - **The ceiling** — F2-layer reflection. `foF2` caps near-vertical (NVIS,
   regional) paths; `MUF(3000)` — roughly 3× foF2 — caps a 3000 km oblique
   hop. EUV output sets its strength, geomagnetic storms depress it. Above the
@@ -218,9 +219,11 @@ probability, D-RAP. Solar flux is the opposite: high is _good_. A ladder that
 put low SFI into `alert` would sit there continuously through solar minimum,
 which is the #45 failure in slow motion — a permanent notification describing
 a condition nobody can act on and nothing will change for years. If F10.7 gets
-zones at all they should stay at `nominal`/`normal` with empty method arrays,
-descriptive only. The alternative is the `A_INDEX_BASE` precedent: no zones,
-with the reasoning written on the path.
+zones at all they should stay at `nominal`/`normal` with empty method arrays —
+transitions still raise `notifications.<path>`, but at those states and
+silent, the same trace every ladder's quiet rungs already leave. The
+alternative is the `A_INDEX_BASE` precedent: no zones, with the reasoning
+written on the path.
 
 **D-RAP's ladder is a frequency, not a severity.** "9.9 MHz absorbed" is bad
 for someone working 8 MHz and irrelevant to someone on 22 MHz, so the severity
@@ -295,6 +298,7 @@ are scheduled.
   presentation. Raised in the #153 review, not decided.
 - **D-RAP and aurora as one charting product.** NOAA's own
   [radio-communications dashboard](https://www.spaceweather.gov/communities/radio-communications)
-  draws them side by side. `parseDrapGrid` already builds the full 90×90 grid
-  (42,499 bytes, measured 2026-08-26) and `drap.ts` reads one cell of 8,100,
-  so the fetch is already paid for.
+  draws them side by side. `parseDrapGrid` already builds the full global grid
+  and `drap.ts` reads one cell of it, so the fetch is already paid for — the
+  grid's dimensions and wire cost are measured in
+  [noaa-products.md](noaa-products.md).

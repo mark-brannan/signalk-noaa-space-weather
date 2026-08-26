@@ -125,7 +125,8 @@ absorption and reflection as maps and numbers at the vessel's position.
   hundred bytes. Product page:
   <https://www.swpc.noaa.gov/products/geophysical-alert-wwv-text>.
 - "SFI / A / K / SSN" is the phrase every ham reads conditions in; the
-  plugin has SFI and Kp, lacks A and SSN. `docs/noaa-products.md`'s
+  plugin now publishes all four (`aIndex.ts` and `sunspot.ts` filled the
+  gap). `docs/noaa-products.md`'s
   "Sunspot number (#84)" section already settled the SSN source: the
   `/json/solar-cycle/` products are monthly-only or the unbounded full
   history per poll, so it picked `/text/daily-solar-indices.txt` (DSD.txt)
