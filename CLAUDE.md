@@ -218,23 +218,16 @@ and `signalk-charts-provider-simple` installed. Look before assuming — that
 list grows.
 
 **The server finds plugins by scanning `node_modules/`, not by reading
-`package.json`.** `findModulesInDir` in signalk-server's `src/modules.ts`
-walks each directory under `<configPath>/node_modules/` and checks that
-package's own `keywords` for `signalk-node-server-plugin`. So a symlink
-dropped into `~/.signalk/node_modules/` is enough to wire this plugin in, with
-no dependency entry and no `npm install` — which matters, because installing
-anything in that directory re-resolves every caret range in it and can upgrade
-plugins you weren't touching.
+`package.json`**, so a symlink dropped into `~/.signalk/node_modules/` wires
+this plugin in with no dependency entry and no `npm install` — and don't run
+one there, it can upgrade plugins you weren't touching.
 
-**`~/.signalk/node_modules/signalk-noaa-space-weather` is a symlink to this
-repo, and it should stay one.** A rebuild here reaches the server with no
-reinstall, which is the whole point. Recreate it with `ln -s` if something
-replaces it — an `npm install` in that directory will, since the `file:`
-dependency entry installs as a *copy* of the packed files instead. (Don't
-"fix" that with `npm link`: it writes a `link:` spec that npm 9 refuses to
-install at all with `EUNSUPPORTEDPROTOCOL`, which is what broke
-`~/.signalk-dev`.) Check which one you have before wondering why a change
-did not show up.
+**`~/.signalk/node_modules/signalk-noaa-space-weather` is that symlink, and it
+should stay one.** A rebuild here reaches the server with no reinstall, which
+is the whole point. Recreate it with `ln -s` if something replaces it with a
+copy, and don't reach for `npm link`. Check which one you have before
+wondering why a change did not show up. Argument in
+[docs/design-decisions.md](docs/design-decisions.md#the-dev-server-finds-this-plugin-by-symlink).
 
 The corollary, and it bites across parallel sessions: **the server runs
 whatever branch this repo has checked out**, from whatever is in `dist/`
@@ -329,10 +322,8 @@ one means breaking the plugin on purpose -- which is the whole reason the
 file exists. Reach for it instead of hand-editing the DOM in devtools, and
 add a state there rather than faking one in the console.
 
-It has no dependencies and nothing imports it. Keep it that way: the plugin
-registry clones this repo and runs `npm ci`, `npm run build` and `npm test`
-under `firejail --net=none` with a 60 second cap, and this script has to stay
-invisible to all three.
+It has no dependencies and nothing imports it. Keep it that way — it has to
+stay invisible to the registry's offline `npm ci`, build and test run.
 
 The aurora map is deliberately not mocked -- it needs a real grid cache to
 draw, and faking one would be mocking `tiles.ts` rather than the webapp -- so
@@ -360,8 +351,8 @@ the upstream instead.
 
 `scripts/screenshots/capture.mjs` rewrites all five PNGs in `docs/screenshots/`
 against a running server. It is a **separate npm package** on purpose —
-Playwright would blow both the offline `npm ci` and the 60 second cap the
-registry scores this repo with — so install it on its own:
+Playwright would blow both the registry's offline `npm ci` and its 60 second
+cap — so install it on its own:
 
 ```shell
 npm install --prefix scripts/screenshots
@@ -426,36 +417,28 @@ precisely a disagreement between the two.
 Publishing happens from CI via npm OIDC trusted publishing — tag `vX.Y.Z` and
 push. No npm token should ever live on a developer machine.
 
-The number is decided **before** the merge and the release happens **after** it,
-and those are deliberately not the same moment. `.husky/pre-commit` writes the
-patch at commit time; `.github/workflows/version-gate.yml` blocks a pull request
-that changed what ships without one. The hook is the convenience, the gate is
-the guarantee — and only while the ruleset requires the `version` check, since a
-red gate nothing requires can be merged past. `auto-version.yml` catches on
-`main` what the gate should have caught, and fails loudly rather than exiting 0.
-None of them write to `main`, so the ruleset keeps requiring a pull request and
-a signed commit for every change.
+The number is decided **before** the merge and the release happens **after**
+it. `.husky/pre-commit` writes the patch at commit time (the convenience);
+`.github/workflows/version-gate.yml` blocks a pull request that changed what
+ships without one (the guarantee, and only while the ruleset requires the
+`version` check). `auto-version.yml` catches on `main` what the gate should
+have caught, and fails loudly rather than exiting 0. None of them write to
+`main`, so the ruleset keeps requiring a pull request and a signed commit for
+every change.
 
-**Ahead of the latest tag, never merely different from it.** A stale branch
-differs from it too, which is how #123 squash-merged at a version already on
-npm and never published.
+**Ahead of the latest tag, never merely different from it** — a stale branch
+differs from it too
+([#123](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/123)).
 
-**A merge does not publish. `release.yml` does, on a debounce.** It runs hourly
-and tags `main` only once nothing has merged for `RELEASE_WINDOW_HOURS`, so a
-busy afternoon ships one release when the afternoon ends instead of one per
-pull request — 59 releases in the first 24 days is what the merge-publishes
-design cost. A `workflow_dispatch` run skips the wait and flushes whatever is
-pending immediately; it skips nothing else, since the tag is still what says
-what has already been published.
-
-**So the gate requires a version past the latest tag and pointedly not past
-`main`'s own.** Between a merge and the window closing, `main` sits at a version
-that has not shipped, and a second pull request is meant to *join* it there.
-That shared number is the batching, and it is why released versions stay
-contiguous instead of skipping the ones a second concurrent branch would
-otherwise have minted. Only a tagged version is spent. Do not reintroduce a
-check that a pull request be ahead of the base — it was there when every merge
-published, and under the window it is exactly what puts the gaps back.
+**A merge does not publish. `release.yml` does, on a debounce** — hourly, and
+it tags `main` only once nothing has merged for `RELEASE_WINDOW_HOURS`; a
+`workflow_dispatch` run skips that wait and flushes whatever is pending, and
+skips nothing else. **So the gate requires a version past the latest tag and
+pointedly not past `main`'s own** — between a merge and the window closing,
+`main` sits at an unshipped version a second pull request is meant to *join*.
+Only a tagged version is spent. Do not reintroduce a check that a pull request
+be ahead of the base. Argument in
+[docs/design-decisions.md](docs/design-decisions.md#a-merge-does-not-publish-releaseyml-does-on-a-debounce).
 
 All of the above read one file, `scripts/publish-impact.sh`, pinned by
 `test/publish-impact.test.ts`.
