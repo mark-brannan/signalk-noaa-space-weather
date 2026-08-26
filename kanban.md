@@ -62,6 +62,16 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Fix the D-RAP path-scoring bugs that landed with
+      [#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169) —
+      `greatCirclePoints` in `public/drapMap.js` degenerates on
+      near-antipodal endpoints (`sin(δ)` doesn't hit exactly 0, so the
+      interpolation cancels two huge opposite vectors) and its fixed 100km
+      step can skip narrow polar cells (a 4° longitude cell is ~7.8km wide at
+      89°, so a polar-cap blackout can be missed). Both pre-date the rebase;
+      flagged by CodeRabbit and left unfixed as out of scope for it —
+      [antipodal](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169#discussion_r3862140621),
+      [polar coverage](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169#discussion_r3866708876)
 - [ ] Cut the README down — 246 lines and still growing, and every feature
       lands one more paragraph in it. The getting-started path is buried under
       design rationale that belongs in
