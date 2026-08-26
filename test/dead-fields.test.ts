@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { LETTERS, scalesCard } from '../public/scales.js'
-import { SOLAR_WIND_BASE, XRAY_FLARE_BASE } from '../src/paths'
+import { SOLAR_WIND_BASE } from '../src/paths'
 import { solarWind } from '../src/products/solarWind'
-import { scales } from '../src/products/scales'
 import {
-  FLARE_ENDPOINT,
+  FLARE_FIXTURES,
   SCALES_FIXTURES,
+  SOLAR_WIND_FIXTURES,
   SYNTHETIC_FLARE_FIXTURES,
   SYNTHETIC_HOSTILE_SCALES_FIXTURES,
   SYNTHETIC_SCALES_FIXTURES,
@@ -22,11 +22,15 @@ import { harness } from './harness'
  * fields correctly, and the wrong one was read one layer up, in the webapp.
  *
  * So this drives the real product over every fixture in `examples/` -- real
- * captures and the invented corpus in `examples/synthetic/` alike -- through
- * the same Signal K paths the webapp's card modules read, and fails if any
- * field is 0-or-absent in every single one. A field that never once moves
- * across the whole corpus is not a quiet sky; it is a surface wired to the
- * wrong place.
+ * captures and the invented corpus in `examples/synthetic/` alike -- and asks
+ * the webapp's own card module what it draws, then fails if any field is
+ * 0-or-absent across the whole corpus. A field that never once moves is not a
+ * quiet sky; it is a surface wired to the wrong place.
+ *
+ * Asking the card rather than the Signal K path is the whole point. #120 was
+ * a correct value on a correct path, read from the wrong one a layer above,
+ * so a sweep that stops at the path proves only the half that was never
+ * broken. Solar wind is the exception below, and says why.
  *
  * It is only ever as good as the corpus. Against an all-quiet one it would
  * pass a card wired to nothing, which is why `scales-render.test.ts` still
@@ -51,14 +55,13 @@ const SCALES_CORPUS = [
   ...SYNTHETIC_HOSTILE_SCALES_FIXTURES.map((f) => `synthetic/${f}`)
 ]
 
-const REAL_FLARE_FIXTURE = 'xray-flares-latest.2026_08_06.json'
 const FLARE_CORPUS = [
-  REAL_FLARE_FIXTURE,
+  ...FLARE_FIXTURES,
   ...SYNTHETIC_FLARE_FIXTURES.map((f) => `synthetic/${f}`)
 ]
 
-// Any payload the flare fetch can be hung off; the scales half is not what
-// these cases are asserting on.
+// The flare class comes from its own endpoint, so the scales half of that
+// pairing is irrelevant to it -- any payload that publishes will do.
 const ANY_SCALES_FIXTURE = 'noaa-scales.2026_08_01.json'
 
 const isDead = (values: unknown[]) =>
@@ -66,10 +69,10 @@ const isDead = (values: unknown[]) =>
 
 describe('no field a webapp surface draws is dead across the whole fixture corpus', () => {
   it('finds a non-zero Storm Scales reading somewhere in examples/', async () => {
+    // No flare fixture paired in: nothing recorded below reads the flare
+    // class, and the case below sweeps it over a corpus of its own.
     const cards = await Promise.all(
-      SCALES_CORPUS.map(async (f) =>
-        scalesCard(await publishedScalesTree(f, REAL_FLARE_FIXTURE))
-      )
+      SCALES_CORPUS.map(async (f) => scalesCard(await publishedScalesTree(f)))
     )
 
     // Keyed by label, so a failure names the field rather than the count.
@@ -94,37 +97,36 @@ describe('no field a webapp surface draws is dead across the whole fixture corpu
   })
 
   it('finds a non-empty X-ray flare class somewhere in examples/', async () => {
-    const classes: unknown[] = []
-    for (const flareFixture of FLARE_CORPUS) {
-      const h = harness({
-        '/products/noaa-scales.json': fixtureJson(ANY_SCALES_FIXTURE),
-        [FLARE_ENDPOINT]: fixtureJson(flareFixture)
-      })
-      await scales.refresh(h.ctx)
-      classes.push(h.valueAt(`${XRAY_FLARE_BASE}.class`))
-    }
+    const classes = await Promise.all(
+      FLARE_CORPUS.map(
+        async (f) =>
+          scalesCard(await publishedScalesTree(ANY_SCALES_FIXTURE, f))
+            .flareClass
+      )
+    )
     expect(classes.some((v) => typeof v === 'string' && v.length > 0)).toBe(
       true
     )
   })
 
   it('finds a non-zero solar wind reading somewhere in examples/', async () => {
-    // Only one real capture exists and there is no synthetic solar-wind
-    // fixture yet -- this still guards the wiring against the one payload we
-    // have, and grows the moment a second one lands.
-    const h = harness({
-      '/products/summary/solar-wind-speed.json': fixtureJson(
-        'solar-wind-speed.2026_08_01.json'
-      ),
-      '/products/summary/solar-wind-mag-field.json': fixtureJson(
-        'solar-wind-mag-field.2026_08_01.json'
-      )
-    })
-    await solarWind.refresh(h.ctx)
+    // The one sweep that stops at the Signal K path: solar wind has no card
+    // module of its own -- `index.html` reads the three leaves directly -- so
+    // there is no layer above to ask.
+    const drawn: Record<string, unknown[]> = {}
+    for (const { speed, magField } of SOLAR_WIND_FIXTURES) {
+      const h = harness({
+        '/products/summary/solar-wind-speed.json': fixtureJson(speed),
+        '/products/summary/solar-wind-mag-field.json': fixtureJson(magField)
+      })
+      await solarWind.refresh(h.ctx)
+      for (const field of ['speed', 'Bt', 'Bz'])
+        (drawn[field] ??= []).push(h.valueAt(`${SOLAR_WIND_BASE}.${field}`))
+    }
 
-    const dead = ['speed', 'Bt', 'Bz'].filter((field) =>
-      isDead([h.valueAt(`${SOLAR_WIND_BASE}.${field}`)])
-    )
+    const dead = Object.entries(drawn)
+      .filter(([, values]) => isDead(values))
+      .map(([label]) => label)
     expect(dead).toEqual([])
   })
 })

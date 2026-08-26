@@ -68,6 +68,28 @@ export const SYNTHETIC_HOSTILE_SCALES_FIXTURES = [
   'noaa-scales.hostile-out-of-range.json'
 ]
 
+/**
+ * Real X-ray flare captures. A list rather than one name so a new capture is
+ * swept by everything that reads it, with no second edit.
+ */
+export const FLARE_FIXTURES = [
+  'xray-flares-latest.2026_08_06.json',
+  'xray-flares-latest.2026_08_25.json'
+]
+
+/**
+ * Solar wind arrives on two endpoints, so a capture is a pair: speed and
+ * magnetic field from the same moment. Paired here rather than as two lists
+ * because reading a speed from one day against a Bz from another would be a
+ * fixture nobody captured.
+ */
+export const SOLAR_WIND_FIXTURES = [
+  {
+    speed: 'solar-wind-speed.2026_08_01.json',
+    magField: 'solar-wind-mag-field.2026_08_01.json'
+  }
+]
+
 export const SYNTHETIC_FLARE_FIXTURES = [
   'xray-flares-latest.x-class-peaked.json',
   'xray-flares-latest.x-class-rising.json',
