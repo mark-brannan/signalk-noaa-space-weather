@@ -24,15 +24,20 @@ jobs:
           fetch-depth: 0 # tags, and enough history to diff against the base
 
       - name: Require a version past the latest tag when the tarball changes
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           . ./scripts/publish-impact.sh
 
-          # HEAD is the merge result GitHub built for this PR. --no-renames
-          # because a src/foo.ts -> docs/foo.ts rename is reported as the new
-          # path alone, which the skip list would wave through.
-          CHANGED=$(git diff --name-only --no-renames "$BASE_SHA" HEAD)
+          # HEAD is the merge result GitHub built for this PR, so HEAD^1 is the
+          # base branch tip it was actually merged from. Not
+          # `pull_request.base.sha`: that is the base as of when the PR was
+          # opened, so once main moves, everything merged since is diffed in
+          # and blamed on this PR. Measured -- #141 landed a public/index.html
+          # change and this gate demanded a bump from an unrelated branch that
+          # touches no shipping file at all.
+          #
+          # --no-renames because a src/foo.ts -> docs/foo.ts rename is reported
+          # as the new path alone, which the skip list would wave through.
+          CHANGED=$(git diff --name-only --no-renames HEAD^1 HEAD)
           if [ -z "$CHANGED" ] || ! echo "$CHANGED" | publish_impacting; then
             echo "Nothing here reaches the published tarball; no version needed."
             exit 0
