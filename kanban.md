@@ -57,3 +57,27 @@ Nothing in flight.
       the HF tile wants, written by NOAA, at zero extra bandwidth; today it is
       only reachable by re-deriving it from an X-ray flux slope
       ([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32))
+- [ ] Build the HF Radio tile and the data behind it
+      ([#110](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/110)) —
+      design is settled and recorded on the issue and in
+      [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md);
+      this is the implementation. Six paths reach `ENDPOINTS` in
+      `public/signalk.js`; the three-across row (aurora / Solar Activity / HF
+      Radio, all `span-4`) with Solar Wind renamed and dropped from `span-8`;
+      the band strip filling only the measured floor;
+      [#122](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/122)'s
+      two flare values with a dated `xray-flares-7-day` fixture (28.2 KB
+      measured 2026-08-26); the X-ray trend, derived from the ~700 records
+      already fetched every poll and currently discarded; the F10.7 bands as
+      labelled convention; and zone metadata on the HF paths — reading the
+      two hazards in `hf-operator-view.md` first, since F10.7 is inverted and
+      D-RAP's value is a frequency rather than a severity
+- [ ] Review the two HF markdown docs for accuracy and overlap —
+      [hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md)
+      is new and unreviewed, and it deliberately splits from
+      [ham-radio-research.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/ham-radio-research.md)
+      along products-versus-reading, which is a line worth checking someone
+      else agrees with. Verify every threshold's provenance label, and confirm
+      nothing restates a measurement that belongs in
+      [noaa-products.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/noaa-products.md)
+      ([#153](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/153))
