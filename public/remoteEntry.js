@@ -67,6 +67,9 @@ const ADVISORY_OUTLOOK_URL =
 const NOAA_SCALES_URL = 'https://www.spaceweather.gov/noaa-scales-explanation'
 const AURORA_URL =
   'https://www.spaceweather.gov/communities/aurora-dashboard-experimental'
+// NOAA's own page for the D-RAP model, for the same reason: the checkbox can
+// show what it is offering rather than only naming a four-letter product.
+const DRAP_URL = 'https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap'
 
 let React = null
 
@@ -452,6 +455,10 @@ function createPanel(React) {
       { className: 'bg-body-tertiary border rounded p-3 small' },
       row('Observations, forecasts and alerts', day.other),
       row(
+        settings.drapEnabled ? 'HF absorption (D-RAP)' : 'HF absorption (off)',
+        day.drap
+      ),
+      row(
         // Zero a day, but not zero: the webapp can still be asked for a grid,
         // and a bill that reads "off" would be understating what a press costs.
         settings.auroraEnabled ? 'Aurora grid' : 'Aurora grid (on demand only)',
@@ -640,6 +647,24 @@ function createPanel(React) {
             ' fetch the grid once, when you ask it to. Nothing is fetched' +
             ' until the vessel has a position. ',
           h(NoaaLink, { href: AURORA_URL, text: "NOAA's aurora forecast" })
+        )
+      }),
+
+      h(Check, {
+        id: 'noaa-drap-enabled',
+        checked: settings.drapEnabled,
+        onChange: (value) => set('drapEnabled', value),
+        label: "Publish NOAA's D-RAP HF absorption forecast",
+        help: h(
+          'span',
+          null,
+          'Publishes the highest HF frequency degraded by D-region absorption' +
+            ' at the vessel position — the frequency below which the band is' +
+            ' effectively dead. Fetched on the "everything else" interval' +
+            ' below, and about two thirds again on top of what that interval' +
+            ' otherwise costs, which is why it has a switch of its own.' +
+            ' Nothing is fetched until the vessel has a position. ',
+          h(NoaaLink, { href: DRAP_URL, text: "NOAA's D-RAP model" })
         )
       }),
 
