@@ -27,7 +27,16 @@ export function readDrapCache(dataDirPath: string): DrapCacheEntry | null {
     CACHE_FILENAME,
     (parsed) => {
       const grid = parsed.grid as DrapGrid | undefined
-      return !!grid && Array.isArray(grid.frequenciesMHz)
+      return (
+        !!grid &&
+        Array.isArray(grid.latitudes) &&
+        Array.isArray(grid.longitudes) &&
+        Array.isArray(grid.frequenciesMHz) &&
+        grid.frequenciesMHz.length === grid.latitudes.length &&
+        grid.frequenciesMHz.every(
+          (row) => Array.isArray(row) && row.length === grid.longitudes.length
+        )
+      )
     }
   )
 }

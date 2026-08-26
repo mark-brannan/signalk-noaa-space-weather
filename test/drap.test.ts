@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'fs'
+import { mkdtempSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
@@ -134,6 +134,42 @@ describe('D-RAP product', () => {
       expect(await drap.refresh(h.ctx as any)).toBe('awaiting-position')
       expect(h.published).toEqual([])
     }
+  })
+
+  it('rejects a cached grid whose rows do not match its own axes', () => {
+    // A grid with frequenciesMHz but no latitudes/longitudes, or a matrix
+    // whose row/column counts don't match, is not a value future lookups can
+    // trust -- treat it as nothing cached rather than let a lookup index off
+    // the end of a shorter axis.
+    const dataDir = mkdtempSync(join(tmpdir(), 'drap-test-'))
+    const write = (grid: unknown) =>
+      writeFileSync(
+        join(dataDir, 'drap-grid.json'),
+        JSON.stringify({ fetchedAt: new Date().toISOString(), grid })
+      )
+
+    write({ frequenciesMHz: [[1, 2]] })
+    expect(readDrapCache(dataDir)).toBeNull()
+
+    write({
+      latitudes: [1],
+      longitudes: [1, 2],
+      frequenciesMHz: [
+        [1, 2],
+        [3, 4]
+      ]
+    })
+    expect(readDrapCache(dataDir)).toBeNull()
+
+    write({
+      latitudes: [1, 2],
+      longitudes: [1, 2],
+      frequenciesMHz: [[1, 2], [3]]
+    })
+    expect(readDrapCache(dataDir)).toBeNull()
+
+    write({ latitudes: [1], longitudes: [1, 2], frequenciesMHz: [[1, 2]] })
+    expect(readDrapCache(dataDir)).not.toBeNull()
   })
 
   it('reports a malformed payload without publishing', async () => {

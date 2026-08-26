@@ -188,7 +188,7 @@ steps and leaves a recurring cost behind when the last one is forgotten. Four
 things fall out of that and none are optional:
 
 - `start()` publishes `metadata()` only for the products it schedules, so the
-  route publishes the product's itself before the first value. Without it the
+  route publishes the product's metadata before the first value. Without it the
   value lands on a path with no units, no zones and no display name.
 - A successful manual fetch defers the next scheduled run by a full interval.
   The payload has just been bought; a refresh a minute before the tick must
