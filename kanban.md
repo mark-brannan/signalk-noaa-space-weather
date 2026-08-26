@@ -7,6 +7,11 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Decide the fate of `claude-review.yml` after the scope-down — keep the
+      narrow version, or drop it entirely (delete the workflow and the
+      `CLAUDE_CODE_OAUTH_TOKEN` secret) and let CodeRabbit be the one
+      reviewer; also decide whether CodeRabbit itself stays
+      ([context](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/156))
 - [ ] Review the corpus-canary deletion in `test/scales-render.test.ts` —
       [#146](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/146)
       moved "no number the card draws is dead across the whole corpus" into
