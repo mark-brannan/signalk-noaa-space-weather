@@ -1756,7 +1756,7 @@ export function xrayFluxTrend(xrayJson: any): XrayTrend | null {
 
   const recent = median(fluxes(0, 1))
   const prior = median(fluxes(1, 2))
-  if (recent === null || prior === null || prior <= 0) return null
+  if (recent === null || prior === null) return null
   return { ratio: recent / prior, time: new Date(latest.at).toISOString() }
 }
 
