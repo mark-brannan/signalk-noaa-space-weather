@@ -253,28 +253,36 @@ so the whole seam is:
 
 ```ts
 const NOAA = 'https://services.swpc.noaa.gov'
-export const API = (process.env.NOAA_API_BASE || NOAA).replace(/\/+$/, '')
+const base = process.env.NOAA_API_BASE
+if (base !== undefined && base.trim() === '') {
+  throw new Error('NOAA_API_BASE is set but empty')
+}
+export const API = (base ?? NOAA).replace(/\/+$/, '')
 ```
 
 with the caller serving `examples/` on loopback under NOAA's own subpaths (a
 small path table, since fixture names are dated and endpoint names are not). In
 a container it is one `environment:` line.
 
-Two details that are not decoration. `||` rather than `??`, because
-`NOAA_API_BASE=` set to nothing is a harness that failed to compute a base, and
-resolving it to the empty string turns every request into a relative URL that
-fails somewhere less obvious. And the trailing slash goes, because the client
-builds requests as `API + subPath` and a base ending in `/` yields
+Two details that are not decoration. **Set-but-empty throws**, because it is a
+harness that failed to compute a base, and both quiet answers are worse than a
+crash: falling back to the default turns the storm replay into a live-data run
+that stays green while testing nothing it claims to, and an empty string makes
+every request relative and fails somewhere less obvious. Unset is the only
+thing that means "use NOAA" — fail closed on a gate, the way `pre_commit` and
+the guards in this repo already do. And the trailing slash goes, because the
+client builds requests as `API + subPath` and a base ending in `/` yields
 `//products/...`, which NOAA tolerates and a fixture server matching exact
 paths does not.
 
 The trade-off is worth stating: that is a line of production code whose only
 callers are harnesses. It rots silently if nothing else touches it, so the
 offline suite asserts both sides of the default with a stubbed `fetch` — no
-server, no network, a few lines. `API` is read once at import, so each case sets
-the environment, imports the module fresh (`vi.resetModules()`), and restores
-both afterwards; a test that only sets the variable asserts the value the *first*
-import happened to see.
+server, no network, a few lines — the default, an override, a trailing slash
+stripped, and set-but-empty throwing. `API` is read once at import, so each case
+sets the environment, imports the module fresh (`vi.resetModules()`), and
+restores both afterwards; a test that only sets the variable asserts the value
+the *first* import happened to see.
 
 Considered and rejected: intercepting global `fetch` from a `--require` preload
 with undici's `MockAgent`. It needs no production change, but it works by
@@ -336,7 +344,18 @@ adds:
 - workflow files, which the registry never runs
 
 The one production line it does add — the `NOAA_API_BASE` default above — is
-inert unless the variable is set, and the offline suite covers both sides.
+inert unless the variable is set, and the offline suite covers every branch of
+it.
+
+**Where the rigs' own tests live, since not under `test/`.** Each rig is its own
+package under `scripts/`, the way `scripts/screenshots/` already is, and its
+tests sit beside it — `scripts/cross-check/*.test.mjs`, run by that package's
+own `npm test`, never by the root one. The WWV matcher is the first of these:
+pure, offline, fed the `examples/` fixtures by path, and no reason it could not
+run on every pull request. So it gets a CI job of its own that installs only
+that package and runs only its tests. That keeps it visible per-PR without
+putting a rig dependency in the root `package.json` or a file the registry's
+`npm test` would try to run.
 
 ## Plan
 
@@ -348,10 +367,11 @@ Ordered by what unblocks what. **Nothing here waits on the review rig.**
 2. **Fixtures** — a fully quiet `wwv.txt` and its matching `noaa-scales.json`.
    Not a task so much as a wait: #133's cron captures what the sky gives, and
    the matcher's quiet case cannot be written honestly until one arrives.
-3. **The WWV matcher** — summary adjective and the three storm sentences,
-   offline-tested against the quiet, minor and moderate fixtures. It belongs in
-   the check, not in `parse.ts`: the plugin has no use for a second source of a
-   value already on a path.
+3. **The WWV matcher** — summary adjective and the three storm sentences, in
+   `scripts/cross-check/` with its own package and its own tests, plus the CI
+   job that runs them per pull request. Offline, against the quiet, minor and
+   moderate fixtures. It belongs in the check, not in `parse.ts`: the plugin has
+   no use for a second source of a value already on a path.
 4. **Live cross-check** — fetch, transform, `scalesCard()`, compare against the
    bulletin and the in-force alert scales.
 5. **Measure the storm replay**, then build it in whichever form the numbers
