@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.29.1] - 2026-08-26
+
+### Fixed
+
+- **Oswald and Space Mono subset to Latin.** The webapp shipped the full font
+  files for a page that renders Latin text only.
+
+### Changed
+
+- **The scales card's Signal K wiring moved out of `index.html`** into
+  `public/scales.js` and `public/signalk.js`, so the path plumbing can be
+  tested rather than read.
+
 ## [0.29.0] - 2026-08-25
 
 ### Changed
