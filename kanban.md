@@ -34,10 +34,6 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
-- [ ] Subset the two unsubset embedded faces in `public/index.html` — Oswald
-      (224 KB) and Space Mono (2 x ~128 KB) are the full character range, while
-      Nunito and Red Hat Mono are already subset; ~450 KB of a 604 KB page
-      ([#135](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/135))
 - [ ] Add a `.coderabbit.yaml` scoping AGENTS.md's rules by path — with none in
       the repo it reads the whole file as coding guidelines and applied the
       commit-subject format to a CHANGELOG entry
