@@ -7,12 +7,20 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
-- [ ] Pick how the D-RAP map tiles and webapp map should color-match NOAA's
-      colorbar — match NOAA exactly on both surfaces (as asked) or repeat
-      aurora's chart-overlay-exact/webapp-adapted split; the measured NOAA
-      color stops are on the issue
-      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170)).
-      Blocks the D-RAP map-tiles card below
+- [ ] Reconcile four overlapping D-RAP map efforts before merging any of
+      them: [#166](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/166)
+      (regional map, Aurora/HF layer switch) and
+      [#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169)
+      (regional map, subsolar point, click-to-score path) both predate
+      [#174](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/174)'s
+      azimuthal-equidistant recommendation and use a windowed/regional
+      treatment instead. This session built the global azimuthal map #174
+      asked for as a clean new implementation rather than folding into
+      either — a unilateral call, flagged here rather than only in the PR,
+      because closing or salvaging #166/#169 (its path-scoring feature in
+      particular) is a call only you can make. #172 (coastline module,
+      green, unmerged) is a dependency this session's PR copies rather than
+      waits on; see that PR's description for the landing-order note
 - [ ] Decide the fate of `claude-review.yml` after the scope-down — keep the
       narrow version, or drop it entirely (delete the workflow and the
       `CLAUDE_CODE_OAUTH_TOKEN` secret) and let CodeRabbit be the one
@@ -162,14 +170,17 @@ what it is blocked by. Delete it when it is done.
       [#110](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/110)
       and
       [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md)
-- [ ] Render the D-RAP grid as map tiles beside the aurora overlay — the full
-      90x90 grid is already fetched and parsed, `tiles.ts` is nearly
-      grid-agnostic, and a map is the only surface that can answer _path_
-      absorption (see "Every reading here is at the vessel" in
-      [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md))
-      ([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32)).
-      blocked: the color-gradient decision below
-      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170))
+- [ ] Render the D-RAP grid as chart-plotter map tiles beside the aurora
+      overlay — `tiles.ts` is nearly grid-agnostic and the color-gradient
+      decision is now settled
+      (`drapRampRgb` in `public/drap-colors.js`, meant to be the LUT this
+      reuses; see
+      [docs/design-decisions.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md#d-raps-webapp-map-uses-noaas-own-colour-ramp)).
+      The webapp's own global map is done (this session, azimuthal
+      equidistant per #174); only the Web Mercator `{z}/{x}/{y}` overlay for
+      Freeboard/charts-plugin remains, and #166/#169 both already attempt it
+      — see the reconciliation card above before starting a third
+      ([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32))
 - [ ] Surface the D-RAP header fields the parser currently reads past —
       `Estimated Recovery Time`, `X-RAY Message` and `Proton Message` are
       NOAA's own "when does this blackout end", already inside a payload we

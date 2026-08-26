@@ -182,6 +182,48 @@ describe('plugin module', () => {
     })
   })
 
+  describe('GET /signalk-noaa-space-weather/drap-grid (signalKApiRoutes)', () => {
+    const ROUTE = '/signalk-noaa-space-weather/drap-grid'
+    let dataDir: string
+    beforeEach(() => {
+      dataDir = mkdtempSync(join(tmpdir(), 'plugin-datadir-'))
+    })
+    afterEach(() => {
+      rmSync(dataDir, { recursive: true, force: true })
+    })
+
+    it('answers 404 with an explanation when nothing is cached yet', async () => {
+      const plugin = createPlugin(fakeApp(dataDir))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(404)
+      expect(response.json.error.length).toBeGreaterThan(0)
+    })
+
+    it('serves back exactly what the D-RAP product cached', async () => {
+      const grid = {
+        validTime: '2026-08-20T12:00:00.000Z',
+        latitudes: [2, 0],
+        longitudes: [-4, 0, 4],
+        frequenciesMHz: [
+          [1, 2, 3],
+          [4, 5, 6]
+        ]
+      }
+      writeDrapCache(dataDir, grid)
+      const plugin = createPlugin(fakeApp(dataDir))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(200)
+      expect(response.json.grid).toEqual(grid)
+      expect(typeof response.json.fetchedAt).toBe('string')
+    })
+  })
+
   describe('GET /signalk-noaa-space-weather/aurora-tile/:z/:x/:y.png', () => {
     const ROUTE = '/signalk-noaa-space-weather/aurora-tile/:z/:x/:y.png'
     let dataDir: string

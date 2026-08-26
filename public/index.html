@@ -453,6 +453,17 @@
   .map-legend .bar.drap {
     background: linear-gradient(90deg, rgb(140,214,74), rgb(226,220,34), rgb(250,166,26), rgb(246,92,30), rgb(204,24,70));
   }
+  /* The global D-RAP map (below, azimuthal equidistant) is a whole globe,
+     not a windowed strip, so it is square (a circle inscribed in a square)
+     and centred rather than full-bleed. */
+  #drapMapCanvas { display: block; margin: 0 auto; border-radius: 4px; }
+  /* Matches NOAA_DRAP_RAMP in public/drap-colors.js -- see issue #170 for
+     why this map uses NOAA's own colours rather than the band-stepped ramp
+     the regional layer above uses. Reconciling the two ramps is tracked on
+     kanban.md rather than done as a rebase side effect. */
+  .drap-map-tile .map-legend .bar {
+    background: linear-gradient(90deg, #3d003f, #1500ff, #00d8ff, #00ff43, #e5ff00, #ff7b00, #ff0000);
+  }
 
   /* line-height is explicit because the two-line trim measures against it. */
   .advisory-teaser {
@@ -641,6 +652,19 @@
       </div>
     </div>
 
+    <div class="tile span-12 drap-map-tile">
+      <div class="map-header">
+        <div>
+          <h2>Global HF Absorption</h2>
+          <span class="map-extent">Azimuthal equidistant, centred on <span id="drapVesselPos">the vessel</span> &mdash; straight lines from the vessel are great-circle paths</span>
+        </div>
+        <button type="button" id="drapMapToggle" class="btn-outline">Show map</button>
+      </div>
+      <div id="drapMapBody" class="map-body" hidden>
+        <div class="empty-state">Waiting for data&hellip;</div>
+      </div>
+    </div>
+
   </div>
 
   <div class="learn-more">
@@ -676,6 +700,9 @@ import { scalesCard } from './scales.js';
 import { drapCellColor, hfCard, solarCard } from './hf.js';
 import { leafTime, leafValue, readAll } from './signalk.js';
 import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
+import { azimuthalEquidistant } from './projection.js';
+import { drapColor } from './drap-colors.js';
+import { coastlineRings } from './geo.js';
 (() => {
   'use strict';
   const REFRESH_MS = 60000;
@@ -1773,6 +1800,237 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     }
   }
 
+  // --- D-RAP map -----------------------------------------------------------
+  // The vessel's own D-RAP reading (the HF Radio tile) says what is absorbed
+  // *here*; it says nothing about a path that crosses the dayside or a polar
+  // cap while the vessel sits under a clear cell. This map is global rather
+  // than windowed for that reason, and projected azimuthal equidistant and
+  // centred on the vessel so a straight line from the vessel to anywhere on
+  // it is that point's true bearing and true great-circle distance -- which,
+  // for HF, is also the propagation path. Argument, and why this differs
+  // from the aurora map's windowed equirectangular treatment above:
+  // https://github.com/mark-brannan/signalk-noaa-space-weather/issues/174
+  //
+  // DRAP_GRID_URL and fetchGridCache() are declared with the regional map
+  // above (this file grew a mapLayer switch for that map, #166, while this
+  // global map was in flight) -- both maps read the same server-side D-RAP
+  // capture, so this reuses rather than refetches.
+  let drapMapState = 'idle' // idle | loading | ready | error | no-position
+
+  // A legitimate 2deg x 4deg cell's corners land close together under this
+  // projection almost everywhere; the exception is a cell straddling the
+  // projection's own antipode, where nearby geography spreads across
+  // opposite sides of the disc (public/projection.js's own docstring). This
+  // is the same problem drawCoastline solves in pixel space for the windowed
+  // map (public/geo.js); here it's checked in the projection's own
+  // radian-ish units instead, so the threshold doesn't depend on canvas
+  // size, and the rare straddling cell is simply skipped rather than drawn
+  // stretched across the globe.
+  const DRAP_CELL_JUMP_LIMIT = 1.4
+
+  function drapCellQuad(project, lon, lat, halfLon, halfLat) {
+    const corners = [
+      [lon - halfLon, lat - halfLat],
+      [lon + halfLon, lat - halfLat],
+      [lon + halfLon, lat + halfLat],
+      [lon - halfLon, lat + halfLat]
+    ]
+    const points = corners.map(([cLon, cLat]) =>
+      project(cLon, Math.max(-90, Math.min(90, cLat)))
+    )
+    for (const [x, y] of points) {
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+    }
+    for (let i = 0; i < points.length; i++) {
+      const [x0, y0] = points[i]
+      const [x1, y1] = points[(i + 1) % points.length]
+      if (Math.hypot(x1 - x0, y1 - y0) > DRAP_CELL_JUMP_LIMIT) return null
+    }
+    return points
+  }
+
+  // Not `drawCoastline` (public/geo.js): that helper's seam detection
+  // compares raw longitude degrees, which is the right test for the
+  // windowed equirectangular aurora map above but not for an azimuthal
+  // projection, where two geographically close points can land on opposite
+  // sides of the disc near the antipode regardless of their longitude
+  // difference. This walks the same coastlineRings() data with a
+  // projected-pixel-distance break instead, which is what the seam actually
+  // looks like under this projection.
+  function drawAzimuthalCoastline(ctx, project, toPixel, color) {
+    ctx.save()
+    ctx.strokeStyle = color
+    ctx.globalAlpha = 0.45
+    ctx.lineWidth = 1
+    ctx.lineJoin = 'round'
+    for (const ring of coastlineRings()) {
+      ctx.beginPath()
+      let pendown = false
+      let prev = null
+      for (const [lon, lat] of ring) {
+        const [x, y] = project(lon, lat)
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+          pendown = false
+          continue
+        }
+        const [px, py] = toPixel(x, y)
+        if (prev && Math.hypot(px - prev[0], py - prev[1]) > 60) pendown = false
+        if (pendown) ctx.lineTo(px, py); else ctx.moveTo(px, py)
+        pendown = true
+        prev = [px, py]
+      }
+      ctx.stroke()
+    }
+    ctx.restore()
+  }
+
+  function drawGlobalDrapMap(canvas, grid, position) {
+    const dpr = window.devicePixelRatio || 1
+    // Square: the whole planet is a circle, not a strip, so there is no
+    // separate width/height to reason about the way the windowed map has.
+    const size = Math.max(240, Math.min(canvas.clientWidth || 640, 640))
+    canvas.width = size * dpr
+    canvas.height = size * dpr
+    const ctx = canvas.getContext('2d')
+    ctx.scale(dpr, dpr)
+
+    const styles = getComputedStyle(document.documentElement)
+    const gridColor = styles.getPropertyValue('--grid').trim()
+    const text = styles.getPropertyValue('--text').trim()
+
+    ctx.fillStyle = gridColor
+    ctx.fillRect(0, 0, size, size)
+
+    const cx = size / 2
+    const cy = size / 2
+    const radiusPx = size / 2 - 4
+    const project = azimuthalEquidistant(position.latitude, position.longitude)
+    const toPixel = (x, y) => [cx + (x / Math.PI) * radiusPx, cy - (y / Math.PI) * radiusPx]
+
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(cx, cy, radiusPx, 0, Math.PI * 2)
+    ctx.clip()
+
+    // A base tint for the globe itself, under the transparent-below-zero
+    // absorption cells -- same reasoning as the windowed map's grid_ fill,
+    // just distinguishable from the page background since this map is a
+    // disc on a square tile.
+    ctx.fillStyle = '#1b2330'
+    ctx.fillRect(0, 0, size, size)
+
+    // Half the D-RAP grid's own cell size (parse.ts: 2deg latitude, 4deg
+    // longitude), so cell boundaries meet their neighbours exactly.
+    const halfLat = 1
+    const halfLon = 2
+    for (let i = 0; i < grid.latitudes.length; i++) {
+      const lat = grid.latitudes[i]
+      const row = grid.frequenciesMHz[i]
+      for (let j = 0; j < grid.longitudes.length; j++) {
+        const color = drapColor(row[j])
+        if (!color) continue
+        const quad = drapCellQuad(project, grid.longitudes[j], lat, halfLon, halfLat)
+        if (!quad) continue
+        ctx.beginPath()
+        quad.forEach(([x, y], k) => {
+          const [px, py] = toPixel(x, y)
+          if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py)
+        })
+        ctx.closePath()
+        ctx.fillStyle = color
+        ctx.fill()
+      }
+    }
+
+    drawAzimuthalCoastline(ctx, project, toPixel, text)
+
+    // Vessel marker: always the disc's exact centre, by construction of a
+    // vessel-centred projection.
+    ctx.beginPath()
+    ctx.arc(cx, cy, 5, 0, Math.PI * 2)
+    ctx.fillStyle = text
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(cx, cy, 9, 0, Math.PI * 2)
+    ctx.strokeStyle = text
+    ctx.globalAlpha = 0.5
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+    ctx.globalAlpha = 1
+    ctx.restore()
+
+    // World outline, drawn outside the clip so it isn't itself clipped away.
+    ctx.beginPath()
+    ctx.arc(cx, cy, radiusPx, 0, Math.PI * 2)
+    ctx.strokeStyle = gridColor
+    ctx.lineWidth = 1
+    ctx.stroke()
+  }
+
+  async function loadDrapMap() {
+    const body = document.getElementById('drapMapBody')
+    if (!lastPosition) {
+      drapMapState = 'no-position'
+      body.innerHTML = `<div class="empty-state">No vessel position available yet, so there is nothing to centre the map on.</div>`
+      return
+    }
+    drapMapState = 'loading'
+    body.innerHTML = `<div class="empty-state">Loading the cached D-RAP grid&hellip;</div>`
+    try {
+      const entry = await fetchGridCache(DRAP_GRID_URL)
+      drapMapState = 'ready'
+      body.innerHTML = `
+        <canvas id="drapMapCanvas"></canvas>
+        <div class="map-footer">
+          <div class="map-legend"><span class="bar"></span>Highest frequency absorbed, low &rarr; high</div>
+          <div>
+            <span>Valid <b>${fmtTime(entry.grid.validTime)}</b></span>
+            &nbsp;&middot;&nbsp;
+            <span>Cached <b>${fmtTime(entry.fetchedAt)}</b></span>
+            &nbsp;&middot;&nbsp;
+            <button type="button" id="drapMapRefresh" class="btn-outline" style="padding:4px 10px;font-size:0.66rem;">Refresh</button>
+          </div>
+        </div>`
+      const canvas = document.getElementById('drapMapCanvas')
+      canvas._grid = entry.grid
+      canvas._position = lastPosition
+      drawGlobalDrapMap(canvas, entry.grid, lastPosition)
+      document.getElementById('drapMapRefresh').addEventListener('click', () =>
+        handleRefreshClick(document.getElementById('drapMapRefresh'), DRAP_REFRESH_URL, async () => {
+          await refresh()
+          if (drapMapState !== 'idle') await loadDrapMap()
+        }, labelDrapButton)
+      )
+      labelDrapButton(document.getElementById('drapMapRefresh'))
+    } catch (err) {
+      drapMapState = 'error'
+      if (err instanceof AuthRequiredError) {
+        document.getElementById('authBanner').classList.add('show')
+      }
+      const notCached = !!(err && err.notCached)
+      const message = notCached
+        ? 'No D-RAP grid has been fetched yet.'
+        : err instanceof AuthRequiredError
+          ? 'Not logged in to this Signal K server.'
+          : `Could not load the D-RAP data from the server (${String((err && err.message) || err)}).`
+      body.innerHTML = `
+        <div class="empty-state">${message}
+        <button type="button" id="drapMapRetry" class="btn-outline" style="padding:4px 10px;font-size:0.66rem;">${notCached ? 'Fetch now' : 'Retry'}</button></div>`
+      const retry = document.getElementById('drapMapRetry')
+      if (notCached) {
+        retry.title = 'Fetches the D-RAP grid from NOAA now.'
+        retry.addEventListener('click', () =>
+          handleRefreshClick(retry, DRAP_REFRESH_URL, async () => {
+            await refresh()
+            if (drapMapState !== 'idle') await loadDrapMap()
+          }, labelDrapButton)
+        )
+      } else {
+        retry.addEventListener('click', loadDrapMap)
+      }
+    }
+  }
+
   // Manual "fetch now": forces the plugin to fetch NOAA off its schedule,
   // cooldown-limited server-side (see aurora-refresh in src/index.ts). Shared
   // by both the ring tile's own button and the map's, since a fresh fetch
@@ -1842,6 +2100,11 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   function labelAuroraButtons() {
     labelAuroraButton(document.getElementById('auroraRefresh'))
     labelAuroraButton(document.getElementById('mapRefresh'))
+  }
+
+  function labelDrapButtons() {
+    labelDrapButton(document.getElementById('hfRefresh'))
+    labelDrapButton(document.getElementById('drapMapRefresh'))
   }
 
   // One handler for both products' buttons: the request, the refusals and the
@@ -1931,6 +2194,26 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     if (canvas && canvas._grid) mapLayers()[canvas._layer].draw(canvas, canvas._grid, canvas._position)
   })
 
+  document.getElementById('drapMapToggle').addEventListener('click', () => {
+    const body = document.getElementById('drapMapBody')
+    const btn = document.getElementById('drapMapToggle')
+    const showing = !body.hidden
+    if (showing) {
+      body.hidden = true
+      btn.textContent = 'Show map'
+      return
+    }
+    body.hidden = false
+    btn.textContent = 'Hide map'
+    if (drapMapState === 'idle' || drapMapState === 'no-position') loadDrapMap()
+  })
+
+  window.addEventListener('resize', () => {
+    if (drapMapState !== 'ready') return
+    const canvas = document.getElementById('drapMapCanvas')
+    if (canvas && canvas._grid) drawGlobalDrapMap(canvas, canvas._grid, canvas._position)
+  })
+
   async function refresh() {
     let data;
     try {
@@ -1965,7 +2248,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     // that never set auroraEnabled reads as the default it is actually running.
     auroraScheduled = status?.settings?.auroraEnabled === true;
     drapScheduled = status?.settings?.drapEnabled === true;
-    labelDrapButton(document.getElementById('hfRefresh'));
+    labelDrapButtons();
 
     // Read once, up front: both the aurora tile (issue #109 -- the reading is
     // *at* this position, so it belongs here too, not only on the regional
@@ -1988,6 +2271,9 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     // around <here>"), which is the only thing the webapp ever did with it.
     // The fallback has to stay a noun phrase that sentence can end on.
     document.getElementById('vesselPos').textContent = pos
+      ? `${pos.latitude.toFixed(4)}°, ${pos.longitude.toFixed(4)}°`
+      : 'the vessel';
+    document.getElementById('drapVesselPos').textContent = pos
       ? `${pos.latitude.toFixed(4)}°, ${pos.longitude.toFixed(4)}°`
       : 'the vessel';
     // A single failed/empty poll (e.g. the position source hasn't published

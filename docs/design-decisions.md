@@ -244,6 +244,66 @@ at a time holds the worst lag to ~2.5ms for 11ms more wall clock.
 synchronously before awaiting anything. This is a plugin inside somebody's
 navigation server; it does not get to stall it.
 
+## The webapp's global maps use azimuthal equidistant, vessel-centred
+
+Explored across seven projections against the real OVATION and D-RAP
+fixtures plus the Natural Earth coastline
+([#174](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/174),
+PoC on the `poc/map-projections` branch, findings on
+[#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32#issuecomment-5429342726)).
+
+For D-RAP specifically this is not an aesthetic choice: azimuthal
+equidistant is the ham operator's own great-circle map, so a straight line
+from the vessel to any point on it *is* that point's true bearing and true
+great-circle distance — which for an HF absorption product is also the
+propagation path. Goode's homolosine is disqualified outright: its
+interruptions shred the auroral ovals D-RAP's sibling map draws across
+lobes. The tradeoff this projection accepts in exchange: distortion grows
+without bound approaching the vessel's own antipode, which is why both the
+grid-cell fill (`drapCellQuad` in `public/index.html`) and the coastline
+draw (`drawAzimuthalCoastline`, same file) drop a cell or a line segment
+outright rather than draw it stretched across the disc — checked in the
+projection's own radian-ish output units so the threshold doesn't depend on
+canvas size, the same problem `drawCoastline` (`public/geo.js`) solves in
+pixel space for the windowed aurora map instead.
+
+Chart-plotter tiles are unaffected: the `{z}/{x}/{y}` XYZ contract Freeboard
+and `@signalk/charts-plugin` expect is Web Mercator by definition, so
+`src/tiles.ts` keeps rendering that regardless of what the webapp's own map
+does.
+
+The regional aurora map above stays windowed equirectangular for now — nothing
+about aurora's own presentation *requires* the switch the way D-RAP's
+propagation-path argument does, and Mark has floated a projection selector for
+both maps as a follow-up rather than changing aurora's today.
+
+## D-RAP's webapp map uses NOAA's own colour ramp
+
+Resolves [#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170)
+as "match NOAA on both surfaces" — what was originally asked — rather than
+repeating aurora's chart-overlay-exact/webapp-adapted split. That split
+existed for aurora's own dark-page and transparency needs
+(`tiles.ts:99-102`), not as a rule that every webapp map gets its own
+palette, and D-RAP's hue sweep (violet through red) reads fine on a dark
+background unmodified — there's no adaptation to justify.
+
+`public/drap-colors.js` carries the stops, sampled directly from NOAA's own
+D-RAP legend PNG (2026-08-26, recorded on #170) — 0 to 35 MHz, saturating at
+pure red beyond 35 the way NOAA's own legend holds its end box there rather
+than extending the ramp. It is the LUT `src/tiles.ts` should reuse when the
+chart-plotter D-RAP tile lands, so that surface and the webapp map stay in
+sync the same way `NOAA_RAMP` already keeps aurora's two surfaces in sync
+with each other.
+
+One thing carries over from aurora regardless of which option this issue
+picked: NOAA's own 0 MHz stop is literal black, and drawing it opaque over a
+dark page (or a real chart, for the tile surface) would read as "no data"
+rather than "no absorption" — aurora's 0% stop is fully transparent for the
+same reason (`tiles.ts:106`). `drapColor` returns null at and below zero
+instead of drawing black at any alpha. Alpha itself (how opaque a cell gets
+as MHz rises) is this module's own call, not sampled from NOAA's legend,
+which carries no opacity channel.
+
 ## The icon lives in two places, and the second copy is generated
 
 The App Store resolves `signalk.appIcon` server-side against the package

@@ -133,6 +133,19 @@ happen. The webapp's own polling never turns into a NOAA fetch;
 Argument in
 [docs/design-decisions.md](docs/design-decisions.md#auroraenabled-and-drapenabled-govern-the-schedule-not-the-capability).
 
+**The webapp's global D-RAP map is azimuthal equidistant, vessel-centred —
+not the windowed equirectangular treatment the aurora map above it uses.**
+For an HF absorption product this is semantic, not aesthetic: a straight
+line from the vessel on this projection is that point's true bearing and
+true great-circle distance, which is also the propagation path. The
+tradeoff is unbounded distortion near the vessel's own antipode, which
+`public/index.html` and `public/geo.js` both handle by dropping the
+offending cell or coastline segment rather than drawing it stretched across
+the disc. `src/tiles.ts`'s chart-plotter tiles are unaffected — that XYZ
+contract is Web Mercator by definition. Argument in
+[docs/design-decisions.md](docs/design-decisions.md#the-webapps-global-maps-use-azimuthal-equidistant-vessel-centred)
+([#174](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/174)).
+
 **Tile rendering must not block the event loop.** Render tiles async, one at a
 time — `Promise.all` over tiles is worse than a blocking loop, since it runs
 every rasterize synchronously before awaiting anything. This is a plugin
