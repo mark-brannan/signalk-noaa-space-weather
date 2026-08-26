@@ -2,14 +2,14 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import createPlugin, { notReadyDelayMs } from '../src/index'
+import createPlugin, { retryDelayMs } from '../src/index'
 import { settingsFrom } from '../src/config'
-import { AURORA_BASE } from '../src/paths'
+import { AURORA_BASE, DRAP_BASE } from '../src/paths'
 import { ValueUpdate } from '../src/parse'
 import { Meta } from '../src/publisher'
 import { readAuroraCache, writeAuroraCache } from '../src/cache/auroraCache'
 import { writeAdvisoryCache } from '../src/cache/advisoryCache'
-import { fixtureJson } from './fixtures'
+import { fixture, fixtureJson } from './fixtures'
 
 interface Delta {
   updates: any[]
@@ -612,7 +612,7 @@ describe('plugin module', () => {
       plugin.stop()
     })
 
-    it('does not charge the cooldown for a request that never reached NOAA', async () => {
+    it('refreshes with no vessel position at all, and caches the grid', async () => {
       stubSuccessfulFetch()
       const app = fakeApp(dataDir, undefined)
       let position: typeof POSITION | undefined = undefined
@@ -624,25 +624,27 @@ describe('plugin module', () => {
       plugin.signalKApiRoutes(router)
       plugin.start({})
 
-      expect((await router.invoke(ROUTE)).status).toBe(409)
-      expect(auroraFetches()).toBe(0)
-
-      // The fix arrives, and the boat that has been waiting for it is not then
-      // made to wait out a cooldown for traffic it never sent.
-      position = POSITION
-      expect((await router.invoke(ROUTE)).status).toBe(200)
-
-      plugin.stop()
-    })
-
-    it('reports 409 when there is no vessel position to refresh against', async () => {
-      const plugin = createPlugin(fakeApp(dataDir, undefined))
-      const router = fakeRouter()
-      plugin.signalKApiRoutes(router)
-      plugin.start({ auroraEnabled: true })
-
+      // The grid is what was asked for and the grid arrived. Nothing about a
+      // global payload needs to know where the boat is.
       const response = await router.invoke(ROUTE)
-      expect(response.status).toBe(409)
+      expect(response.status).toBe(200)
+      expect(auroraFetches()).toBe(1)
+      expect(response.json.grid.coordinates.length).toBeGreaterThan(0)
+
+      // And the value at the boat lands once the fix does, off that same
+      // capture -- no second fetch.
+      position = POSITION
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(auroraFetches()).toBe(1)
+      expect(
+        app.deltas
+          .flatMap((d) => d.updates)
+          .flatMap((u: any) => u.values ?? [])
+          .some(
+            (v: any) => v.path === 'environment.noaa.swpc.aurora.probability'
+          )
+      ).toBe(true)
+
       plugin.stop()
     })
 
@@ -697,6 +699,102 @@ describe('plugin module', () => {
       await vi.advanceTimersByTimeAsync(60_000)
       expect((await router.invoke(ROUTE)).status).toBe(200)
       expect(fetchMock.mock.calls.length).toBeGreaterThan(callsAfterFirst)
+
+      plugin.stop()
+    })
+  })
+
+  describe('GET /signalk-noaa-space-weather/drap-refresh (signalKApiRoutes)', () => {
+    const ROUTE = '/signalk-noaa-space-weather/drap-refresh'
+    const POSITION = { latitude: 41, longitude: -178 }
+    let dataDir: string
+
+    beforeEach(() => {
+      dataDir = mkdtempSync(join(tmpdir(), 'plugin-datadir-'))
+    })
+    afterEach(() => {
+      rmSync(dataDir, { recursive: true, force: true })
+    })
+
+    const DRAP_BODY = fixture('drap-global-frequencies.2026_08_20.txt')
+    const drapUrl = (url: unknown) =>
+      String(url).includes('drap_global_frequencies')
+
+    function stubSuccessfulFetch() {
+      fetchMock = vi.fn(async (url: unknown) =>
+        drapUrl(url)
+          ? new Response(DRAP_BODY, { status: 200 })
+          : new Response('[]', { status: 200 })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+    }
+
+    const drapFetches = () =>
+      fetchMock.mock.calls.filter((call) => drapUrl(call[0])).length
+
+    it('fetches on demand while the recurring fetch is switched off', async () => {
+      stubSuccessfulFetch()
+      const plugin = createPlugin(fakeApp(dataDir, POSITION))
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({ drapEnabled: false })
+
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(200)
+      expect(response.json.grid.validTime).toBe('2026-08-20T04:42:00.000Z')
+      expect(drapFetches()).toBe(1)
+
+      plugin.stop()
+    })
+
+    it('publishes the metadata an unscheduled product never got', async () => {
+      stubSuccessfulFetch()
+      const app = fakeApp(dataDir, POSITION)
+      const plugin = createPlugin(app)
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({ drapEnabled: false })
+
+      const path = `${DRAP_BASE}.highest_affected_frequency`
+      expect(metaPaths(app.deltas)).not.toContain(path)
+      await router.invoke(ROUTE)
+      expect(metaFor(app.deltas, path).units).toBe('Hz')
+
+      plugin.stop()
+    })
+
+    it('starts no schedule of its own, even when it has to wait for a fix', async () => {
+      stubSuccessfulFetch()
+      const app = fakeApp(dataDir, undefined)
+      let position: typeof POSITION | undefined = undefined
+      app.getSelfPath = vi.fn((path: string) =>
+        path === 'navigation.position.value' ? position : undefined
+      )
+      const plugin = createPlugin(app)
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({ drapEnabled: false })
+
+      expect((await router.invoke(ROUTE)).status).toBe(200)
+      expect(drapFetches()).toBe(1)
+
+      // The value at the boat is still owed, and arrives off the capture
+      // already on disk.
+      position = POSITION
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(
+        app.deltas
+          .flatMap((d) => d.updates)
+          .flatMap((u: any) => u.values ?? [])
+          .some(
+            (v: any) => v.path === `${DRAP_BASE}.highest_affected_frequency`
+          )
+      ).toBe(true)
+      // Paying that debt must not leave a recurring fetch behind for a
+      // product the owner switched off.
+      expect(drapFetches()).toBe(1)
+      await vi.advanceTimersByTimeAsync(4 * 60 * 60 * 1000)
+      expect(drapFetches()).toBe(1)
 
       plugin.stop()
     })
@@ -858,7 +956,7 @@ describe('plugin module', () => {
     // heartbeat rather than retrying every few seconds forever.
     const hour = 60 * 60 * 1000
     const seconds = [0, 1, 2, 3, 4, 5, 6, 9].map(
-      (attempt) => notReadyDelayMs(attempt, hour) / 1000
+      (attempt) => retryDelayMs(attempt, hour) / 1000
     )
     expect(seconds).toEqual([5, 10, 20, 40, 80, 160, 300, 300])
   })
@@ -866,9 +964,9 @@ describe('plugin module', () => {
   it("never backs off longer than the product's own interval", () => {
     const minute = 60 * 1000
     for (const attempt of [0, 1, 2, 3, 4, 10]) {
-      expect(notReadyDelayMs(attempt, minute)).toBeLessThanOrEqual(minute)
+      expect(retryDelayMs(attempt, minute)).toBeLessThanOrEqual(minute)
     }
     // ...nor shorter than the base delay, even for an absurd interval.
-    expect(notReadyDelayMs(0, 1)).toBe(5000)
+    expect(retryDelayMs(0, 1)).toBe(5000)
   })
 })

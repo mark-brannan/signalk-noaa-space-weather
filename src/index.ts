@@ -9,6 +9,7 @@
 import { Settings, schema, settingsFrom } from './config.js'
 import { createClient } from './noaa/client.js'
 import { readAuroraCache } from './cache/auroraCache.js'
+import { readDrapCache } from './cache/drapCache.js'
 import { readAdvisoryCache } from './cache/advisoryCache.js'
 import { createPublisher } from './publisher.js'
 import { advisory } from './products/advisory.js'
@@ -50,13 +51,13 @@ const PLUGIN_ID = 'signalk-noaa-space-weather'
 /** Let the server settle before the first fetch. */
 const INITIAL_DELAY_MS = 5000
 /**
- * Backoff for a product whose preconditions are not met yet. A GPS fix
+ * Backoff for a product holding a grid it has nowhere to index yet. A GPS fix
  * usually arrives within seconds, so the first look is quick; but a dev
- * server or a boat with no GPS at all may never satisfy it, and that must
+ * server or a boat with no GPS at all may never produce one, and that must
  * settle into a quiet heartbeat rather than a busy loop.
  */
-const NOT_READY_BASE_MS = 5000
-const NOT_READY_MAX_MS = 5 * 60 * 1000
+const RETRY_BASE_MS = 5000
+const RETRY_MAX_MS = 5 * 60 * 1000
 /**
  * Floor between aurora fetches a manual "refresh now" is allowed to start. The
  * aurora interval defaults to two hours to bound what that payload costs, so a
@@ -81,14 +82,10 @@ const TILE_CACHE_LIMIT = 256
 /** What a product's refresh resolves to; see the Product interface. */
 type RefreshResult = Awaited<ReturnType<Product['refresh']>>
 
-/** Geometric backoff, capped both by NOT_READY_MAX_MS and the product's own interval. */
-export function notReadyDelayMs(attempt: number, intervalMs: number): number {
-  const geometric = NOT_READY_BASE_MS * Math.pow(2, Math.max(0, attempt))
-  return Math.min(
-    geometric,
-    NOT_READY_MAX_MS,
-    Math.max(intervalMs, NOT_READY_BASE_MS)
-  )
+/** Geometric backoff, capped both by RETRY_MAX_MS and the product's own interval. */
+export function retryDelayMs(attempt: number, intervalMs: number): number {
+  const geometric = RETRY_BASE_MS * Math.pow(2, Math.max(0, attempt))
+  return Math.min(geometric, RETRY_MAX_MS, Math.max(intervalMs, RETRY_BASE_MS))
 }
 
 interface Plugin {
@@ -109,9 +106,16 @@ export default function (app: any): Plugin {
   // reschedules itself after every run (see `run()` below), so a flat array
   // pushed to on every tick would grow for as long as the server runs.
   const productTimers = new Map<string, any>()
+  /**
+   * Timers for the position-retry loop, deliberately not `productTimers`:
+   * membership of that map is what says a product is on a recurring schedule,
+   * and a manual refresh of a product the user switched off must not quietly
+   * become one. See `retryFromCache`.
+   */
+  const positionRetryTimers = new Map<string, any>()
   let stopped = false
-  /** Consecutive 'not-ready' results per product, for the backoff. */
-  const notReadyAttempts = new Map<string, number>()
+  /** Consecutive 'awaiting-position' results per product, for the backoff. */
+  const awaitingPositionAttempts = new Map<string, number>()
   /** Refreshes currently awaiting NOAA, so a second caller joins rather than
    * starting its own. See `refreshOnce`. */
   const inFlight = new Map<string, Promise<RefreshResult>>()
@@ -120,12 +124,13 @@ export default function (app: any): Plugin {
   /** Set on start(), read by the force-refresh route below. */
   let currentSettings: Settings | null = null
   /**
-   * start() publishes a product's metadata only for the products it schedules,
-   * so an on-demand fetch of an unscheduled aurora has to publish its own —
-   * otherwise the probability lands on a path with no units, no zones and no
-   * display name, which is a bare number in the data browser.
+   * Products whose metadata has gone out this run. start() publishes it only
+   * for the products it schedules, so an on-demand fetch of an unscheduled one
+   * has to publish its own — otherwise the value lands on a path with no
+   * units, no zones and no display name, which is a bare number in the data
+   * browser.
    */
-  let auroraMetaPublished = false
+  const metaPublished = new Set<string>()
   /** When this run of the plugin began; served by the status route below. */
   let startedAt: string | null = null
 
@@ -209,27 +214,21 @@ export default function (app: any): Plugin {
    * rather than about button presses, so a scheduled fetch has to hold it down
    * too: a press seconds after a scheduled fetch would otherwise buy the same
    * grid again.
+   *
+   * Every refresh here reaches NOAA, so the stamp is unconditional. It was not
+   * always: while the grid products waited for a vessel position before
+   * fetching, a refresh could return having sent nothing, and the stamp had to
+   * be rolled back so a boat still waiting on a GPS fix was not also made to
+   * wait out a cooldown for traffic it never sent.
    */
   function refreshOnce(product: Product, settings: Settings) {
     const joined = inFlight.get(product.name)
     if (joined) return joined
 
-    const previousStartedAt = lastRefreshStartedAt.get(product.name)
     lastRefreshStartedAt.set(product.name, Date.now())
 
     const attempt: Promise<RefreshResult> = product
       .refresh({ client, publisher, settings, stopped: () => stopped })
-      .then((result) => {
-        // 'not-ready' is decided before anything goes out — the aurora product
-        // checks for a position first — so it is not a fetch, and must not
-        // hold down a cooldown that exists to bound NOAA traffic.
-        if (result === 'not-ready') {
-          if (previousStartedAt === undefined)
-            lastRefreshStartedAt.delete(product.name)
-          else lastRefreshStartedAt.set(product.name, previousStartedAt)
-        }
-        return result
-      })
       .finally(() => {
         if (inFlight.get(product.name) === attempt)
           inFlight.delete(product.name)
@@ -238,23 +237,88 @@ export default function (app: any): Plugin {
     return attempt
   }
 
+  function scheduleCacheRetry(
+    product: Product,
+    settings: Settings,
+    delayMs: number
+  ) {
+    if (stopped) return
+    const existing = positionRetryTimers.get(product.name)
+    if (existing) clearTimeout(existing)
+    positionRetryTimers.set(
+      product.name,
+      setTimeout(() => retryFromCache(product, settings), delayMs)
+    )
+  }
+
+  /**
+   * A product whose fetch landed with no vessel position to index it at, asked
+   * again -- out of its own cache, never over the network. Waiting for a GPS
+   * fix is exactly the case that must not turn into repeat NOAA traffic, and
+   * on the aurora grid that traffic is 145 KB a time.
+   *
+   * It gives up after one interval, at which point either the recurring
+   * schedule takes over (and buys a fresh grid, because a chart overlay drawn
+   * from an hours-old capture is worse than one that says it has nothing), or
+   * -- for a product with no schedule, refreshed once by hand -- there is
+   * nothing further this was asked to do.
+   */
+  function retryFromCache(product: Product, settings: Settings) {
+    if (stopped) return
+    positionRetryTimers.delete(product.name)
+    const intervalMs = intervalFor(product, settings)
+    const sinceFetch =
+      Date.now() - (lastRefreshStartedAt.get(product.name) ?? 0)
+    const scheduled = productTimers.has(product.name)
+    if (sinceFetch >= intervalMs) {
+      awaitingPositionAttempts.delete(product.name)
+      if (scheduled) run(product, settings)
+      return
+    }
+
+    let published = true
+    try {
+      published =
+        product.publishFromCache?.({
+          client,
+          publisher,
+          settings,
+          stopped: () => stopped
+        }) ?? true
+    } catch (err) {
+      publisher.error(`Failed to publish '${product.name}' from cache: ${err}`)
+    }
+
+    if (published) {
+      awaitingPositionAttempts.delete(product.name)
+      if (scheduled) schedule(product, settings, intervalMs - sinceFetch)
+      return
+    }
+
+    const attempt = awaitingPositionAttempts.get(product.name) ?? 0
+    awaitingPositionAttempts.set(product.name, attempt + 1)
+    scheduleCacheRetry(product, settings, retryDelayMs(attempt, intervalMs))
+  }
+
   function run(product: Product, settings: Settings) {
     // One failing product must never take down the others, and an unhandled
     // rejection here would reach the server. Every branch below reschedules
     // itself — there is no setInterval backing this up.
     refreshOnce(product, settings)
       .then((result) => {
-        if (result === 'not-ready') {
-          const attempt = notReadyAttempts.get(product.name) ?? 0
-          notReadyAttempts.set(product.name, attempt + 1)
-          const delay = notReadyDelayMs(attempt, intervalFor(product, settings))
+        if (result === 'awaiting-position') {
+          const attempt = awaitingPositionAttempts.get(product.name) ?? 0
+          awaitingPositionAttempts.set(product.name, attempt + 1)
+          const delay = retryDelayMs(attempt, intervalFor(product, settings))
           publisher.debug(
-            `'${product.name}' is not ready; looking again in ${Math.round(delay / 1000)}s`
+            `'${product.name}' has no position yet; looking again in ${Math.round(delay / 1000)}s`
           )
-          schedule(product, settings, delay)
+          // The payload is already on disk, so the retry reads that back
+          // rather than going to NOAA again.
+          scheduleCacheRetry(product, settings, delay)
           return
         }
-        notReadyAttempts.delete(product.name)
+        awaitingPositionAttempts.delete(product.name)
         // A product can override its own next interval (the advisory
         // outlook tightens its cadence near the expected weekly issuance);
         // everyone else just gets intervalMinutes again, unchanged.
@@ -402,22 +466,24 @@ export default function (app: any): Plugin {
         }
       )
 
-      // Manual "refresh now" for the webapp: a one-shot aurora fetch outside
-      // the scheduled interval, cooldown-limited so a user mashing the
+      // Manual "refresh now" for the webapp: a one-shot fetch of one product
+      // outside the scheduled interval, cooldown-limited so a user mashing the
       // button (or a script hitting this URL) cannot turn a two-hour budget
-      // into a busy loop. GET rather than POST for the same reason the read
-      // above is GET: this namespace gates PUT/POST/DELETE behind auth, and
-      // this route needs no more privilege than the data it is refreshing.
+      // into a busy loop. GET rather than POST for the same reason the reads
+      // above are GET: this namespace gates PUT/POST/DELETE behind auth, and
+      // these routes need no more privilege than the data they are refreshing.
       //
-      // Works whether or not aurora is scheduled. `auroraEnabled` says what
-      // the plugin may spend on its own initiative; it does not say the data
-      // can never be had. Turning the recurring fetch off and then having to
-      // turn it back on, wait out an interval and turn it off again is four
-      // steps to answer one question, and it leaves a recurring cost behind
-      // if the last step is forgotten.
-      router.get(
-        '/signalk-noaa-space-weather/aurora-refresh',
-        async (_req: any, res: any) => {
+      // Works whether or not the product is scheduled. `auroraEnabled` and
+      // `drapEnabled` say what the plugin may spend on its own initiative;
+      // they do not say the data can never be had. Turning the recurring fetch
+      // off and then having to turn it back on, wait out an interval and turn
+      // it off again is four steps to answer one question, and it leaves a
+      // recurring cost behind if the last step is forgotten.
+      function refreshHandler(
+        product: Product,
+        readCache: (dataDirPath: string) => { fetchedAt: string } | null
+      ) {
+        return async (_req: any, res: any) => {
           const settings = currentSettings
           if (!settings) {
             res.status(503).json({ error: 'Plugin is not running.' })
@@ -426,9 +492,9 @@ export default function (app: any): Plugin {
           // A fetch already in flight is not traffic this request would add:
           // it joins that one below rather than being refused for it. Only a
           // fetch this request would *start* is the cooldown's business.
-          if (!inFlight.has(aurora.name)) {
+          if (!inFlight.has(product.name)) {
             const sinceLast =
-              Date.now() - (lastRefreshStartedAt.get(aurora.name) ?? 0)
+              Date.now() - (lastRefreshStartedAt.get(product.name) ?? 0)
             if (sinceLast < FORCE_REFRESH_COOLDOWN_MS) {
               const retryAfterS = Math.ceil(
                 (FORCE_REFRESH_COOLDOWN_MS - sinceLast) / 1000
@@ -441,31 +507,28 @@ export default function (app: any): Plugin {
             }
           }
 
-          if (!auroraMetaPublished && aurora.metadata) {
-            publisher.meta(aurora.metadata(settings))
-            auroraMetaPublished = true
+          if (!metaPublished.has(product.name) && product.metadata) {
+            publisher.meta(product.metadata(settings))
+            metaPublished.add(product.name)
           }
 
           // What the cache holds before the fetch, to tell a refresh that
           // produced something from one that only returned. Every entry
           // carries the instant it was written, so an unchanged `fetchedAt`
           // means nothing new was written under this request.
-          const before = readAuroraCache(publisher.dataDirPath())
+          const before = readCache(publisher.dataDirPath())
 
+          let result: RefreshResult
           try {
-            const result = await refreshOnce(aurora, settings)
-            if (result === 'not-ready') {
-              res.status(409).json({
-                error: 'No vessel position available to refresh against yet.'
-              })
-              return
-            }
+            result = await refreshOnce(product, settings)
           } catch (err) {
-            res.status(502).json({ error: `Aurora refresh failed: ${err}` })
+            res
+              .status(502)
+              .json({ error: `${product.name} refresh failed: ${err}` })
             return
           }
 
-          const cached = readAuroraCache(publisher.dataDirPath())
+          const cached = readCache(publisher.dataDirPath())
           // `refresh()` returns without throwing when the payload carried no
           // usable grid, and its cache write is best effort. Either way
           // nothing new landed, and answering 200 with the previous grid would
@@ -473,15 +536,32 @@ export default function (app: any): Plugin {
           // that says it worked over a reading that has not moved.
           if (!cached || cached.fetchedAt === before?.fetchedAt) {
             res.status(502).json({
-              error: 'Refreshed, but no new aurora grid came back from NOAA.'
+              error: `Refreshed, but no new ${product.name} grid came back from NOAA.`
             })
             return
           }
 
-          notReadyAttempts.delete(aurora.name)
-          deferNextRun(aurora, settings)
+          // 'awaiting-position' is not a failure of this request. The grid is
+          // what was asked for and the grid arrived; only the value at the
+          // boat is still waiting on a fix, and the scheduler is already
+          // watching for one.
+          if (result === 'awaiting-position') {
+            scheduleCacheRetry(product, settings, RETRY_BASE_MS)
+          } else {
+            awaitingPositionAttempts.delete(product.name)
+            deferNextRun(product, settings)
+          }
           res.json(cached)
         }
+      }
+
+      router.get(
+        '/signalk-noaa-space-weather/aurora-refresh',
+        refreshHandler(aurora, readAuroraCache)
+      )
+      router.get(
+        '/signalk-noaa-space-weather/drap-refresh',
+        refreshHandler(drap, readDrapCache)
       )
 
       // When the webapp has no values, "the first fetch has not landed yet"
@@ -512,19 +592,20 @@ export default function (app: any): Plugin {
 
     start(props: any) {
       stopped = false
-      notReadyAttempts.clear()
+      awaitingPositionAttempts.clear()
       productTimers.clear()
+      positionRetryTimers.clear()
       const settings = settingsFrom(props)
       currentSettings = settings
       startedAt = new Date().toISOString()
-      auroraMetaPublished = false
+      metaPublished.clear()
 
       for (const product of PRODUCTS) {
         if (product.enabled && !product.enabled(settings)) continue
 
         if (product.metadata) {
           publisher.meta(product.metadata(settings))
-          if (product === aurora) auroraMetaPublished = true
+          metaPublished.add(product.name)
         }
 
         schedule(product, settings, INITIAL_DELAY_MS)
@@ -537,6 +618,8 @@ export default function (app: any): Plugin {
       startedAt = null
       productTimers.forEach((timer) => clearTimeout(timer))
       productTimers.clear()
+      positionRetryTimers.forEach((timer) => clearTimeout(timer))
+      positionRetryTimers.clear()
       // Several MB of rendered tiles and the flattened grid have no reason to
       // outlive the plugin being switched off.
       tileCache.clear()

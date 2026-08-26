@@ -643,8 +643,7 @@ function createPanel(React) {
             ' at the vessel position and keeping the chart overlay tiles' +
             ' current. Off by default on bandwidth: it is the one large' +
             ' payload this plugin fetches. With it off the webapp can still' +
-            ' fetch the grid once, when you ask it to. Nothing is fetched' +
-            ' until the vessel has a position. ',
+            ' fetch the grid once, when you ask it to. ',
           h(NoaaLink, { href: AURORA_URL, text: "NOAA's aurora forecast" })
         )
       }),
@@ -662,9 +661,8 @@ function createPanel(React) {
             ' through, barring other factors. NOAA serves one grid covering' +
             ' the whole globe, so it costs the same everywhere: about 3.3 KB' +
             ' on each fetch of the "everything else" interval below, hourly' +
-            ' by default. Switching it off stops it' +
-            ' completely \u2014 unlike the aurora grid there is no on-demand' +
-            ' fetch. ',
+            ' by default. With it off the webapp can still fetch the grid' +
+            ' once, when you ask it to. ',
           h(NoaaLink, { href: DRAP_URL, text: "NOAA's D-RAP model" })
         )
       }),
