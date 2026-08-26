@@ -140,7 +140,7 @@ npm run dev:webapp        # http://127.0.0.1:8731, or pass a port
 ```
 
 `scripts/mock-webapp.mjs` serves `public/` with a state switcher appended and
-answers the ten Signal K paths it understands with fabricated data, so the real
+answers the Signal K paths it understands with fabricated data, so the real
 `heroState`/`renderTimer`/`renderKp` decide what renders. A strip at the
 bottom of the page switches between five states: quiet, G3 forecast, G4+S4,
 stale, and no-data-since-start. Four of those are impractical to reach
@@ -157,8 +157,8 @@ draw, and faking one would be mocking `tiles.ts` rather than the webapp -- so
 that tile renders its own empty state.
 
 `--upstream <base-url>` trades the five fabricated states for a running
-server's real numbers: the same ten paths are proxied there verbatim instead
-of going through `payload()`, so a branch's `public/` -- a changed card, new
+server's real numbers: the same paths are proxied there verbatim instead of
+going through `payload()`, so a branch's `public/` -- a changed card, new
 copy -- can be checked against genuine data without repointing
 `~/.signalk/node_modules/signalk-noaa-space-weather` at this worktree, which
 would move every other session on that shared server onto this branch's
