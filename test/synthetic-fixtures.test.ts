@@ -211,9 +211,11 @@ describe('synthetic fixtures', () => {
       const parsed = JSON.parse(firstJsonValue(torn) as string)
       expect(parsed['-1']['G']['Scale']).toBe('1')
       expect(parsed['-1']['R']['Scale']).toBe('2')
-      // The stale tail described a G4 day. Nothing from it may survive.
+      // Nothing from the tail may survive. It is the only part of the file
+      // dated 2026-07-31, so that string appearing anywhere in the recovered
+      // value means a leak the missing key alone would not catch.
       expect(parsed['1']).toBeUndefined()
-      expect(JSON.stringify(parsed)).not.toContain('severe')
+      expect(JSON.stringify(parsed)).not.toContain('2026-07-31')
     })
 
     it('refuses to recover a value that is merely truncated', () => {
