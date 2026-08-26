@@ -60,6 +60,19 @@ what it is blocked by. Delete it when it is done.
       open; the other two have no open pull request) — real unlanded work, so
       not a sweep
 
+- [ ] Design #121's Tier 2 — a recurring live check that fetches NOAA
+      directly, drives a real running instance of this plugin in a browser,
+      and compares the two, outside `npm test`. Open questions before
+      building it: where it runs, which server it drives (`~/.signalk` dev
+      instance vs. the published-package Docker instance), whether it asserts
+      on the DOM or only the Signal K API, how it alarms, and how it has teeth
+      on a quiet day when every scale legitimately reads 0. Whether Playwright
+      earns its cost is part of that, not settled in advance — it's the
+      heaviest dependency in the repo's orbit. Tier 1 (offline, in `npm test`)
+      is done as of
+      [#178](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/178)
+      ([#121](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/121))
+
 ## Claude's
 
 - [ ] Fix the D-RAP path-scoring bugs that landed with
