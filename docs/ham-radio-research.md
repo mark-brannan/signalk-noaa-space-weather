@@ -21,6 +21,12 @@ is written — and those measurements belong in
 product matters to an operator and _where_ it lives, so the issues stay
 readable after link rot.
 
+Its companion is [hf-operator-view.md](hf-operator-view.md): where this file
+surveys the _products_, that one records the _reading_ — the operator's
+question, the thresholds that answer it with each one's provenance, and what
+those thresholds mean as Signal K zone metadata whether or not the webapp
+draws them.
+
 ## How the ionosphere reads to an HF operator
 
 Three layers, three failure modes, and every product maps onto one of them:
