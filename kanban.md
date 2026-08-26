@@ -62,6 +62,15 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Rebase [#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169)
+      onto main now that #164/#166 merged — it independently rebuilt the
+      D-RAP map/tiles/cache #166 already shipped. Cache-layer conflicts
+      (`drapCache.ts`, `drap.ts`, `drap.test.ts`) are mechanical, take main's
+      side; `src/tiles.ts` and the map widget are a real fork (#166's
+      `mapLayer` switcher vs. this branch's separate `drapMap.js` panel) —
+      keep #166's shell, port in the click-to-score probe
+      (`pathAbsorption`, `drapProbeHtml`, the canvas click handler). See
+      [PR comment](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169#issuecomment-5429163568)
 - [ ] Cut the README down — 246 lines and still growing, and every feature
       lands one more paragraph in it. The getting-started path is buried under
       design rationale that belongs in
