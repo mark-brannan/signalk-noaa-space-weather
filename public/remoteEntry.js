@@ -454,12 +454,16 @@ function createPanel(React) {
       'div',
       { className: 'bg-body-tertiary border rounded p-3 small' },
       row('Observations, forecasts and alerts', day.other),
-      // No parenthetical for the off case, unlike aurora above: switched off
-      // this one really is zero, and the zero says so.
-      row('HF absorption (D-RAP)', day.drap),
+      // Zero a day, but not zero, for either grid: switched off, the webapp
+      // can still be asked for one, and a bill that reads "off" would be
+      // understating what a press costs.
       row(
-        // Zero a day, but not zero: the webapp can still be asked for a grid,
-        // and a bill that reads "off" would be understating what a press costs.
+        settings.drapEnabled
+          ? 'HF absorption (D-RAP)'
+          : 'HF absorption (D-RAP, on demand only)',
+        day.drap
+      ),
+      row(
         settings.auroraEnabled ? 'Aurora grid' : 'Aurora grid (on demand only)',
         day.aurora
       ),

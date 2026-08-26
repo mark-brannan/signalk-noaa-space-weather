@@ -33,14 +33,16 @@ export function writeCacheEntry<T extends CacheEntry>(
 export function readCacheEntry<T extends CacheEntry>(
   dataDirPath: string,
   filename: string,
-  isComplete: (parsed: any) => boolean
+  isComplete: (parsed: Record<string, unknown>) => boolean
 ): T | null {
   const path = join(dataDirPath, filename)
   if (!existsSync(path)) return null
   try {
-    const parsed = JSON.parse(readFileSync(path, 'utf8'))
-    if (!parsed || typeof parsed.fetchedAt !== 'string') return null
-    return isComplete(parsed) ? parsed : null
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'))
+    if (!parsed || typeof parsed !== 'object') return null
+    const entry = parsed as Record<string, unknown>
+    if (typeof entry.fetchedAt !== 'string') return null
+    return isComplete(entry) ? (entry as T) : null
   } catch {
     return null
   }

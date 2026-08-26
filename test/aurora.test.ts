@@ -194,7 +194,7 @@ describe('aurora product', () => {
       errors,
       fetched,
       dataDir,
-      setPosition: (next: any) => {
+      setPosition: (next: unknown) => {
         position = next
       },
       ctx: {

@@ -53,7 +53,7 @@ function harness(position: any, response?: string) {
     errors,
     fetched,
     dataDir,
-    setPosition: (next: any) => {
+    setPosition: (next: unknown) => {
       position = next
     },
     ctx: {
