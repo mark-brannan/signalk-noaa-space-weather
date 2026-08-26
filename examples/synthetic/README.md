@@ -59,8 +59,9 @@ complete — a fixture added here and never read is exactly how #120 survived.
 X1.8; `xray-flares-latest.x-class-rising.json` is at X2.4 and still climbing,
 so current equals max. #122 is this tile drawing the wrong one of that pair,
 and the only real capture is a single B3.3 nothing-day.
-`hostile-empty.json` is `[]` (NOAA serves this between flares) and
-`hostile-nulls.json` has null classes with numbers as strings.
+`xray-flares-latest.hostile-empty.json` is `[]` (NOAA serves this between
+flares) and `xray-flares-latest.hostile-nulls.json` has null classes with
+numbers as strings.
 
 ### Text bulletins
 
@@ -70,7 +71,9 @@ than going silent, and no capture of that wording has come past yet — so this
 is our best guess at it and a real capture should replace it.
 `wwv.all-three-storms.txt` carries G5, S3 and R3 at once.
 
-`drap-global-frequencies.warning-in-force.txt` is the real 2026-08-20 capture
-with an X-ray warning, a proton event and a recovery time substituted in. Both
-message lines are empty in the only capture we hold, so that branch of the
-parser has never run against anything.
+`drap-global-frequencies.warning-in-force.txt` takes its frequency grid
+verbatim from the 2026-08-20 capture and substitutes the header: an X-ray
+warning, a proton event, an estimated recovery time, and a valid-at date of its
+own so nothing mistakes it for that capture. Both warning lines are blank and
+both message lines read "Normal" in every capture we hold, so that branch of
+the parser has never run against anything.

@@ -22,11 +22,10 @@ import {
  * The invented payloads in `examples/synthetic/`.
  *
  * #120 shipped because the corpus had no payload that disagreed with the code:
- * the badge drew NOAA's instantaneous field, which reads 0 in every real
- * capture we hold, so "correct" and "stuck at zero" produced identical output
- * and 441 tests stayed green. Waiting for a storm does not fix that -- NOAA
- * publishes identical R probabilities for all three forecast days on most days,
- * so a day-column mix-up is invisible in every real fixture there will ever be.
+ * where two slots hold the same value, "correct" and "reading the wrong slot"
+ * produce identical output and the suite stays green. Waiting for a storm does
+ * not fix that, because the slots a surface confuses agree with each other on
+ * an ordinary day by their nature.
  *
  * These files exist to disagree. Each one puts a different value in every slot
  * a surface reads, so a wrong slot produces a wrong number instead of a
@@ -36,9 +35,8 @@ import {
 const synthetic = (name: string) => fixture(`synthetic/${name}`)
 const syntheticJson = (name: string) => fixtureJson(`synthetic/${name}`)
 
-/** Values published for one payload, as a path -> value map. */
-function publish(json: any): Map<string, any> {
-  const values = new Map<string, any>()
+function publish(json: Record<string, unknown>): Map<string, unknown> {
+  const values = new Map<string, unknown>()
   for (const range of NOAA_SCALE_RANGES) {
     const slot = json[range.jsonIndex]
     if (!slot) continue
@@ -92,8 +90,8 @@ describe('synthetic fixtures', () => {
     })
 
     it('gives all three forecast days different R probabilities', () => {
-      // Identical across days 1, 2 and 3 in all six real fixtures, so drawing
-      // day 3's numbers in day 1's cell is undetectable without this file.
+      // Real captures repeat one probability across days 1, 2 and 3, so
+      // drawing day 3's cell in day 1's is undetectable without this file.
       const minor = ['1day', '2day', '3day'].map((day) =>
         values.get(`forecast.${day}.R.minorProbability`)
       )
