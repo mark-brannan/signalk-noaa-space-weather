@@ -213,6 +213,28 @@ The webapp may never turn its own polling into a NOAA fetch — the map draws
 from cache, the poll reads Signal K, and only a press reaches NOAA.
 `plugin.test.ts` pins that an on-demand fetch starts no schedule of its own.
 
+## The D-RAP overlay is coloured by band, not by frequency
+
+The published value is the highest frequency degraded by 1 dB or more, and
+`zonesForDrap` in parse.ts already carries the argument that this is a
+frequency rather than a severity: 9.9 MHz absorbed ends the working day for
+someone on 8 MHz and means nothing to someone on 22. A smooth rainbow over MHz
+would draw a gradient across something that is actually a set of steps, and put
+the visible contours wherever the ramp happened to change hue.
+
+So the colour moves one stop for every marine SSB band edge the cutoff has
+passed, and the contour lands exactly on the boundary that changed what the
+reader can work. It is the HF Radio tile's band strip in map form, and cells
+below the lowest marine band are drawn fully transparent: absorption nobody
+aboard can hear is not worth ink on a chart, and on a quiet day most of the
+globe carries a small non-zero number that would otherwise wash the whole
+overlay.
+
+Green through red rather than NOAA's own D-RAP rainbow, because this overlays
+a nautical chart where blue is water. The table is copied into public/hf.js for
+the webapp's canvas map, and `hf-render.test.ts` pins the two identical — two
+pictures of one number on two screens on the same boat must not disagree.
+
 ## Tile rendering must not block the event loop
 
 Measured on a 20-tile screenful: `zlib.deflateSync` back-to-back blocks for

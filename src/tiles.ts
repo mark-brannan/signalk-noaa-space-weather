@@ -1,12 +1,16 @@
 /**
- * Renders the OVATION aurora grid as Web Mercator PNG tiles, so a chart
- * plotter (Freeboard-SK, via `@signalk/charts-plugin`'s online chart source)
- * can draw the auroral oval over the actual chart instead of the webapp
- * showing it in a separate box.
+ * Renders a global NOAA grid as Web Mercator PNG tiles, so a chart plotter
+ * (Freeboard-SK, via `@signalk/charts-plugin`'s online chart source) can draw
+ * the auroral oval, or the HF absorption footprint, over the actual chart
+ * instead of the webapp showing it in a separate box.
  *
- * No I/O and no `app` access: this takes a grid and returns bytes. The route
- * that serves it, and the disk cache it reads from, live in index.ts and
- * cache/auroraCache.ts respectively.
+ * Two grids go through the same renderer at two different resolutions --
+ * OVATION at 1 degree, D-RAP at 2 by 4 -- so what a `Lattice` carries is the
+ * geometry and the colour table, and everything below it is shared.
+ *
+ * No I/O and no `app` access: this takes a grid and returns bytes. The routes
+ * that serve it, and the disk caches they read from, live in index.ts and
+ * cache/ respectively.
  *
  * Why a hand-rolled PNG encoder rather than a dependency: a PNG is a
  * signature, an IHDR chunk, a zlib stream, and IEND. Node's own zlib does the
@@ -17,6 +21,7 @@
  */
 import { deflate } from 'node:zlib'
 import { promisify } from 'node:util'
+import { DrapGrid, MARINE_SSB_BAND_EDGES_HZ } from './parse.js'
 
 const deflateAsync = promisify(deflate)
 
@@ -61,29 +66,53 @@ export function auroraGridFrom(coordinates: unknown): Uint8Array | null {
 }
 
 /**
- * Bilinear sample in whole percents, wrapping longitude at the 0/360 seam and
- * clamping latitude at the poles -- the same treatment `auroraProbabilityAt`
- * gives a single position, for the same reason: the grid is coarse and the
- * oval's edge is exactly where the answer matters.
+ * A regular global lattice of model values, plus the colour table that turns
+ * one into a pixel. The renderer knows nothing else about the product.
+ *
+ * `latStart`/`lonStart` are the coordinates of index 0 and the steps are
+ * signed degrees, so a grid NOAA publishes north-to-south or from -178 is
+ * described rather than rewritten. Longitude wraps, latitude clamps.
  */
-function sample(grid: Uint8Array, latitude: number, longitude: number): number {
-  const lat = latitude > 90 ? 90 : latitude < -90 ? -90 : latitude
-  const lon = ((longitude % LON_STEPS) + LON_STEPS) % LON_STEPS
-  const lat0 = Math.floor(lat)
-  const lat1 = lat0 + 1 > 90 ? 90 : lat0 + 1
-  const lon0 = Math.floor(lon) % LON_STEPS
-  const lon1 = (lon0 + 1) % LON_STEPS
-  const fy = lat - lat0
-  const fx = lon - Math.floor(lon)
+export interface Lattice {
+  values: Uint8Array | Float32Array
+  latStart: number
+  latStep: number
+  latCount: number
+  lonStart: number
+  lonStep: number
+  lonCount: number
+  /** RGBA quadruples; a sampled value indexes it at `value * lutScale`. */
+  lut: Uint8Array
+  lutScale: number
+}
 
-  const v00 = grid[lon0 * LAT_STEPS + (lat0 + 90)]
-  const v10 = grid[lon1 * LAT_STEPS + (lat0 + 90)]
-  const v01 = grid[lon0 * LAT_STEPS + (lat1 + 90)]
-  const v11 = grid[lon1 * LAT_STEPS + (lat1 + 90)]
+/**
+ * Bilinear sample, wrapping longitude at the seam and clamping latitude at
+ * the poles -- the same treatment `auroraProbabilityAt` gives a single
+ * position, for the same reason: the grid is coarse and the edge of the
+ * feature is exactly where the answer matters.
+ */
+function sample(lattice: Lattice, latitude: number, longitude: number): number {
+  const { values, latCount, lonCount } = lattice
+  const fy = (latitude - lattice.latStart) / lattice.latStep
+  const y0 = fy < 0 ? 0 : fy > latCount - 1 ? latCount - 1 : Math.floor(fy)
+  const y1 = y0 + 1 > latCount - 1 ? latCount - 1 : y0 + 1
+  const ty = fy - y0 < 0 ? 0 : fy - y0 > 1 ? 1 : fy - y0
 
-  const lower = v00 + (v10 - v00) * fx
-  const upper = v01 + (v11 - v01) * fx
-  return lower + (upper - lower) * fy
+  const fx = (longitude - lattice.lonStart) / lattice.lonStep
+  const wrapped = ((fx % lonCount) + lonCount) % lonCount
+  const x0 = Math.floor(wrapped) % lonCount
+  const x1 = (x0 + 1) % lonCount
+  const tx = wrapped - Math.floor(wrapped)
+
+  const v00 = values[x0 * latCount + y0]
+  const v10 = values[x1 * latCount + y0]
+  const v01 = values[x0 * latCount + y1]
+  const v11 = values[x1 * latCount + y1]
+
+  const lower = v00 + (v10 - v00) * tx
+  const upper = v01 + (v11 - v01) * tx
+  return lower + (upper - lower) * ty
 }
 
 /**
@@ -135,13 +164,13 @@ const RAMP_STEP_PERCENT = 5
  * webapp's canvas map never hits this because it fills one rectangle per grid
  * cell instead of sampling per pixel.
  */
-const LUT_SCALE = 8
-const LUT_MAX_INDEX = 100 * LUT_SCALE
+const AURORA_LUT_SCALE = 8
+const AURORA_LUT_MAX = 100 * AURORA_LUT_SCALE
 
-function buildLut(): Uint8Array {
-  const lut = new Uint8Array((LUT_MAX_INDEX + 1) * 4)
-  for (let i = 0; i <= LUT_MAX_INDEX; i++) {
-    const percent = i / LUT_SCALE
+function buildAuroraLut(): Uint8Array {
+  const lut = new Uint8Array((AURORA_LUT_MAX + 1) * 4)
+  for (let i = 0; i <= AURORA_LUT_MAX; i++) {
+    const percent = i / AURORA_LUT_SCALE
     const position = percent / RAMP_STEP_PERCENT
     const seg = Math.min(NOAA_RAMP.length - 2, Math.floor(position))
     const localT = position - seg
@@ -162,7 +191,139 @@ function buildLut(): Uint8Array {
   }
   return lut
 }
-const LUT = buildLut()
+const AURORA_LUT = buildAuroraLut()
+
+/** The OVATION grid as something the renderer can draw. */
+export function auroraLattice(values: Uint8Array): Lattice {
+  return {
+    values,
+    latStart: -90,
+    latStep: 1,
+    latCount: LAT_STEPS,
+    lonStart: 0,
+    lonStep: 1,
+    lonCount: LON_STEPS,
+    lut: AURORA_LUT,
+    lutScale: AURORA_LUT_SCALE
+  }
+}
+
+/**
+ * The D-RAP colour table, keyed to the marine SSB band edges rather than to a
+ * continuous scale.
+ *
+ * The published number is a frequency, not a severity -- `zonesForDrap` in
+ * parse.ts carries that argument in full -- so a smooth rainbow over MHz would
+ * be drawing a gradient across something that is actually a set of steps. What
+ * a reader needs off a chart is which of their bands are gone, so each band
+ * edge the cutoff has passed moves the colour one stop, and the contour lands
+ * exactly on the boundary that changed what they can work. It is the same
+ * ladder the HF Radio tile's band strip draws, in map form.
+ *
+ * Green through red rather than NOAA's own D-RAP rainbow: this is an overlay
+ * on a nautical chart, where blue is water, and the ramp has to read as
+ * severity at a glance against soundings.
+ */
+export const DRAP_BAND_RAMP: ReadonlyArray<readonly [number, number, number]> =
+  [
+    [90, 200, 120], // nothing absorbed -- drawn transparent
+    [140, 214, 74],
+    [186, 222, 44],
+    [226, 220, 34],
+    [246, 198, 30],
+    [250, 166, 26],
+    [250, 130, 24],
+    [246, 92, 30],
+    [232, 52, 44],
+    [204, 24, 70] // every marine SSB band absorbed
+  ]
+
+/**
+ * Indexed at 1/16 MHz. The grid is whole tenths of a MHz at most and bilinear
+ * sampling produces fractions between them, so the table has to be finer than
+ * the data for the same reason aurora's is.
+ */
+const DRAP_LUT_SCALE = 16
+const DRAP_MAX_MHZ = 40
+const DRAP_LUT_MAX = DRAP_MAX_MHZ * DRAP_LUT_SCALE
+
+function buildDrapLut(): Uint8Array {
+  const edgesMHz = MARINE_SSB_BAND_EDGES_HZ.map((hz) => hz / 1e6)
+  const lut = new Uint8Array((DRAP_LUT_MAX + 1) * 4)
+  for (let i = 0; i <= DRAP_LUT_MAX; i++) {
+    const mhz = i / DRAP_LUT_SCALE
+    // How many band edges this cutoff has passed, interpolated across the gap
+    // to the next one so the steps have a soft shoulder rather than aliasing
+    // into a jagged contour a pixel wide.
+    let stop = 0
+    for (let b = 0; b < edgesMHz.length; b++) {
+      if (mhz >= edgesMHz[b]) {
+        stop = b + 1
+        continue
+      }
+      const previous = b === 0 ? 0 : edgesMHz[b - 1]
+      stop =
+        b +
+        Math.min(1, Math.max(0, (mhz - previous) / (edgesMHz[b] - previous)))
+      break
+    }
+    if (mhz >= edgesMHz[edgesMHz.length - 1]) stop = DRAP_BAND_RAMP.length - 1
+    const seg = Math.min(DRAP_BAND_RAMP.length - 2, Math.floor(stop))
+    const localT = Math.min(1, stop - seg)
+    const a = DRAP_BAND_RAMP[seg]
+    const b = DRAP_BAND_RAMP[seg + 1]
+    lut[i * 4 + 0] = Math.round(a[0] + (b[0] - a[0]) * localT)
+    lut[i * 4 + 1] = Math.round(a[1] + (b[1] - a[1]) * localT)
+    lut[i * 4 + 2] = Math.round(a[2] + (b[2] - a[2]) * localT)
+    // Transparent below the lowest marine band -- absorption nobody on this
+    // boat can hear is not worth putting ink on a chart for -- then faded in
+    // and capped short of opaque, the same bargain aurora's alpha strikes.
+    const fraction = Math.min(1, stop / (DRAP_BAND_RAMP.length - 1))
+    lut[i * 4 + 3] =
+      mhz < edgesMHz[0] ? 0 : Math.round(255 * (0.22 + 0.53 * fraction))
+  }
+  return lut
+}
+const DRAP_LUT = buildDrapLut()
+
+/**
+ * The parsed D-RAP grid as something the renderer can draw.
+ *
+ * NOAA publishes it north-to-south and from -178, so the values are copied
+ * into a south-to-north, 0..360 lattice once per fetch rather than reasoned
+ * about on every one of the ~65,000 samples a tile takes.
+ */
+export function drapLattice(grid: DrapGrid): Lattice | null {
+  const latCount = grid.latitudes?.length ?? 0
+  const lonCount = grid.longitudes?.length ?? 0
+  if (latCount < 2 || lonCount < 2) return null
+  const values = new Float32Array(lonCount * latCount)
+  for (let row = 0; row < latCount; row++) {
+    const cells = grid.frequenciesMHz[row]
+    if (!cells) return null
+    // Row 0 is the northernmost latitude; the lattice runs the other way.
+    const y = latCount - 1 - row
+    for (let column = 0; column < lonCount; column++) {
+      const mhz = cells[column]
+      values[column * latCount + y] = Number.isFinite(mhz) ? mhz : 0
+    }
+  }
+  // Column 0 is the westernmost longitude, which normalises to 0..360 by
+  // adding a turn; the sampler wraps, so a start past 180 is not a problem.
+  const lonStart =
+    grid.longitudes[0] < 0 ? grid.longitudes[0] + 360 : grid.longitudes[0]
+  return {
+    values,
+    latStart: grid.latitudes[latCount - 1],
+    latStep: Math.abs(grid.latitudes[0] - grid.latitudes[1]),
+    latCount,
+    lonStart,
+    lonStep: Math.abs(grid.longitudes[1] - grid.longitudes[0]),
+    lonCount,
+    lut: DRAP_LUT,
+    lutScale: DRAP_LUT_SCALE
+  }
+}
 
 /** Whether {z}/{x}/{y} name a tile this renderer will draw. */
 export function isValidTile(z: number, x: number, y: number): boolean {
@@ -181,12 +342,14 @@ export function isValidTile(z: number, x: number, y: number): boolean {
  * more CPU than it saves bytes).
  */
 export function rasterizeTile(
-  grid: Uint8Array,
+  lattice: Lattice,
   z: number,
   x: number,
   y: number
 ): Buffer {
   const n = 2 ** z
+  const { lut, lutScale } = lattice
+  const lutMax = lut.length / 4 - 1
   const stride = 1 + TILE_SIZE * 4
   const raw = Buffer.allocUnsafe(TILE_SIZE * stride)
   const lonSpan = 360 / n / TILE_SIZE
@@ -204,15 +367,13 @@ export function rasterizeTile(
 
     for (let px = 0; px < TILE_SIZE; px++) {
       const lon = lonBase + px * lonSpan
-      const scaled = sample(grid, lat, lon < 0 ? lon + 360 : lon) * LUT_SCALE
-      const index =
-        (scaled < 0 ? 0 : scaled > LUT_MAX_INDEX ? LUT_MAX_INDEX : scaled | 0) *
-        4
+      const scaled = sample(lattice, lat, lon < 0 ? lon + 360 : lon) * lutScale
+      const index = (scaled < 0 ? 0 : scaled > lutMax ? lutMax : scaled | 0) * 4
       const out = rowStart + 1 + px * 4
-      raw[out] = LUT[index]
-      raw[out + 1] = LUT[index + 1]
-      raw[out + 2] = LUT[index + 2]
-      raw[out + 3] = LUT[index + 3]
+      raw[out] = lut[index]
+      raw[out + 1] = lut[index + 1]
+      raw[out + 2] = lut[index + 2]
+      raw[out + 3] = lut[index + 3]
     }
   }
   return raw
@@ -281,12 +442,12 @@ async function encodePng(
   ])
 }
 
-/** One aurora tile as PNG bytes. */
-export async function renderAuroraTile(
-  grid: Uint8Array,
+/** One tile of whichever grid the lattice describes, as PNG bytes. */
+export async function renderTile(
+  lattice: Lattice,
   z: number,
   x: number,
   y: number
 ): Promise<Buffer> {
-  return encodePng(TILE_SIZE, TILE_SIZE, rasterizeTile(grid, z, x, y))
+  return encodePng(TILE_SIZE, TILE_SIZE, rasterizeTile(lattice, z, x, y))
 }
