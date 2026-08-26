@@ -1,0 +1,64 @@
+name: Version gate
+
+# Refuses a pull request that changes what gets published without giving it a
+# version to publish under. A check, never a push: main's ruleset stays as it
+# is, and a red gate is fixed on the branch with one `npm version`.
+#
+# Requires "branches up to date before merging" alongside it, or two pull
+# requests can still race the way #123's did.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # tags, and enough history to diff against the base
+
+      - name: Require a version past the latest tag when the tarball changes
+        run: |
+          . ./scripts/publish-impact.sh
+
+          # HEAD is the merge result GitHub built for this PR, so HEAD^1 is the
+          # base branch tip it was actually merged from. Not
+          # `pull_request.base.sha`: that is the base as of when the PR was
+          # opened, so once main moves, everything merged since is diffed in
+          # and blamed on this PR. Measured -- #141 landed a public/index.html
+          # change and this gate demanded a bump from an unrelated branch that
+          # touches no shipping file at all.
+          #
+          # --no-renames because a src/foo.ts -> docs/foo.ts rename is reported
+          # as the new path alone, which the skip list would wave through.
+          CHANGED=$(git diff --name-only --no-renames HEAD^1 HEAD)
+          if [ -z "$CHANGED" ] || ! echo "$CHANGED" | publish_impacting; then
+            echo "Nothing here reaches the published tarball; no version needed."
+            exit 0
+          fi
+
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n1)
+          LATEST_VERSION="${LATEST_TAG#v}"
+
+          # Past the latest tag, and deliberately NOT past main's own version.
+          # Between a merge and the release window closing, main sits at a
+          # version that hasn't shipped yet, and a second pull request is meant
+          # to join it there rather than mint another number -- that shared
+          # version is the batching. Only a tagged version is spent.
+          if version_is_ahead "$PKG_VERSION" "$LATEST_VERSION"; then
+            echo "Ships as $PKG_VERSION, past ${LATEST_TAG:-the first release}."
+            exit 0
+          fi
+
+          NEXT=$(next_patch_version "$PKG_VERSION" "$LATEST_VERSION")
+          echo "::error::This PR changes what gets published while package.json is still $PKG_VERSION, and ${LATEST_TAG:-the last release} is already released. Run: npm version $NEXT --no-git-tag-version"
+          echo "Publish-impacting paths in this PR:"
+          echo "$CHANGED" | grep -vE "$NO_PUBLISH_IMPACT" | sed 's/^/  /'
+          exit 1
