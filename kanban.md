@@ -7,6 +7,14 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Launch the coastline-extraction build sessions — pick the two npm
+      names, then run the handoff prompt (data package repo, then JS lib
+      repo, then the swap-in PR here)
+      ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179))
+- [ ] Deliver the resource-delivery-layer detail you were holding, and open
+      the upstream Signal K discussion once the coastline packages exist
+      ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179)).
+      blocked: the packages shipping
 - [ ] Pick how the D-RAP map tiles and webapp map should color-match NOAA's
       colorbar — match NOAA exactly on both surfaces (as asked) or repeat
       aurora's chart-overlay-exact/webapp-adapted split; the measured NOAA
