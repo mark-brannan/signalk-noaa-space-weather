@@ -247,11 +247,11 @@ describe('GOES flux product', () => {
     expect(h.published.length).toBe(1)
   })
 
-  it('carries no units on the trend, an unbounded quotient rather than a probability', () => {
+  it("carries units 'ratio' on the trend, a quotient against a reference", () => {
     const meta = goesFlux.metadata!(settingsFrom({})).find(
       (m) => m.path === 'environment.noaa.swpc.xray_flux.trend'
     )
-    expect(meta?.value.units).toBeUndefined()
+    expect(meta?.value.units).toBe('ratio')
   })
 })
 
