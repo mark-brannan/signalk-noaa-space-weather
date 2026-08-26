@@ -418,7 +418,8 @@ Measured 2026-08-26.
 | `xray-flares-7-day.json` | 4.9 KB | 27,860 B | 72 |
 
 One record per flare over the trailing week rather than a time series, which
-is why it is two orders of magnitude smaller than the flux windows above
+is why it stays smaller on the wire than every flux window above — from 1.6x
+against the six-hour proton window to 63x against the three-day X-ray one —
 despite covering seven days rather than six hours. The latest endpoint is a
 single record and too small to compress — its wire and decoded sizes are the
 same figure. 72 records is what a week carried on the capture date, not a
