@@ -9,6 +9,13 @@ observe, so internal plumbing lands in a patch even when it adds something.
 
 ## [0.29.2] - 2026-08-26
 
+### Added
+
+- **The aurora map has a coastline.** It was a coloured band and a dot before,
+  with nothing in it to say whether the bright patch was over your passage or
+  over Siberia. Drawn from a coastline the plugin ships, because every chart
+  source Signal K can offer is Web Mercator and cannot show a pole.
+
 ### Changed
 
 - **The banner says what is still in force.** A storm quieter than the day's
