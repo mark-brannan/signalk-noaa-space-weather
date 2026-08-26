@@ -21,6 +21,12 @@ is written — and those measurements belong in
 product matters to an operator and _where_ it lives, so the issues stay
 readable after link rot.
 
+Its companion is [hf-operator-view.md](hf-operator-view.md): where this file
+surveys the _products_, that one records the _reading_ — the operator's
+question, the thresholds that answer it with each one's provenance, and what
+those thresholds mean as Signal K zone metadata whether or not the webapp
+draws them.
+
 ## How the ionosphere reads to an HF operator
 
 Three layers, three failure modes, and every product maps onto one of them:
@@ -119,7 +125,8 @@ absorption and reflection as maps and numbers at the vessel's position.
   hundred bytes. Product page:
   <https://www.swpc.noaa.gov/products/geophysical-alert-wwv-text>.
 - "SFI / A / K / SSN" is the phrase every ham reads conditions in; the
-  plugin has SFI and Kp, lacks A and SSN. `docs/noaa-products.md`'s
+  plugin now publishes all four (`aIndex.ts` and `sunspot.ts` filled the
+  gap). `docs/noaa-products.md`'s
   "Sunspot number (#84)" section already settled the SSN source: the
   `/json/solar-cycle/` products are monthly-only or the unbounded full
   history per poll, so it picked `/text/daily-solar-indices.txt` (DSD.txt)
