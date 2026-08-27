@@ -21,7 +21,7 @@
  */
 import { deflate } from 'node:zlib'
 import { promisify } from 'node:util'
-import { DrapGrid, MARINE_SSB_BAND_EDGES_HZ } from './parse.js'
+import { DrapGrid } from './parse.js'
 
 const deflateAsync = promisify(deflate)
 
@@ -125,12 +125,12 @@ function sample(lattice: Lattice, latitude: number, longitude: number): number {
  * at. NOAA publishes no numeric definition of this ramp anywhere, so the
  * image is the only source of truth there is.
  *
- * This deliberately no longer matches `auroraStops` in public/index.html,
- * which still uses this plugin's own 4-stop ramp saturating at 30%. Aligning
- * the webapp map is a separate decision -- it is a different picture, on a
- * dark page, at a different scale.
+ * `NOAA_AURORA_RAMP` in public/aurora.js is the same table -- the webapp map
+ * and this overlay are two pictures of one forecast, and
+ * test/aurora-webapp.test.ts pins them identical. Only the alpha differs, and
+ * for a stated reason: this one has to let a nautical chart through.
  */
-const NOAA_RAMP: ReadonlyArray<readonly [number, number, number]> = [
+export const NOAA_RAMP: ReadonlyArray<readonly [number, number, number]> = [
   [116, 166, 117], // 0%  -- desaturated; we draw this fully transparent
   [50, 196, 53], // 5%
   [23, 227, 16], // 10%
@@ -209,34 +209,60 @@ export function auroraLattice(values: Uint8Array): Lattice {
 }
 
 /**
- * The D-RAP colour table, keyed to the marine SSB band edges rather than to a
- * continuous scale.
+ * NOAA's own D-RAP colorbar, sampled from the legend PNG that ships with
+ * "Highest Frequency Affected by 1dB Absorption" -- a palette image, so no
+ * JPEG noise -- with 0-35 MHz mapped linearly across its pixel width
+ * (2026-08-26, recorded in
+ * [#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170)).
  *
- * The published number is a frequency, not a severity -- `zonesForDrap` in
- * parse.ts carries that argument in full -- so a smooth rainbow over MHz would
- * be drawing a gradient across something that is actually a set of steps. What
- * a reader needs off a chart is which of their bands are gone, so each band
- * edge the cutoff has passed moves the colour one stop, and the contour lands
- * exactly on the boundary that changed what they can work. It is the same
- * ladder the HF Radio tile's band strip draws, in map form.
+ * `[MHz, r, g, b]`, and **the same table as `NOAA_DRAP_STOPS` in
+ * public/drap-colors.js**, which the webapp's map and legend draw from; a
+ * browser cannot import this TypeScript, so the copy is pinned identical by
+ * `drap-colors.test.ts` -- along with the alpha ramp below, since a cell in
+ * two colours on two screens on the same boat is the failure this palette
+ * exists to prevent.
  *
- * Green through red rather than NOAA's own D-RAP rainbow: this is an overlay
- * on a nautical chart, where blue is water, and the ramp has to read as
- * severity at a glance against soundings.
+ * Unlike aurora, whose webapp map keeps this plugin's own desaturated ramp,
+ * both D-RAP surfaces use NOAA's colours: #170 settled that a picture sitting
+ * beside NOAA's own image of the same grid has to be the same picture.
+ *
+ * The last sampled pixel of the strip is 255,12,0, but the legend's own end
+ * box is pure red and the scale saturates there, so the table ends on the
+ * colour the box holds and every value past 35 MHz gets it.
  */
-export const DRAP_BAND_RAMP: ReadonlyArray<readonly [number, number, number]> =
-  [
-    [90, 200, 120], // nothing absorbed -- drawn transparent
-    [140, 214, 74],
-    [186, 222, 44],
-    [226, 220, 34],
-    [246, 198, 30],
-    [250, 166, 26],
-    [250, 130, 24],
-    [246, 92, 30],
-    [232, 52, 44],
-    [204, 24, 70] // every marine SSB band absorbed
-  ]
+export const NOAA_DRAP_STOPS: ReadonlyArray<
+  readonly [number, number, number, number]
+> = [
+  [0, 0, 0, 0],
+  [2, 61, 0, 63],
+  [4, 88, 0, 132],
+  [6, 71, 0, 195],
+  [8, 21, 0, 255],
+  [10, 0, 55, 255],
+  [12, 0, 131, 255],
+  [14, 0, 216, 255],
+  [16, 0, 255, 220],
+  [18, 0, 255, 144],
+  [20, 0, 255, 67],
+  [22, 4, 255, 0],
+  [24, 76, 255, 0],
+  [26, 157, 255, 0],
+  [28, 229, 255, 0],
+  [30, 255, 195, 0],
+  [32, 255, 123, 0],
+  [34, 255, 42, 0],
+  [35, 255, 0, 0]
+]
+
+/**
+ * Where the alpha ramp reaches opaque, in MHz. The argument for the shape is
+ * in public/drap-colors.js, next to the copy of it the webapp uses; in short,
+ * NOAA's 0 MHz stop is #000000 and an opaque black cell over a chart reads as
+ * "no data", so alpha fades in from invisible instead -- and reaches *full*
+ * opacity early, because hue now carries the severity and a diluted colour
+ * would carry a second, contradicting one.
+ */
+const DRAP_ALPHA_FULL_MHZ = 4
 
 /**
  * Indexed at 1/16 MHz. The grid is whole tenths of a MHz at most and bilinear
@@ -248,39 +274,25 @@ const DRAP_MAX_MHZ = 40
 const DRAP_LUT_MAX = DRAP_MAX_MHZ * DRAP_LUT_SCALE
 
 function buildDrapLut(): Uint8Array {
-  const edgesMHz = MARINE_SSB_BAND_EDGES_HZ.map((hz) => hz / 1e6)
   const lut = new Uint8Array((DRAP_LUT_MAX + 1) * 4)
+  const top = NOAA_DRAP_STOPS[NOAA_DRAP_STOPS.length - 1]
   for (let i = 0; i <= DRAP_LUT_MAX; i++) {
     const mhz = i / DRAP_LUT_SCALE
-    // How many band edges this cutoff has passed, interpolated across the gap
-    // to the next one so the steps have a soft shoulder rather than aliasing
-    // into a jagged contour a pixel wide.
-    let stop = 0
-    for (let b = 0; b < edgesMHz.length; b++) {
-      if (mhz >= edgesMHz[b]) {
-        stop = b + 1
-        continue
-      }
-      const previous = b === 0 ? 0 : edgesMHz[b - 1]
-      stop =
-        b +
-        Math.min(1, Math.max(0, (mhz - previous) / (edgesMHz[b] - previous)))
-      break
+    let seg = 0
+    while (
+      seg < NOAA_DRAP_STOPS.length - 2 &&
+      mhz >= NOAA_DRAP_STOPS[seg + 1][0]
+    ) {
+      seg++
     }
-    if (mhz >= edgesMHz[edgesMHz.length - 1]) stop = DRAP_BAND_RAMP.length - 1
-    const seg = Math.min(DRAP_BAND_RAMP.length - 2, Math.floor(stop))
-    const localT = Math.min(1, stop - seg)
-    const a = DRAP_BAND_RAMP[seg]
-    const b = DRAP_BAND_RAMP[seg + 1]
-    lut[i * 4 + 0] = Math.round(a[0] + (b[0] - a[0]) * localT)
-    lut[i * 4 + 1] = Math.round(a[1] + (b[1] - a[1]) * localT)
-    lut[i * 4 + 2] = Math.round(a[2] + (b[2] - a[2]) * localT)
-    // Transparent below the lowest marine band -- absorption nobody on this
-    // boat can hear is not worth putting ink on a chart for -- then faded in
-    // and capped short of opaque, the same bargain aurora's alpha strikes.
-    const fraction = Math.min(1, stop / (DRAP_BAND_RAMP.length - 1))
-    lut[i * 4 + 3] =
-      mhz < edgesMHz[0] ? 0 : Math.round(255 * (0.22 + 0.53 * fraction))
+    const a = NOAA_DRAP_STOPS[seg]
+    const b = NOAA_DRAP_STOPS[seg + 1]
+    const localT = (mhz - a[0]) / (b[0] - a[0])
+    const held = mhz >= top[0]
+    lut[i * 4 + 0] = held ? top[1] : Math.round(a[1] + (b[1] - a[1]) * localT)
+    lut[i * 4 + 1] = held ? top[2] : Math.round(a[2] + (b[2] - a[2]) * localT)
+    lut[i * 4 + 2] = held ? top[3] : Math.round(a[3] + (b[3] - a[3]) * localT)
+    lut[i * 4 + 3] = Math.round(255 * Math.min(1, mhz / DRAP_ALPHA_FULL_MHZ))
   }
   return lut
 }

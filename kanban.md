@@ -16,6 +16,20 @@ what it is blocked by. Delete it when it is done.
       the upstream Signal K discussion once the coastline packages exist
       ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179)).
       blocked: the packages shipping
+- [ ] Send the three coastline-package outreach drafts, in order — the
+      SignalK/signalk "Show and tell" discussion first (highest reach), then
+      Aitonos, then Flyguy86. All three packages are on npm now, but
+      `coastlines` and `coast-wright` are at `0.0.1-alpha.0`; decide whether
+      to point strangers at an alpha or cut a real release first. Text, send
+      order and a re-verify list are held in the private state repo at
+      `state/global/drafts/coastlines-outreach.md`
+      ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179))
+- [ ] Decide whether the webapp should split into tab-like views instead of one
+      long scrolling page — the map (and maybe other sections) as its own
+      selectable pane, with switcher controls near the top; still a single-page
+      app, no real navigation, just controls that read as tabs. Needs your
+      call on scope before it's worth an issue
+      ([raised on this PR](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/196))
 - [ ] Pick how the D-RAP map tiles and webapp map should color-match NOAA's
       colorbar — match NOAA exactly on both surfaces (as asked) or repeat
       aurora's chart-overlay-exact/webapp-adapted split; the measured NOAA
@@ -69,17 +83,89 @@ what it is blocked by. Delete it when it is done.
       open; the other two have no open pull request) — real unlanded work, so
       not a sweep
 
+- [ ] Design #121's Tier 2 — a recurring live check that fetches NOAA
+      directly, drives a real running instance of this plugin in a browser,
+      and compares the two, outside `npm test`. Open questions before
+      building it: where it runs, which server it drives (`~/.signalk` dev
+      instance vs. the published-package Docker instance), whether it asserts
+      on the DOM or only the Signal K API, how it alarms, and how it has teeth
+      on a quiet day when every scale legitimately reads 0. Whether Playwright
+      earns its cost is part of that, not settled in advance — it's the
+      heaviest dependency in the repo's orbit. Tier 1 (offline, in `npm test`)
+      is done as of
+      [#178](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/178)
+      ([#121](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/121))
+- [ ] Decide whether **Band edges** stays a map control, becomes always-on, or
+      goes — the marine SSB band-edge contours over NOAA's colorbar are a
+      Claude proposal you asked to see rather than discuss, and the toolbar
+      checkbox is the A/B, not a settled design. Judge it during an actual
+      event: the quiet-day grid draws one contour and decides nothing.
+      Judged 2026-08-26 against a synthetic dayside blackout injected at the
+      drap-grid route — quiet draws a single line that reads as a stray
+      graticule, a storm draws seven that say which band has gone under, which
+      is the case for an off-by-default switch rather than always-on
+      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170),
+      [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191))
+
 ## Claude's
 
-- [ ] Rebase [#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169)
-      onto main now that #164/#166 merged — it independently rebuilt the
-      D-RAP map/tiles/cache #166 already shipped. Cache-layer conflicts
-      (`drapCache.ts`, `drap.ts`, `drap.test.ts`) are mechanical, take main's
-      side; `src/tiles.ts` and the map widget are a real fork (#166's
-      `mapLayer` switcher vs. this branch's separate `drapMap.js` panel) —
-      keep #166's shell, port in the click-to-score probe
-      (`pathAbsorption`, `drapProbeHtml`, the canvas click handler). See
-      [PR comment](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169#issuecomment-5429163568)
+- [ ] Tidy `mapView`'s return shape in `public/projection.js` once
+      [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191)
+      lands — it returns `center` as the *settled* value but `radiusDeg` as the
+      *requested* one (pass 0, get 0 back, render 1), and it computes
+      `proj.radiusWorld(radiusDeg)` internally then throws it away so
+      `spaceMap.js:213` re-derives it. Exposing the resolved `radius` fixes
+      both. Also unreachable: `toPixel`'s `if (!world) return null`, which is
+      why every call site carries a `!`. Not correctness bugs — the maths swept
+      clean in
+      [#194](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/194);
+      carded because #191 is being split into tiers and the comment on it
+      ([here](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191#issuecomment-5433552941))
+      would go with it
+- [ ] Once [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191)
+      lands, work through Mark's test-rig punch list on the unified map
+      (`public/spaceMap.js`, `public/index.html`):
+      - Give the current-position and clicked-target markers distinct icons —
+        a small white ship/vessel glyph for the vessel, crosshairs (or a
+        station/receiver icon) for the target — instead of two identical dots
+      - Cut the map's text density; a lot of what's on it now duplicates
+        another readout on the same tile
+      - Put the path's headline metric (the worst-cutoff cliff) as a label
+        drawn on the path itself, not off in a corner
+      - Stack the aurora and D-RAP scales vertically instead of side by side,
+        and widen them enough to show the range with real numbers, the way
+        NOAA's own scale graphics do — not pixel-identical, just legible with
+        a few numeric points on each
+      - Drop "Nothing selected" as a map-layer option — either it renders an
+        empty map or it isn't offered; removing the whole map tile is wrong
+      - Fix the band-edge contour rendering: keep the labelled ticks inside
+        the visible range instead of off the edge, stop drawing them directly
+        on top of the scale lines (reads as "mucky"), make the numbers read
+        clearly as labels, and give them units — "2 MHz" or "< 2 MHz", not
+        bare "2"
+      - Stack the aurora/HF refresh buttons the same way the scales stack
+      - Reflow each map section as: label (e.g. "HF Absorption"), then its
+        refresh button to the label's right, then its timestamp to the
+        button's right, with that section's scale further right again on a
+        wide viewport — dropping down below, still stacked as a group, as the
+        viewport narrows
+      - Move the help text up and shorten it to something like "Click any
+        point to score a path"; an info bubble can carry any extra context,
+        if it's worth having at all
+      - Stop listing multiple lat/lon pairs down at the bottom of the map —
+        if the far end of a path gets a coordinate readout, put it right next
+        to that point, and put the distance and worst/mean cutoff figures on
+        the path itself, as labels, not in a separate list
+- [ ] Fix the other D-RAP path-scoring bug that landed with
+      [#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169) —
+      `greatCirclePoints`'s fixed 100km step in `public/drapMap.js` can skip
+      narrow polar cells (a 4° longitude cell is ~7.8km wide at 89°, so a
+      polar-cap blackout can be missed). Pre-dates the rebase; flagged by
+      CodeRabbit and left unfixed as out of scope for it —
+      [polar coverage](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169#discussion_r3866708876).
+      The antipodal half of this card and the hardcoded grid geometry shipped
+      in
+      [#183](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/183)
 - [ ] Cut the README down — 246 lines and still growing, and every feature
       lands one more paragraph in it. The getting-started path is buried under
       design rationale that belongs in
@@ -127,9 +213,6 @@ what it is blocked by. Delete it when it is done.
       once `capture.mjs fast` catches one — the invented wording is a guess and
       nothing should parse against it
       ([#134](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/134))
-- [ ] Add `npm run format:check` to the typecheck job in
-      [ci.yml](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/.github/workflows/ci.yml)
-      — AGENTS.md orders it and no check enforces it
 - [ ] **2026-09-02**: revisit `RELEASE_WINDOW_HOURS` in
       [scripts/publish-impact.sh](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/scripts/publish-impact.sh)
       — started at 6h in [#136](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/136),
@@ -171,26 +254,12 @@ what it is blocked by. Delete it when it is done.
       [#110](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/110)
       and
       [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md)
-- [ ] Render the D-RAP grid as map tiles beside the aurora overlay — the full
-      90x90 grid is already fetched and parsed, `tiles.ts` is nearly
-      grid-agnostic, and a map is the only surface that can answer _path_
-      absorption (see "Every reading here is at the vessel" in
-      [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md))
-      ([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32)).
-      The coastline under it is done — `public/geo.js`, drawn through whatever
-      projection the caller has, so this map gets it for free
-      ([#172](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/172));
-      blocked: the color-gradient decision below
-      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170))
-- [ ] Let `scripts/mock-webapp.mjs` show the aurora map — it serves no grid, so
-      the map renders its own empty state and neither the coastline nor the
-      probability cells can be seen without a live server. The recorded reason
-      ("faking one would be mocking tiles.ts") does not hold for this surface:
-      the webapp map draws in the browser from the cached grid, and
-      `examples/ovation-aurora.2026_08_01.json` is a real one. Found while
-      shipping the coastline, which is why that PR carries module renders
-      instead of screenshots
-      ([#172](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/172))
+- [ ] Decide whether a *named* destination is worth building on top of the
+      absorption map's click-to-score probe — a route waypoint, a saved
+      station list, a callsign lookup. The map answers the path question by
+      clicking, so this is a convenience now rather than the feature; wait
+      until the map has been used and it is clear which one gets reached for
+      ([#167](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/167))
 - [ ] Surface the D-RAP header fields the parser currently reads past —
       `Estimated Recovery Time`, `X-RAY Message` and `Proton Message` are
       NOAA's own "when does this blackout end", already inside a payload we
@@ -223,3 +292,28 @@ what it is blocked by. Delete it when it is done.
       nothing restates a measurement that belongs in
       [noaa-products.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/noaa-products.md)
       ([#153](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/153))
+- [ ] Take the non-separable-projection gap upstream to
+      [coast-wright](https://github.com/mark-brannan/coast-wright) — `limn`
+      takes `x(lon)` and `y(lat)` as *separate* functions, which only a
+      cylindrical projection can satisfy: on an azimuthal map the pixel column
+      a point lands in depends on its latitude too. The webapp now strokes its
+      own rings for that case (`strokeRings` in `public/spaceMap.js`), which is
+      the second copy of the seam logic the extraction was meant to prevent.
+      Either widen `limn`'s signature to `project(lon, lat)` or say in its docs
+      that it is cylindrical-only
+- [ ] Give the merged 0.29.3 batch a CHANGELOG entry — the version on `main`
+      was bumped to 0.29.3 by the commit hook, but nothing between `v0.29.2`
+      and the map work wrote to the file: the D-RAP grid drawing
+      ([#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169),
+      [#183](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/183)),
+      the coastline vendoring
+      ([#184](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/184))
+      and FUNDING.yml
+      ([#188](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/188))
+      all ship under it unrecorded. The map PR opened the section; the rest of
+      the batch belongs in it
+- [ ] Recapture `docs/screenshots/space-map.png` against the real dev server —
+      the one on the map PR came off `scripts/mock-webapp.mjs`, whose grids are
+      genuine NOAA payloads but whose surrounding values are fabricated.
+      `scripts/screenshots/capture.mjs --only space-map` does it once
+      `~/.signalk` is up on 3010
