@@ -7,6 +7,19 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Decide the map's Expand/Shrink control's fate — it does nothing at a
+      narrow viewport, only grows the tile past the page's other columns at
+      a wide one, and defaults to shrunk for now (round-3 review on
+      [#198](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/198))
+- [ ] Launch the coastline-extraction build sessions — names are settled
+      (`coastlines` data, `coast-wright` lib, `portolani` generator), so run
+      the handoff prompt: generator repo, then data repo, then lib repo, then
+      the swap-in PR here
+      ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179))
+- [ ] Deliver the resource-delivery-layer detail you were holding, and open
+      the upstream Signal K discussion once the coastline packages exist
+      ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179)).
+      blocked: the packages shipping
 - [ ] Send the three coastline-package outreach drafts, in order — the
       SignalK/signalk "Show and tell" discussion first (highest reach), then
       Aitonos, then Flyguy86. All three packages are on npm now, but
@@ -100,46 +113,19 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
-- [ ] Round 3 on the unified map, from Mark's live review of
-      `claude/aurora-draps-map-work` (`public/spaceMap.js`,
-      `public/index.html`) after round 2 landed
-      ([#198](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/198)):
-      - Stack mean/worst directly on top of each other, centered over the
-        path line; distance goes directly below that, in the user's own unit
-        preference read from Signal K (not hardcoded nmi); all three a size
-        larger than they are now
-      - The coordinate label at the destination is too busy — keep it small
-        and push it out to the far side of the destination/path, away from
-        the MHz and distance labels
-      - The bearing chip ("218°T") is the initial true bearing from the
-        vessel to the clicked target — the heading you'd steer or point a
-        directional antenna along to follow that great-circle path
-        (`bearingDeg` in `public/drapMap.js`). Real value for a ham operator
-        beaming an antenna, distinct from distance. Mark's call on keeping
-        it — if kept, stack it below MHz/distance
-      - Band-edge contour label: double the size again and use the same
-        yellow already used for the aurora % and Kp plot, not the white-halo
-        treatment round 2 shipped
-      - Stop the "Fetch" button from clearing a scored path — the probe
-        should survive a refresh. Card a "Clear path" control separately,
-        deferred, not built this round
-      - Drop the Expand/Shrink button; always render at the expanded size
-      - Match the aurora and D-RAP legend widths — they currently differ
-      - Thin out the D-RAP band-edge tick labels on the legend scale itself —
-        too many, numbers overlapping/garbled
-      - The page shifts width when a Fetch button is clicked or a layer
-        checkbox is toggled — find and kill the reflow
-      - Drop the dynamic "HF absorption and Aurora" / "Aurora" / "HF
-        absorption" caption line entirely — no value, and the coordinates and
-        zoom-radius wording it also carries duplicate other readouts. If the
-        "N degrees around" wording is worth keeping, move it to sit with the
-        zoom slider itself and drop it from everywhere else
-      - Fix the last-layer-can't-be-unchecked checkbox: with one layer
-        checked-and-disabled and the other unchecked, clicking the
-        disabled one should flip both, XOR-style, not no-op
-      - Clicking Fetch while one overlay layer is off has "unexpected
-        effects" (Mark's wording, not yet reproduced/diagnosed) — investigate
-        `handleRefreshClick`/`refetchLayer` interaction with `layerOn()`
+- [ ] Tidy `mapView`'s return shape in `public/projection.js` once
+      [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191)
+      lands — it returns `center` as the *settled* value but `radiusDeg` as the
+      *requested* one (pass 0, get 0 back, render 1), and it computes
+      `proj.radiusWorld(radiusDeg)` internally then throws it away so
+      `spaceMap.js:213` re-derives it. Exposing the resolved `radius` fixes
+      both. Also unreachable: `toPixel`'s `if (!world) return null`, which is
+      why every call site carries a `!`. Not correctness bugs — the maths swept
+      clean in
+      [#194](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/194);
+      carded because #191 is being split into tiers and the comment on it
+      ([here](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191#issuecomment-5433552941))
+      would go with it
 - [ ] Once [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191)
       lands, work through Mark's test-rig punch list on the unified map
       (`public/spaceMap.js`, `public/index.html`):
@@ -272,6 +258,41 @@ what it is blocked by. Delete it when it is done.
       [#110](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/110)
       and
       [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md)
+- [ ] Derive the D-RAP grid geometry in `public/drapMap.js` instead of
+      hardcoding it — `cutoffAt` does `row = round((89 - lat)/2)` and
+      `col = round((lon + 178)/4)`, and `drawDrapMap` lays cells out on the
+      same assumption. Every other reader derives it: `drapLattice` in
+      `src/tiles.ts` says in as many words that a grid published
+      north-to-south or from -178 is _described_ rather than rewritten, and
+      `drapFrequencyAt` uses `nearestIndex` over the arrays. `parseDrapGrid`
+      checks only that both arrays are length 90, so a shifted grid publishes
+      right, tiles right, and draws and probes wrong in the webapp with no
+      signal — the failure
+      [docs/design-decisions.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md#noaa-changes-payload-shapes-without-notice)
+      exists to prevent. Both arrays are already in hand (`gridSummary` reads
+      them); ~10 lines, or one geometry assertion in `parseDrapGrid` instead.
+      While there: guard `greatCirclePoints` against the exact antipode
+      (`sin δ` → 0 scatters 82 of 202 points), and make
+      `test/drap-map.test.ts:38` assert against `drapFrequencyAt` rather than
+      a hardcoded 2.9
+      ([review](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169#issuecomment-5431300417))
+- [ ] Trim the "The D-RAP map is the deliverable" section in
+      [docs/design-decisions.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md) —
+      its colour-ramp paragraph re-argues "The D-RAP overlay is coloured by
+      band, not by frequency" and its cache paragraph re-argues "A global grid
+      is worth fetching before there is anywhere to index it". Cut to the
+      map-is-the-input argument and the sampling / worst-and-mean choices, and
+      link the other two. The same file also carries a half-finished
+      `*emphasis*` → `_emphasis_` pass that rode in on
+      [#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169)
+      (lines 167 and 341 still use `*`) — finish it or revert it, and decide
+      whether `format:check` should cover markdown at all, since today it only
+      covers `src/**/*.ts` and `test/**/*.ts`
+- [ ] Keep the vessel position across a map layer switch —
+      `document.getElementById('mapExtent').innerHTML = layer.extent` in
+      `public/index.html` re-inserts `<span id="vesselPos">the vessel</span>`,
+      so the extent reads "the vessel" until the next 60-second poll. Set the
+      text right after the swap
 - [ ] Decide whether a *named* destination is worth building on top of the
       absorption map's click-to-score probe — a route waypoint, a saved
       station list, a callsign lookup. The map answers the path question by
