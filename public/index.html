@@ -478,34 +478,48 @@
      page colour before the first frame. */
   #spaceMapCanvas { display: block; width: 100%; border-radius: 4px; background: #05070d; }
   #spaceMapCanvas.probe-cursor { cursor: crosshair; }
-  .drap-legend { display: flex; align-items: center; gap: 8px; }
+  /* A line above the canvas, not a paragraph inside the result -- the reader
+     needs to know a click does something before they've clicked. */
+  .map-help { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 8px; }
+  .drap-probe { margin-top: 10px; font-size: 0.78rem; line-height: 1.5; color: var(--text-dim); }
+  .drap-probe b { color: var(--text); font-weight: 400; }
+  .drap-probe .verdict { display: block; margin-top: 2px; color: var(--text-dim); }
+  /* One row per active layer: label, refresh, timestamp, scale -- wrapping
+     down together as a group on a narrow viewport rather than as two
+     separately-wrapping lists. */
+  .map-footer { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+  .map-section {
+    display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap;
+    font-size: 0.72rem; color: var(--text-dim);
+  }
+  .sec-label {
+    font-family: var(--font-display); text-transform: uppercase;
+    letter-spacing: 0.06em; font-size: 0.62rem; color: var(--text); min-width: 5.5em;
+  }
+  .sec-time { font-variant-numeric: tabular-nums; }
+  .map-legend { display: flex; flex-direction: column; gap: 3px; margin-left: auto; min-width: 160px; }
+  /* Matches NOAA_AURORA_RAMP in public/aurora.js, so the legend means the same
+     thing the map does. Widened and given real tick numbers -- a colour ramp
+     with no numbers on it isn't a scale, and NOAA's own legend graphics
+     always carry a few (Mark's test-rig punch list). */
+  .map-legend .bar {
+    position: relative; width: 100%; min-width: 160px; height: 10px; border-radius: 4px;
+    background: linear-gradient(90deg, rgb(23,227,16), rgb(45,247,3), rgb(248,255,1), rgb(255,163,0), rgb(228,0,0));
+  }
   /* NOAA's own D-RAP colorbar, filled from public/drap-colors.js at runtime so
      the strip cannot claim a colour the map does not paint. */
   .drap-legend .bar {
-    position: relative; width: 130px; height: 9px; border-radius: 2px;
+    position: relative; width: 100%; min-width: 220px; height: 10px; border-radius: 2px;
     background: var(--grid);
   }
   .drap-legend .bar .ink { position: absolute; inset: 0; border-radius: 2px; }
-  .drap-legend .bar .tick {
-    position: absolute; top: -2px; bottom: -2px; width: 1px;
-    background: var(--text); opacity: 0.55;
-  }
-  .drap-probe { margin-top: 10px; font-size: 0.78rem; line-height: 1.5; }
-  .drap-probe b { color: var(--text); font-weight: 400; }
-  .drap-probe .verdict { display: block; margin-top: 2px; color: var(--text-dim); }
-  .map-footer {
-    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
-    gap: 10px 18px; margin-top: 10px; font-size: 0.72rem; color: var(--text-dim);
-  }
-  .map-footer .stamps { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; }
-  .map-footer .legends { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-  .map-legend { display: flex; align-items: center; gap: 8px; }
-  /* Matches NOAA_AURORA_RAMP in public/aurora.js, so the legend means the same
-     thing the map does. Stops at 0/25/50/75/100% probability. */
-  .map-legend .bar {
-    width: 90px; height: 8px; border-radius: 4px;
-    background: linear-gradient(90deg, rgb(23,227,16), rgb(45,247,3), rgb(248,255,1), rgb(255,163,0), rgb(228,0,0));
-  }
+  /* Ticks sit in their own row below the bar, not as lines drawn over the
+     gradient -- overlaid on the colour they read as mucky, and a bare number
+     with no unit reads as part of the scale rather than a label for it. */
+  .scale-ticks { position: relative; height: 12px; font-size: 0.6rem; color: var(--text-dim); white-space: nowrap; }
+  .scale-tick { position: absolute; top: 0; }
+  .scale-tick.align-center { transform: translateX(-50%); }
+  .scale-tick.align-right { transform: translateX(-100%); }
   .map-note { font-size: 0.72rem; color: var(--text-dim); margin-top: 8px; }
 
   /* line-height is explicit because the two-line trim measures against it. */
@@ -726,9 +740,9 @@ import { scalesCard, scalesMarkup, sevClass, sevWord } from './scales.js';
 import { bandStrip, hfCard, solarCard } from './hf.js';
 import { leafTime, leafValue, readAll } from './signalk.js';
 import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
-import { LEGEND_MAX_MHZ, bandEdgeTicks, cutoffAt, gridSummary, legendStops, pathAbsorption } from './drapMap.js';
+import { bandEdgeTicks, gridSummary, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
-import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpaceMap, positionAt } from './spaceMap.js';
+import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpaceMap, fmtLat, fmtLon, positionAt } from './spaceMap.js';
 (() => {
   'use strict';
   const REFRESH_MS = 60000;
@@ -1462,8 +1476,7 @@ import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpac
       stamp: (entry) => `observed ${fmtTime(entry.grid['Observation Time'])}`,
       empty: 'No aurora grid cached yet.',
       fetchTitle: 'Fetches the aurora grid from NOAA now (~145 KB).',
-      legend:
-        '<div class="map-legend"><span class="bar"></span>Aurora probability, low &rarr; high</div>'
+      legend: () => auroraLegendHtml()
     },
     drap: {
       label: 'HF absorption',
@@ -1500,27 +1513,43 @@ import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpac
   // input. On the great-circle projection that path is drawn as the straight
   // radial line it physically is. See docs/design-decisions.md.
   const MHZ = 1e6
-  const KM_TO_NM = 0.539957
-  const fmtLat = (lat) => `${Math.abs(lat).toFixed(1)}°${lat < 0 ? 'S' : 'N'}`
-  const fmtLon = (lon) => `${Math.abs(lon).toFixed(1)}°${lon < 0 ? 'W' : 'E'}`
 
   // NOAA's own 0-35 MHz colorbar, built from the same table the map paints
-  // from, so the strip cannot claim a colour the picture does not use. The
-  // band-edge ticks appear only while the contours are drawn, so the legend
-  // explains exactly what is on screen and nothing more.
+  // from, so the strip cannot claim a colour the picture does not use. Ticks
+  // sit in their own row below the bar rather than as lines drawn over the
+  // gradient -- on top of the colour they read as mucky, and a bare "2" with
+  // no unit reads as part of the scale rather than a label for it.
+  function scaleTicksHtml(ticks) {
+    return `<div class="scale-ticks">${ticks
+      .map((tick) => {
+        // Clamped a few percent in from each edge so a band edge near 0 or
+        // LEGEND_MAX_MHZ still has room to draw its own label.
+        const left = Math.min(97, Math.max(3, tick.fraction * 100)).toFixed(1)
+        const align = tick.fraction < 0.08 ? 'left' : tick.fraction > 0.92 ? 'right' : 'center'
+        return `<span class="scale-tick align-${align}" style="left:${left}%">${tick.label}</span>`
+      })
+      .join('')}</div>`
+  }
+
+  function auroraLegendHtml() {
+    return `<div class="map-legend"><span class="bar"></span>
+      ${scaleTicksHtml([
+        { fraction: 0, label: '0%' },
+        { fraction: 0.5, label: '50%' },
+        { fraction: 1, label: '100%' }
+      ])}</div>`
+  }
+
   function drapLegendHtml() {
     const stops = legendStops(24)
     const gradient = stops
       .map((stop, i) => `${stop.color} ${((i / (stops.length - 1)) * 100).toFixed(1)}%`)
       .join(', ')
     const ticks = mapControls.bandEdges
-      ? bandEdgeTicks()
-          .map((tick) =>
-            `<span class="tick" style="left:${(tick.fraction * 100).toFixed(1)}%" title="${tick.label} MHz band edge"></span>`)
-          .join('')
+      ? scaleTicksHtml(bandEdgeTicks().map((tick) => ({ fraction: tick.fraction, label: `${tick.label} MHz` })))
       : ''
-    return `<div class="map-legend drap-legend"><span>Absorbed</span><span class="bar"><span class="ink"
-      style="background:linear-gradient(90deg, ${gradient})"></span>${ticks}</span><span>0 &rarr; ${LEGEND_MAX_MHZ} MHz</span></div>`
+    return `<div class="map-legend drap-legend"><span class="bar"><span class="ink"
+      style="background:linear-gradient(90deg, ${gradient})"></span></span>${ticks}</div>`
   }
 
   // What the number means for somebody about to transmit: the bands it takes
@@ -1533,6 +1562,12 @@ import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpac
     return `Marine bands up to ${absorbed[absorbed.length - 1].label} MHz are absorbed somewhere on this path.`
   }
 
+  // Everything a scored path says numerically -- coordinates, distance,
+  // bearing, worst and mean cutoff -- is drawn on the path itself by
+  // spaceMap.js. What is left here is the one sentence that isn't a number:
+  // which of the reader's own bands the path takes out. The vessel's own
+  // cutoff stays off the map too -- the HF Radio tile above already reads it,
+  // and repeating it here was the densest duplication on the punch list.
   function drapProbeHtml() {
     const entry = mapEntries.drap
     if (!entry) return ''
@@ -1548,23 +1583,8 @@ import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpac
     if (!lastPosition) {
       return `<div class="drap-probe">No vessel position yet, so there is nothing to draw a path from. The map above is the whole grid.</div>`
     }
-    const here = cutoffAt(grid, lastPosition.latitude, lastPosition.longitude)
-    const atVessel = here === null
-      ? 'no reading'
-      : here === 0 ? 'nothing absorbed' : `${here.toFixed(1)} MHz`
-    if (!drapProbe) {
-      return `<div class="drap-probe">At the vessel: <b>${atVessel}</b>.
-        <span class="verdict">Click any point to score a path.</span></div>`
-    }
-    const end = drapProbe.points[drapProbe.points.length - 1]
-    return `<div class="drap-probe">
-      Path to <b>${fmtLat(end.latitude)} ${fmtLon(end.longitude)}</b>,
-      <b>${Math.round(drapProbe.distanceKm * KM_TO_NM).toLocaleString()} nmi</b>
-      at <b>${Math.round(drapProbe.bearingDeg).toString().padStart(3, '0')}&deg;T</b>.
-      Worst cutoff <b>${drapProbe.worstMHz.toFixed(1)} MHz</b>
-      (${fmtLat(drapProbe.worstAt.latitude)} ${fmtLon(drapProbe.worstAt.longitude)}),
-      mean <b>${drapProbe.meanMHz.toFixed(1)} MHz</b>. At the vessel: <b>${atVessel}</b>.
-      <span class="verdict">${absorbedWording(drapProbe.worstMHz)}</span></div>`
+    if (!drapProbe) return ''
+    return `<div class="drap-probe">${absorbedWording(drapProbe.worstMHz)}</div>`
   }
 
   // --- the viewport --------------------------------------------------------
@@ -1633,9 +1653,15 @@ import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpac
         `<button type="button" data-projection="${entry.id}" title="${entry.hint}"
           aria-pressed="${mapControls.projection === entry.id}">${entry.label}</button>`)
       .join('')
-    const layerBoxes = LAYER_IDS.map((id) =>
-      `<label class="check"><input type="checkbox" data-layer="${id}"
-        ${layerOn(id) ? 'checked' : ''}> ${LAYER_META[id].label}</label>`).join('')
+    // The last checked layer can't be unchecked -- an empty map is a
+    // legitimate picture, but "Nothing selected" as an offered choice is not
+    // (Mark's test-rig punch list): either something is drawn, or the
+    // control to draw nothing isn't offered.
+    const layerBoxes = LAYER_IDS.map((id) => {
+      const last = layerOn(id) && mapControls.layers.size === 1
+      return `<label class="check${last ? ' off' : ''}" title="${last ? 'At least one layer stays on.' : ''}"><input
+        type="checkbox" data-layer="${id}" ${layerOn(id) ? 'checked' : ''} ${last ? 'disabled' : ''}> ${LAYER_META[id].label}</label>`
+    }).join('')
     return `<div class="map-toolbar">
       <div class="group"><span class="label">Layers</span>${layerBoxes}</div>
       <div class="group"><span class="label">View</span><span class="seg">${projButtons}</span></div>
@@ -1654,26 +1680,32 @@ import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpac
     </div>`
   }
 
+  // Above the canvas, not buried in the probe result: the reader needs to
+  // know a click does something before they've clicked, not after.
+  function mapHelpHtml() {
+    if (!layerOn('drap') || !mapEntries.drap) return ''
+    return `<div class="map-help">Click any point to score a path.</div>`
+  }
+
+  // One row per active layer -- label, then its refresh button, then its
+  // timestamp, then that layer's scale, wrapping down together as a group on
+  // a narrow viewport rather than as two separately-wrapping lists (Mark's
+  // test-rig punch list).
   function footerHtml() {
-    const legends = LAYER_IDS.filter(layerOn)
-      .filter((id) => mapEntries[id])
-      .map((id) => {
-        const legend = LAYER_META[id].legend
-        return typeof legend === 'function' ? legend() : legend
-      })
-      .join('')
-    const stamps = LAYER_IDS.filter(layerOn).map((id) => {
+    const sections = LAYER_IDS.filter(layerOn).map((id) => {
       const meta = LAYER_META[id]
       const entry = mapEntries[id]
       const button = `<button type="button" id="mapRefresh-${id}" class="btn-outline"
         style="padding:3px 9px;font-size:0.6rem;">Refresh</button>`
-      if (!entry) {
-        const why = mapErrors[id]?.notCached ? meta.empty : `${meta.label}: ${mapErrors[id]?.message || 'not loaded'}`
-        return `<span>${why} ${button}</span>`
-      }
-      return `<span>${meta.label} <b>${meta.stamp(entry)}</b>, cached ${fmtTime(entry.fetchedAt)} ${button}</span>`
+      const status = entry
+        ? `<span class="sec-time">${meta.stamp(entry)}, cached ${fmtTime(entry.fetchedAt)}</span>`
+        : `<span class="sec-time">${mapErrors[id]?.notCached ? meta.empty : mapErrors[id]?.message || 'not loaded'}</span>`
+      const scale = entry ? (typeof meta.legend === 'function' ? meta.legend() : meta.legend) : ''
+      return `<div class="map-section">
+        <span class="sec-label">${meta.label}</span>${button}${status}${scale}
+      </div>`
     }).join('')
-    return `<div class="map-footer"><div class="legends">${legends}</div><div class="stamps">${stamps}</div></div>`
+    return `<div class="map-footer">${sections}</div>`
   }
 
   // Rebuilt whole rather than patched: it is a few hundred bytes of DOM, and
@@ -1686,6 +1718,7 @@ import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpac
     // graticule, the vessel) is still a map, and hiding the canvas here used
     // to make "untick everything" read as "the map is gone".
     body.innerHTML = `${toolbarHtml()}
+      ${mapHelpHtml()}
       <canvas id="spaceMapCanvas"></canvas>
       <div id="mapProbe"></div>
       ${footerHtml()}`

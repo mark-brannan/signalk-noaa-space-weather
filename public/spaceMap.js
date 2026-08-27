@@ -168,7 +168,7 @@ export function drawSpaceMap(canvas, options = {}) {
   if (probe?.points?.length) drawProbe(ctx, view, probe, MAP_TRACK)
   if (position) {
     const at = view.toPixel(position.longitude, position.latitude)
-    if (at) marker(ctx, at[0], at[1], MAP_TRACK, true)
+    if (at) vesselMarker(ctx, at[0], at[1], MAP_TRACK)
   }
   ctx.restore()
 
@@ -533,6 +533,22 @@ function drawSun(ctx, view, now) {
   ctx.stroke()
 }
 
+// The map's own degree/distance formatting, used for the labels drawn on the
+// probed path below and by index.html for the vessel-position caption --
+// kept here rather than duplicated, since a click-scored path and the map
+// that drew it should never disagree about how a coordinate reads.
+export const KM_TO_NM = 0.539957
+export const fmtLat = (lat) => `${Math.abs(lat).toFixed(1)}°${lat < 0 ? 'S' : 'N'}`
+export const fmtLon = (lon) => `${Math.abs(lon).toFixed(1)}°${lon < 0 ? 'W' : 'E'}`
+
+/**
+ * A probed path draws its own numbers -- mean and worst cutoff, the target's
+ * coordinates, the distance and bearing -- as labels on the map itself,
+ * rather than in a paragraph below it (Mark's test-rig punch list). The
+ * vessel's own reading stays off this map entirely: the HF Radio tile
+ * already publishes it, and repeating it here was the densest duplication on
+ * the punch list.
+ */
 function drawProbe(ctx, view, probe, ink) {
   const path = probe.points.map((point) => [point.longitude, point.latitude])
   // Dark under, colour over, the same as the coastline and the contours: the
@@ -544,6 +560,13 @@ function drawProbe(ctx, view, probe, ink) {
     width: 3.4
   })
   strokeRings(ctx, [path], view, { color: ink, alpha: 0.95, width: 1.8 })
+
+  const mid = path[Math.floor(path.length / 2)]
+  const midAt = mid && view.toPixel(mid[0], mid[1])
+  if (midAt) {
+    chipLabel(ctx, midAt[0], midAt[1] - 11, `mean ${probe.meanMHz.toFixed(1)} MHz`, ink)
+  }
+
   if (probe.worstAt) {
     const worst = view.toPixel(probe.worstAt.longitude, probe.worstAt.latitude)
     if (worst) {
@@ -551,25 +574,84 @@ function drawProbe(ctx, view, probe, ink) {
       ctx.beginPath()
       ctx.arc(worst[0], worst[1], 3.5, 0, Math.PI * 2)
       ctx.fill()
+      chipLabel(ctx, worst[0], worst[1] + 13, `worst ${probe.worstMHz.toFixed(1)} MHz`, ink)
     }
   }
+
   const end = probe.points[probe.points.length - 1]
   const at = view.toPixel(end.longitude, end.latitude)
-  if (at) marker(ctx, at[0], at[1], ink)
+  if (at) {
+    targetMarker(ctx, at[0], at[1], ink)
+    const nmi = Math.round(probe.distanceKm * KM_TO_NM)
+    const bearing = Math.round(probe.bearingDeg).toString().padStart(3, '0')
+    chipLabel(
+      ctx,
+      at[0] + 11,
+      at[1],
+      `${fmtLat(end.latitude)} ${fmtLon(end.longitude)} · ${nmi.toLocaleString()} nmi · ${bearing}°T`,
+      ink,
+      'left'
+    )
+  }
 }
 
-function marker(ctx, x, y, color, filled = false) {
+/** A dark rounded chip behind a line of text, so a label reads over any part
+ * of the raster underneath it. `align` is which edge `x` names. */
+function chipLabel(ctx, x, y, text, ink, align = 'center') {
+  ctx.save()
+  ctx.font = '600 10px ui-monospace, SFMono-Regular, Menlo, monospace'
+  ctx.textAlign = align
+  ctx.textBaseline = 'middle'
+  const pad = 4
+  const textWidth = ctx.measureText(text).width
+  const boxW = textWidth + pad * 2
+  const boxX = align === 'left' ? x - pad : align === 'right' ? x - boxW + pad : x - boxW / 2
+  ctx.fillStyle = 'rgba(0,0,0,0.75)'
+  ctx.beginPath()
+  ctx.roundRect(boxX, y - 8, boxW, 16, 3)
+  ctx.fill()
+  ctx.fillStyle = ink
+  ctx.fillText(text, x, y)
+  ctx.restore()
+}
+
+/** The vessel: a small filled triangle, distinct in shape from a probed
+ * target so the two never read as the same kind of mark. */
+function vesselMarker(ctx, x, y, color) {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.fillStyle = color
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(0, -6.5)
+  ctx.lineTo(4.5, 5.5)
+  ctx.lineTo(0, 2.5)
+  ctx.lineTo(-4.5, 5.5)
+  ctx.closePath()
+  ctx.fill()
+  ctx.stroke()
+  ctx.restore()
+}
+
+/** A probed target: crosshairs, so a clicked point never reads as a second
+ * vessel. */
+function targetMarker(ctx, x, y, color) {
+  ctx.save()
   ctx.strokeStyle = color
-  ctx.lineWidth = 2
+  ctx.lineWidth = 1.6
   ctx.beginPath()
   ctx.arc(x, y, 5, 0, Math.PI * 2)
+  ctx.moveTo(x - 9, y)
+  ctx.lineTo(x - 2.5, y)
+  ctx.moveTo(x + 2.5, y)
+  ctx.lineTo(x + 9, y)
+  ctx.moveTo(x, y - 9)
+  ctx.lineTo(x, y - 2.5)
+  ctx.moveTo(x, y + 2.5)
+  ctx.lineTo(x, y + 9)
   ctx.stroke()
-  if (filled) {
-    ctx.fillStyle = color
-    ctx.beginPath()
-    ctx.arc(x, y, 2, 0, Math.PI * 2)
-    ctx.fill()
-  }
+  ctx.restore()
 }
 
 /**
