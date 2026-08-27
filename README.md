@@ -146,10 +146,10 @@ Each tile carries `Last-Modified` from the fetch behind it, so a client can tell
 
 ## Installation
 
-Search for **signalk-noaa-space-weather** in the Signal K server's Appstore and
+Search for **signalk-noaa-space-weather** in the Signal K server's AppStore and
 install it from there, then enable it under *Server → Plugin Config*. Or, from
-a shell on the server: `npm install signalk-noaa-space-weather` in `~/.signalk`
-and restart.
+a shell on the server: `npm install signalk-noaa-space-weather` in `~/.signalk`,
+restart, then enable it under *Server → Plugin Config* the same way.
 
 ## Configuration
 

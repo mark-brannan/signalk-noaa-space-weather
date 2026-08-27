@@ -106,6 +106,8 @@ for (const [name, entry] of Object.entries(grids)) {
 
 const snapshot = { capturedAt: new Date().toISOString(), values, grids }
 await fs.mkdir(path.dirname(OUT), { recursive: true })
-await fs.writeFile(OUT, JSON.stringify(snapshot))
+const tempOut = `${OUT}.${process.pid}.tmp`
+await fs.writeFile(tempOut, JSON.stringify(snapshot))
+await fs.rename(tempOut, OUT)
 const kb = Math.round((await fs.stat(OUT)).size / 1024)
 console.log(`wrote ${path.relative(REPO, OUT)} (${kb} KB, captured ${snapshot.capturedAt})`)

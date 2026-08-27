@@ -191,8 +191,7 @@ npm install && npm run demo:build      # assembles demo-dist/
 npx http-server demo-dist              # any static server works
 ```
 
-The public demo ([issue
-#199](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/199))
+The public demo ([issue #199](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/199))
 is `public/`'s map stack served as static files, with exactly one
 substitution: `demo/signalk.js` lands in the assembled site as `signalk.js`,
 so `hf.js` and everything above it resolves `./signalk.js` to a version that

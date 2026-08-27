@@ -13,6 +13,8 @@ on:
       - 'public/**'
       - 'scripts/build-demo.mjs'
       - 'scripts/sync-coastline.mjs'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
