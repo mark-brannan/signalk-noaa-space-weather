@@ -10,9 +10,10 @@ and points here for the procedures.
 running — a bare, LAN- or Tailscale-reachable URL (never `127.0.0.1`, which
 only resolves on the machine running the server), for the mock rig or the
 test rig, whichever fits the change. Share it before re-running the test
-suite, not after — Mark can be looking at it while the tests run.** Always
-the command documented below, never an ad hoc port or flag. Which rig fits is
-judgment: the mock rig for anything that doesn't need a real server round
+suite, not after — Mark can be looking at it while the tests run.** Start it
+the way this file documents, with the flags this file documents — a port or
+`--upstream` when the situation calls for one, never an ad hoc proxy, wrapper
+or one-off invented on the spot. Which rig fits is judgment: the mock rig for anything that doesn't need a real server round
 trip (styling, layout, control wiring, most webapp changes); the test rig
 when the change depends on real Signal K behavior (config-panel wiring
 through the actual server, a path only the plugin publishes, zone/notification
@@ -160,9 +161,12 @@ npm run dev:webapp        # http://127.0.0.1:8731, or pass a port
 It binds every interface, and prints one URL per address it can be reached
 at — loopback, LAN, Tailscale. Showing a change on another device (per the
 note at the top of this file) is a matter of pasting the right line of that
-output; no proxy, and nothing to look up with `hostname -I`. Pass
-`--host 127.0.0.1` to narrow it back to loopback on a network you don't
-trust. Kill it when done; don't leave stray listeners behind.
+output; no proxy, and nothing to look up with `hostname -I`. To narrow it
+back to loopback on a network you don't trust, `npm run dev:webapp -- --host
+127.0.0.1` — the `--` is not optional, npm swallows the flag without it and
+leaves the server bound to every interface, which is the one mistake this
+option exists to prevent. Kill it when done; don't leave stray listeners
+behind.
 
 `scripts/mock-webapp.mjs` serves `public/` with a state switcher appended and
 answers the Signal K paths it understands with fabricated data, so the real
