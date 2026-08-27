@@ -7,12 +7,6 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
-- [ ] Pick how the D-RAP map tiles and webapp map should color-match NOAA's
-      colorbar — match NOAA exactly on both surfaces (as asked) or repeat
-      aurora's chart-overlay-exact/webapp-adapted split; the measured NOAA
-      color stops are on the issue
-      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170)).
-      Blocks the D-RAP map-tiles card below
 - [ ] Decide the fate of `claude-review.yml` after the scope-down — keep the
       narrow version, or drop it entirely (delete the workflow and the
       `CLAUDE_CODE_OAUTH_TOKEN` secret) and let CodeRabbit be the one
@@ -72,6 +66,18 @@ what it is blocked by. Delete it when it is done.
       is done as of
       [#178](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/178)
       ([#121](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/121))
+- [ ] Decide whether **Band edges** stays a map control, becomes always-on, or
+      goes — the marine SSB band-edge contours over NOAA's colorbar are a
+      Claude proposal you asked to see rather than discuss, and the toolbar
+      checkbox is the A/B, not a settled design. Judge it during an actual
+      event: the quiet-day grid draws one contour and decides nothing
+      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170))
+- [ ] Rule on the map panel being dark in **both** themes — NOAA's D-RAP
+      colorbar starts at `#000000` and was sampled against a black globe, so
+      matching their colours on a light dashboard meant giving the panel its
+      own ground; the alternative is a lighter palette that no longer matches
+      NOAA
+      ([argument](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md#the-map-draws-on-its-own-dark-ground))
 
 ## Claude's
 
@@ -85,15 +91,6 @@ what it is blocked by. Delete it when it is done.
       The antipodal half of this card and the hardcoded grid geometry shipped
       in
       [#183](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/183)
-- [ ] Smooth the webapp D-RAP map — `drawDrapMap` in `public/drapMap.js` is the
-      last blocky surface; NOAA's own image and this plugin's chart-overlay
-      tiles both interpolate the same 90x90 grid. An offscreen `ImageData` plus
-      one smoothed `drawImage` replaces 8,100 `fillRect` calls, so it is faster
-      as well as smoother; the measurements and the two caveats are on the issue
-      ([#186](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/186)).
-      Independent of the colour-match decision
-      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170)),
-      but it lands in the same function
 - [ ] Cut the README down — 246 lines and still growing, and every feature
       lands one more paragraph in it. The getting-started path is buried under
       design rationale that belongs in
@@ -185,26 +182,6 @@ what it is blocked by. Delete it when it is done.
       [#110](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/110)
       and
       [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md)
-- [ ] Render the D-RAP grid as map tiles beside the aurora overlay — the full
-      90x90 grid is already fetched and parsed, `tiles.ts` is nearly
-      grid-agnostic, and a map is the only surface that can answer _path_
-      absorption (see "Every reading here is at the vessel" in
-      [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md))
-      ([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32)).
-      The coastline under it is done — `public/geo.js`, drawn through whatever
-      projection the caller has, so this map gets it for free
-      ([#172](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/172));
-      blocked: the color-gradient decision below
-      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170))
-- [ ] Let `scripts/mock-webapp.mjs` show the aurora map — it serves no grid, so
-      the map renders its own empty state and neither the coastline nor the
-      probability cells can be seen without a live server. The recorded reason
-      ("faking one would be mocking tiles.ts") does not hold for this surface:
-      the webapp map draws in the browser from the cached grid, and
-      `examples/ovation-aurora.2026_08_01.json` is a real one. Found while
-      shipping the coastline, which is why that PR carries module renders
-      instead of screenshots
-      ([#172](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/172))
 - [ ] Decide whether a *named* destination is worth building on top of the
       absorption map's click-to-score probe — a route waypoint, a saved
       station list, a callsign lookup. The map answers the path question by
@@ -243,3 +220,28 @@ what it is blocked by. Delete it when it is done.
       nothing restates a measurement that belongs in
       [noaa-products.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/noaa-products.md)
       ([#153](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/153))
+- [ ] Take the non-separable-projection gap upstream to
+      [coast-wright](https://github.com/mark-brannan/coast-wright) — `limn`
+      takes `x(lon)` and `y(lat)` as *separate* functions, which only a
+      cylindrical projection can satisfy: on an azimuthal map the pixel column
+      a point lands in depends on its latitude too. The webapp now strokes its
+      own rings for that case (`strokeRings` in `public/spaceMap.js`), which is
+      the second copy of the seam logic the extraction was meant to prevent.
+      Either widen `limn`'s signature to `project(lon, lat)` or say in its docs
+      that it is cylindrical-only
+- [ ] Give the merged 0.29.3 batch a CHANGELOG entry — the version on `main`
+      was bumped to 0.29.3 by the commit hook, but nothing between `v0.29.2`
+      and the map work wrote to the file: the D-RAP grid drawing
+      ([#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169),
+      [#183](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/183)),
+      the coastline vendoring
+      ([#184](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/184))
+      and FUNDING.yml
+      ([#188](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/188))
+      all ship under it unrecorded. The map PR opened the section; the rest of
+      the batch belongs in it
+- [ ] Recapture `docs/screenshots/space-map.png` against the real dev server —
+      the one on the map PR came off `scripts/mock-webapp.mjs`, whose grids are
+      genuine NOAA payloads but whose surrounding values are fabricated.
+      `scripts/screenshots/capture.mjs --only space-map` does it once
+      `~/.signalk` is up on 3010
