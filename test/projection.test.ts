@@ -245,6 +245,35 @@ describe('mapView', () => {
     }
   })
 
+  it('keeps the window inside the planet at every shape, latitude and zoom', () => {
+    // The clamp is applied against a scale that the standard parallel then
+    // changes, so settling it takes more than one pass. Clamping once left a
+    // wide, short tile at 60N showing eight degrees of empty sky past the
+    // pole -- visible, and not caught by any single-case check.
+    for (const width of [760, 900, 1100]) {
+      for (const height of [340, 420, 460]) {
+        for (const latitude of [-85, -60, -30, 0, 30, 47.6, 60, 85]) {
+          for (let radiusDeg = 20; radiusDeg <= 180; radiusDeg += 5) {
+            const view = mapView({
+              projection: 'cylindrical',
+              center: { latitude, longitude: 12 },
+              radiusDeg,
+              width,
+              height
+            })
+            const halfHeightDeg = height / 2 / view.scale
+            expect(view.center.latitude + halfHeightDeg).toBeLessThanOrEqual(
+              90.001
+            )
+            expect(view.center.latitude - halfHeightDeg).toBeGreaterThanOrEqual(
+              -90.001
+            )
+          }
+        }
+      }
+    }
+  })
+
   it('never draws more than one turn of longitude on a flat map', () => {
     // Zoomed all the way out on a viewport far wider than it is tall, the
     // scale is held up by the width rather than the height, so the same ocean

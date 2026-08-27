@@ -81,7 +81,9 @@ function createAzimuthal(lat0, lon0) {
       const k = c / Math.sin(c)
       return [
         k * Math.cos(phi) * Math.sin(dLambda),
-        k * (cosPhi0 * Math.sin(phi) - sinPhi0 * Math.cos(phi) * Math.cos(dLambda))
+        k *
+          (cosPhi0 * Math.sin(phi) -
+            sinPhi0 * Math.cos(phi) * Math.cos(dLambda))
       ]
     },
     inverse(x, y) {
@@ -93,7 +95,8 @@ function createAzimuthal(lat0, lon0) {
       if (c < 1e-12) return { latitude: lat0, longitude: lon0 }
       const sinC = Math.sin(c)
       const cosC = Math.cos(c)
-      const latitude = Math.asin(cosC * sinPhi0 + (y * sinC * cosPhi0) / c) * R2D
+      const latitude =
+        Math.asin(cosC * sinPhi0 + (y * sinC * cosPhi0) / c) * R2D
       const longitude =
         lon0 +
         Math.atan2(x * sinC, c * cosPhi0 * cosC - y * sinPhi0 * sinC) * R2D
@@ -212,15 +215,28 @@ export function mapView({
   const entry = PROJECTIONS[projection] || PROJECTIONS[DEFAULT_PROJECTION]
   const lat = Number.isFinite(center?.latitude) ? center.latitude : 0
   const lon = Number.isFinite(center?.longitude) ? center.longitude : 0
-  // Built twice: the centre a cylindrical map can honestly use depends on how
-  // much latitude ends up on screen, and that is not known until the scale is.
-  // Two passes settle it exactly; guessing from the radius alone pulls the
-  // vessel off centre at zoom levels that did not need it.
-  const first = entry.create(lat, lon, radiusDeg)
-  const firstRadius = first.radiusWorld(radiusDeg)
-  const firstScale = first.scaleFor(firstRadius, width, height)
-  const centerLat = first.clampCenter(lat, height / 2 / firstScale)
-  const proj = centerLat === lat ? first : entry.create(centerLat, lon, radiusDeg)
+  // Built more than once: the centre a cylindrical map can honestly use
+  // depends on how much latitude is on screen, that depends on the scale, and
+  // the scale depends back on the centre through the standard parallel.
+  // Guessing from the radius alone pulls the vessel off centre at zoom levels
+  // that did not need it; clamping once against the first pass's scale leaves
+  // the map overhanging the pole by several degrees, because the second pass
+  // rescales underneath the answer. Each pass moves the centre toward the
+  // equator and never back, so this settles; the cap is there because a
+  // projection is not the place to rely on that.
+  let proj = entry.create(lat, lon, radiusDeg)
+  let centerLat = lat
+  // Converges geometrically rather than in one step, and a tenth of a degree
+  // is already a fraction of a pixel, so the cap is generous and the
+  // tolerance is what actually ends it.
+  for (let pass = 0; pass < 20; pass++) {
+    const halfHeightDeg =
+      height / 2 / proj.scaleFor(proj.radiusWorld(radiusDeg), width, height)
+    const next = proj.clampCenter(lat, halfHeightDeg)
+    if (Math.abs(next - centerLat) < 1e-6) break
+    centerLat = next
+    proj = entry.create(centerLat, lon, radiusDeg)
+  }
   const radius = proj.radiusWorld(radiusDeg)
   const scale = proj.scaleFor(radius, width, height)
   const cx = width / 2

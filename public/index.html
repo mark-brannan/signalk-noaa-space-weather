@@ -1888,9 +1888,19 @@ import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpac
       : 'Automatic updates are off. Fetches the D-RAP grid once, now.'
   }
 
+  // The aurora tile's button, plus whichever buttons the map is showing:
+  // `auroraEnabled` and `drapEnabled` can change under an open page, and a
+  // button reading "Refresh" for a product with no schedule is the wrong
+  // disclosure. (`mapRefresh` was one button when the map was one product;
+  // it is now one per layer.)
   function labelAuroraButtons() {
     labelAuroraButton(document.getElementById('auroraRefresh'))
-    labelAuroraButton(document.getElementById('mapRefresh'))
+    for (const id of LAYER_IDS) {
+      const button = document.getElementById(`mapRefresh-${id}`)
+      // With no entry yet, renderMap has it saying "Fetch now" -- a different
+      // thing to say, and not this function's to overwrite.
+      if (button && mapEntries[id]) LAYER_META[id].relabel(button)
+    }
   }
 
   // One handler for both products' buttons: the request, the refusals and the

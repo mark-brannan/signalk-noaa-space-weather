@@ -209,6 +209,44 @@ describe('rasterize', () => {
     ])
   })
 
+  it('composites translucent layers the way source-over says to', () => {
+    // rasterize does its own alpha arithmetic, un-premultiplied, because it
+    // is filling the bytes putImageData wants. Ordering is pinned above; this
+    // pins the numbers, against a premultiplied reference worked the other
+    // way round -- the two agree only if the formula is actually Porter-Duff
+    // source-over rather than something that merely looks right on opaque
+    // layers.
+    const view = mapView({
+      projection: 'cylindrical',
+      center: { latitude: 0, longitude: 0 },
+      radiusDeg: 180,
+      width: 8,
+      height: 4
+    })
+    const inks: [number, number, number, number][] = [
+      [255, 0, 0, 0.4],
+      [0, 255, 0, 0.25],
+      [0, 0, 255, 0.6]
+    ]
+    const layers = inks.map((ink) => ({ sample: () => 1, color: () => ink }))
+    const raster = rasterize(view, layers, { maxSide: 8 })
+
+    let [pr, pg, pb, pa] = [0, 0, 0, 0]
+    for (const [r, g, b, sa] of inks) {
+      pr = r * sa + pr * (1 - sa)
+      pg = g * sa + pg * (1 - sa)
+      pb = b * sa + pb * (1 - sa)
+      pa = sa + pa * (1 - sa)
+    }
+    for (const channel of [0, 1, 2, 3]) {
+      const expected = channel === 3 ? pa * 255 : [pr, pg, pb][channel] / pa
+      // Within a bit: the raster's bytes are rounded and the reference's are
+      // not.
+      expect(raster.data[channel]).toBeGreaterThanOrEqual(expected - 1)
+      expect(raster.data[channel]).toBeLessThanOrEqual(expected + 1)
+    }
+  })
+
   it('renders nothing at all when no layer is selected', () => {
     const view = mapView({
       projection: 'azimuthal',
