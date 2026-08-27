@@ -70,14 +70,13 @@ what it is blocked by. Delete it when it is done.
       goes — the marine SSB band-edge contours over NOAA's colorbar are a
       Claude proposal you asked to see rather than discuss, and the toolbar
       checkbox is the A/B, not a settled design. Judge it during an actual
-      event: the quiet-day grid draws one contour and decides nothing
-      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170))
-- [ ] Rule on the map panel being dark in **both** themes — NOAA's D-RAP
-      colorbar starts at `#000000` and was sampled against a black globe, so
-      matching their colours on a light dashboard meant giving the panel its
-      own ground; the alternative is a lighter palette that no longer matches
-      NOAA
-      ([argument](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md#the-map-draws-on-its-own-dark-ground))
+      event: the quiet-day grid draws one contour and decides nothing.
+      Judged 2026-08-26 against a synthetic dayside blackout injected at the
+      drap-grid route — quiet draws a single line that reads as a stray
+      graticule, a storm draws seven that say which band has gone under, which
+      is the case for an off-by-default switch rather than always-on
+      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170),
+      [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191))
 
 ## Claude's
 
