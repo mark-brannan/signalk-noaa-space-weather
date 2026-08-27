@@ -11,6 +11,10 @@ const FLOOR_MHZ = MARINE_SSB_BAND_EDGES_HZ[0] / 1e6
 /** The scale the legend and the map are both drawn against, in MHz. */
 export const LEGEND_MAX_MHZ = 35
 
+/** NOAA's own label interval on that bar. Not a parameter: there is one
+ * legend, and a caller free to pass 0 could only hang the loop. */
+const LEGEND_STEP_MHZ = 5
+
 /**
  * The legend bar: NOAA's own 0-35 MHz colorbar, sampled finely enough to read
  * as the continuous hue sweep it is.
@@ -42,9 +46,9 @@ export function legendStops(steps = 24) {
  * strip, but they are not the numbers NOAA prints and a reader coming from
  * NOAA's product reads them as a deviation.
  */
-export function legendMhzTicks(step = 5) {
+export function legendMhzTicks() {
   const ticks = []
-  for (let mhz = 0; mhz <= LEGEND_MAX_MHZ; mhz += step)
+  for (let mhz = 0; mhz <= LEGEND_MAX_MHZ; mhz += LEGEND_STEP_MHZ)
     ticks.push({ mhz, fraction: mhz / LEGEND_MAX_MHZ })
   return ticks
 }
