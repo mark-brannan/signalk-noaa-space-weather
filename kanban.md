@@ -7,11 +7,12 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
-- [ ] Send the three coastline-package outreach drafts, in order, once
-      `coastlines`/`coast-wright`/`portolani` are published — the SignalK/signalk
-      "Show and tell" discussion first (highest reach), then Flyguy86, then
-      decide whether Aitonos is worth sending at all. Text, send order and
-      the re-verify list are drafted and held in the private state repo at
+- [ ] Send the three coastline-package outreach drafts, in order — the
+      SignalK/signalk "Show and tell" discussion first (highest reach), then
+      Aitonos, then Flyguy86. All three packages are on npm now, but
+      `coastlines` and `coast-wright` are at `0.0.1-alpha.0`; decide whether
+      to point strangers at an alpha or cut a real release first. Text, send
+      order and a re-verify list are held in the private state repo at
       `state/global/drafts/coastlines-outreach.md`
       ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179))
 - [ ] Decide the fate of `claude-review.yml` after the scope-down — keep the
