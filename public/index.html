@@ -1719,7 +1719,20 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     tile.style.marginLeft = ''
     tile.style.marginRight = ''
     if (!mapControls.expanded) return
+    // .space-map-tile has a CSS transition on width/margin (for the visible
+    // Expand/Shrink animation). The reset above does not snap the box to
+    // its natural size synchronously -- the transition means a plain
+    // getBoundingClientRect() right after would read the *pre-reset*
+    // (still-expanded) geometry, not the target one, because the animation
+    // hasn't advanced yet. That stale "natural" width fed grow<=0 on the
+    // very next redraw regardless of the click that caused it, which is
+    // the expand/shrink oscillation Mark found. Suspending the transition
+    // for this one reflow forces the true natural width, then restoring it
+    // before applying any width keeps the animation visible for an actual
+    // Expand/Shrink click.
+    tile.style.transition = 'none'
     const naturalWidth = tile.getBoundingClientRect().width
+    tile.style.transition = ''
     const targetWidth = Math.min(document.documentElement.clientWidth - 24, 1600)
     const grow = (targetWidth - naturalWidth) / 2
     if (grow <= 0) return

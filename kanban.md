@@ -7,6 +7,12 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Say which widget the HF reference-lines nit means — the marine-band
+      strip (`.hf-bands` grid, `public/index.html:1119`) is 9 discrete band
+      chips, not a continuous MHz scale, so "add vertical lines at 2/6/12/18
+      MHz" doesn't fit it as built; confirm the target widget and the actual
+      MHz break points before this becomes work
+      ([#201](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/201))
 - [ ] Decide the map's Expand/Shrink control's fate — it does nothing at a
       narrow viewport, only grows the tile past the page's other columns at
       a wide one, and defaults to shrunk for now (round-3 review on
