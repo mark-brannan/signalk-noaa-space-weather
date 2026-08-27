@@ -89,6 +89,19 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Tidy `mapView`'s return shape in `public/projection.js` once
+      [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191)
+      lands — it returns `center` as the *settled* value but `radiusDeg` as the
+      *requested* one (pass 0, get 0 back, render 1), and it computes
+      `proj.radiusWorld(radiusDeg)` internally then throws it away so
+      `spaceMap.js:213` re-derives it. Exposing the resolved `radius` fixes
+      both. Also unreachable: `toPixel`'s `if (!world) return null`, which is
+      why every call site carries a `!`. Not correctness bugs — the maths swept
+      clean in
+      [#194](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/194);
+      carded because #191 is being split into tiers and the comment on it
+      ([here](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191#issuecomment-5433552941))
+      would go with it
 - [ ] Fix the other D-RAP path-scoring bug that landed with
       [#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169) —
       `greatCirclePoints`'s fixed 100km step in `public/drapMap.js` can skip
