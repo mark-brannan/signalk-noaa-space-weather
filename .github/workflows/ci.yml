@@ -47,3 +47,8 @@ jobs:
 
       - run: npm ci
       - run: npm run typecheck
+
+      # AGENTS.md orders `npm run format`; until now nothing enforced it, so a
+      # branch could land unformatted and the next person's format run would
+      # show up as noise in an unrelated diff.
+      - run: npm run format:check

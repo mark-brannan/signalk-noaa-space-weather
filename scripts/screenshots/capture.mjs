@@ -6,7 +6,7 @@
 //   npm install --prefix scripts/screenshots
 //   npx --prefix scripts/screenshots playwright install chromium
 //   SK_USERNAME=admin SK_PASSWORD=... node scripts/screenshots/capture.mjs
-//   node scripts/screenshots/capture.mjs --url http://localhost:3100 --only webapp,aurora-map
+//   node scripts/screenshots/capture.mjs --url http://localhost:3100 --only webapp,space-map
 //
 // The default target is the dev server, because screenshots belong to the
 // change that alters the UI: capture against the published package and the PR
@@ -113,12 +113,12 @@ const SHOTS = {
     full: true,
     run: shotWebapp
   },
-  'aurora-map': {
-    file: 'aurora-map.png',
+  'space-map': {
+    file: 'space-map.png',
     theme: 'dark',
     height: 1000,
     full: true,
-    run: shotAuroraMap
+    run: shotSpaceMap
   },
   'plugin-configuration': {
     file: 'plugin-configuration.png',
@@ -320,16 +320,27 @@ async function shotHero(page, state) {
   await openWebapp(page)
 }
 
-async function shotAuroraMap(page) {
+async function shotSpaceMap(page) {
   await openWebapp(page)
   await page.click('#mapToggle')
-  // The grid comes from the plugin's cache over one more fetch, then paints to
-  // a canvas; the footer only exists once that succeeded.
-  await page.waitForSelector('#auroraMapCanvas', {
+  // The grids come from the plugin's cache over one more fetch each, then
+  // paint to a canvas; the footer only exists once at least one succeeded.
+  await page.waitForSelector('#spaceMapCanvas', {
     state: 'visible',
     timeout: 30000
   })
   await page.waitForSelector('#mapBody .map-footer', { timeout: 30000 })
+  // Zoomed out, with a path scored across it: the close-up is the duller
+  // picture and the straight-line great circle is the thing a reader has to
+  // see to understand what the projection is for.
+  await page.$eval('#mapZoom', (el) => {
+    el.value = '180'
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  const canvas = page.locator('#spaceMapCanvas')
+  await canvas.scrollIntoViewIfNeeded()
+  const box = await canvas.boundingBox()
+  await page.mouse.click(box.x + box.width * 0.62, box.y + box.height * 0.3)
   await settle(page)
 }
 

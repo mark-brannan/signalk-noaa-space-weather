@@ -1,26 +1,49 @@
-// The D-RAP absorption map: what the grid says, and what a path across it
-// costs. No DOM here except the canvas `draw` is handed one -- everything the
-// picture is drawn from is a pure function, so test/drap-map.test.ts can ask
-// the same questions the map does without a browser.
-//
-// The colour ramp itself lives in hf.js, not here: it is also the HF Radio
-// tile's band strip, and src/tiles.ts (via test/hf-render.test.ts) already
-// pins the webapp's copy against the server's. A second copy here would be a
-// third place the same ramp could drift.
-import { MARINE_SSB_BAND_EDGES_HZ, drapCellColor } from './hf.js'
-import { drawCoastline } from './geo.js'
+// D-RAP absorption: what the grid says at a point, and what a path across it
+// costs. Pure functions only -- no canvas, no DOM -- so test/drap-map.test.ts
+// can ask the same questions the map does without a browser. The drawing that
+// used to live at the bottom of this file is spaceMap.js, which draws every
+// layer through every projection rather than this one product through one.
+import { MARINE_SSB_BAND_EDGES_HZ } from './hf.js'
+import { drapNoaaLegend } from './drap-colors.js'
 
 const FLOOR_MHZ = MARINE_SSB_BAND_EDGES_HZ[0] / 1e6
-const TOP_MHZ = MARINE_SSB_BAND_EDGES_HZ[MARINE_SSB_BAND_EDGES_HZ.length - 1] / 1e6
 
-/** The legend: one swatch per band edge, labelled by what it kills. */
-export function legendStops() {
+/** The scale the legend and the map are both drawn against, in MHz. */
+export const LEGEND_MAX_MHZ = 35
+
+/**
+ * The legend bar: NOAA's own 0-35 MHz colorbar, sampled finely enough to read
+ * as the continuous hue sweep it is.
+ *
+ * This used to be one swatch per marine SSB band edge, drawn from the band
+ * ramp. The colours now match NOAA's published D-RAP product on every surface
+ * (https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170), so
+ * the bar has to be NOAA's bar -- a legend that disagreed with the picture
+ * beside it would be worse than either choice on its own.
+ */
+export function legendStops(steps = 24) {
+  return drapNoaaLegend(steps)
+}
+
+/**
+ * Where the marine SSB band edges fall on that bar, as a fraction of its
+ * width.
+ *
+ * NOAA's colorbar answers "how much is absorbed"; a sailor asks "which of my
+ * bands has gone under". These are what carry the second question onto the
+ * first one's scale, both as ticks on the legend and as contours on the map
+ * (`BAND_EDGE_MHZ` in spaceMap.js).
+ */
+export function bandEdgeTicks() {
   return MARINE_SSB_BAND_EDGES_HZ.map((hz) => {
     const mhz = hz / 1e6
     return {
       mhz,
-      color: drapCellColor(hz) || 'rgba(0,0,0,0)',
-      label: mhz >= TOP_MHZ ? `${mhz}+` : String(mhz)
+      // Plain, never "25.07+": the bar used to stop at the highest band edge,
+      // and it now runs to NOAA's own 35 MHz, so a "+" on the top tick would
+      // claim the scale ends two-thirds of the way along it.
+      label: String(mhz),
+      fraction: Math.min(1, mhz / LEGEND_MAX_MHZ)
     }
   })
 }
@@ -36,16 +59,29 @@ export function legendStops() {
  */
 export function cutoffAt(grid, latitude, longitude) {
   if (!grid || !Array.isArray(grid.frequenciesMHz)) return null
+  if (!Array.isArray(grid.latitudes) || !Array.isArray(grid.longitudes)) {
+    return null
+  }
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
-  // Clamped: the last row's centre is 89 degrees from the pole's own 90, so
-  // a position at the pole itself rounds one row past the end of the grid.
+  const latCount = grid.latitudes.length
+  const lonCount = grid.longitudes.length
+  if (latCount < 2 || lonCount < 2) return null
+  // Row 0 is the northernmost latitude, column 0 the westernmost longitude,
+  // and the step is whatever gap separates the first two samples -- the same
+  // geometry `drapLattice` (src/tiles.ts) derives from the grid rather than
+  // assuming NOAA's usual 90x90 / 2x4 degree shape.
+  const latStep = Math.abs(grid.latitudes[0] - grid.latitudes[1])
+  const lonStep = Math.abs(grid.longitudes[1] - grid.longitudes[0])
+  // Clamped: the last row's centre is short of the pole's own 90, so a
+  // position at the pole itself would otherwise round one row past the end
+  // of the grid.
   const row = Math.min(
-    89,
-    Math.max(0, Math.round((89 - clampLat(latitude)) / 2))
+    latCount - 1,
+    Math.max(0, Math.round((grid.latitudes[0] - clampLat(latitude)) / latStep))
   )
-  const wrapped = ((((longitude + 180) % 360) + 360) % 360) - 180
-  const col = Math.round((wrapped + 178) / 4) % 90
-  const value = grid.frequenciesMHz[row]?.[(col + 90) % 90]
+  const wrapped = (((longitude - grid.longitudes[0]) % 360) + 360) % 360
+  const col = Math.round(wrapped / lonStep) % lonCount
+  const value = grid.frequenciesMHz[row]?.[col]
   return Number.isFinite(value) ? value : null
 }
 
@@ -85,30 +121,43 @@ export function bearingDeg(from, to) {
  * stepped over. Bounded at both ends because the interesting cases are a
  * 30 km harbour hop (which still needs both endpoints) and an antipodal
  * Winlink path (which does not need four thousand samples to be honest).
+ *
+ * Walked from the initial bearing rather than slerped between the two
+ * endpoint vectors: the slerp weights divide by sin(deltaAngular), and near
+ * the exact antipode that denominator gets small without ever hitting the
+ * `deltaAngular === 0` guard, so two huge, nearly-opposite vectors get
+ * summed and the cancellation is numerically garbage. Walking the bearing
+ * forward never divides by the path length, so it stays stable all the way
+ * to (and through) the antipode.
  */
 export function greatCirclePoints(from, to, stepKm = 100) {
   const total = distanceKm(from, to)
   const steps = Math.min(400, Math.max(2, Math.ceil(total / stepKm)))
+  const totalAngular = total / EARTH_RADIUS_KM
   const φ1 = toRad(from.latitude)
   const λ1 = toRad(from.longitude)
-  const φ2 = toRad(to.latitude)
-  const λ2 = toRad(to.longitude)
-  const δ = total / EARTH_RADIUS_KM
+  const θ = toRad(bearingDeg(from, to))
   const points = []
   for (let i = 0; i <= steps; i++) {
-    const f = i / steps
-    if (δ === 0) {
+    if (totalAngular === 0) {
       points.push({ latitude: from.latitude, longitude: from.longitude })
       continue
     }
-    const a = Math.sin((1 - f) * δ) / Math.sin(δ)
-    const b = Math.sin(f * δ) / Math.sin(δ)
-    const x = a * Math.cos(φ1) * Math.cos(λ1) + b * Math.cos(φ2) * Math.cos(λ2)
-    const y = a * Math.cos(φ1) * Math.sin(λ1) + b * Math.cos(φ2) * Math.sin(λ2)
-    const z = a * Math.sin(φ1) + b * Math.sin(φ2)
+    const δ = (i / steps) * totalAngular
+    const φ2 = Math.asin(
+      Math.sin(φ1) * Math.cos(δ) + Math.cos(φ1) * Math.sin(δ) * Math.cos(θ)
+    )
+    const λ2 =
+      λ1 +
+      Math.atan2(
+        Math.sin(θ) * Math.sin(δ) * Math.cos(φ1),
+        Math.cos(δ) - Math.sin(φ1) * Math.sin(φ2)
+      )
     points.push({
-      latitude: toDeg(Math.atan2(z, Math.sqrt(x * x + y * y))),
-      longitude: toDeg(Math.atan2(y, x))
+      latitude: toDeg(φ2),
+      // Normalised to -180..180, the same range atan2 always returned before
+      // -- λ1 + a step can otherwise walk past either edge.
+      longitude: ((((toDeg(λ2) + 180) % 360) + 360) % 360) - 180
     })
   }
   return points
@@ -216,179 +265,4 @@ export function gridSummary(grid) {
     }
   }
   return maxMHz === null ? null : { maxMHz, at, quiet: maxMHz < FLOOR_MHZ }
-}
-
-// --- drawing ---------------------------------------------------------------
-
-/** Equirectangular: the whole globe, because an HF path does not stay local. */
-const project = (width, height) => ({
-  x: (lon) => ((lon + 180) / 360) * width,
-  y: (lat) => ((90 - lat) / 180) * height
-})
-
-/**
- * Draw the grid, the graticule, the vessel, the subsolar point and (when the
- * reader has picked one) the path being probed.
- *
- * One filled rectangle per grid cell rather than a per-pixel sample: this is
- * 8,100 cells against 300,000-odd pixels, it runs inside somebody's browser
- * on a boat, and the cell edges are honest about how coarse the model is.
- */
-export function drawDrapMap(canvas, grid, options = {}) {
-  const { position, probe, now } = options
-  const ctx = canvas.getContext('2d')
-  if (!ctx || !grid?.frequenciesMHz) return
-
-  const ratio = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
-  const width = canvas.clientWidth || canvas.width
-  const height = Math.round(width / 2)
-  canvas.width = Math.round(width * ratio)
-  canvas.height = Math.round(height * ratio)
-  canvas.style.height = `${height}px`
-  ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
-  ctx.clearRect(0, 0, width, height)
-
-  const p = project(width, height)
-  const cellW = width / 90
-  const cellH = height / 90
-
-  // The page is themed; the canvas is not. `color` on the element carries the
-  // page's dim text colour into here, so the graticule reads on a white
-  // dashboard and a black one without this file knowing which it is on.
-  const ink =
-    options.ink ||
-    (typeof getComputedStyle === 'function'
-      ? getComputedStyle(canvas).color || '#888'
-      : '#888')
-
-  ctx.globalAlpha = 0.06
-  ctx.fillStyle = ink
-  ctx.fillRect(0, 0, width, height)
-  ctx.globalAlpha = 1
-
-  // Cell edges snapped to whole pixels. Overlapping fills would double the
-  // alpha along every seam, drawing a 90x90 mesh over the data that reads as
-  // structure the model does not have.
-  for (let row = 0; row < grid.frequenciesMHz.length; row++) {
-    const cells = grid.frequenciesMHz[row]
-    if (!Array.isArray(cells)) continue
-    const y0 = Math.round(row * cellH)
-    const y1 = Math.round((row + 1) * cellH)
-    for (let col = 0; col < cells.length; col++) {
-      const color = drapCellColor(cells[col] * 1e6)
-      if (!color) continue
-      const x0 = Math.round(col * cellW)
-      ctx.fillStyle = color
-      ctx.fillRect(x0, y0, Math.round((col + 1) * cellW) - x0, y1 - y0)
-    }
-  }
-
-  ctx.strokeStyle = ink
-  ctx.lineWidth = 1
-  ctx.globalAlpha = 0.25
-  for (let lat = -60; lat <= 60; lat += 30)
-    line(ctx, 0, p.y(lat), width, p.y(lat))
-  for (let lon = -120; lon <= 120; lon += 60)
-    line(ctx, p.x(lon), 0, p.x(lon), height)
-  ctx.globalAlpha = 0.5
-  line(ctx, 0, p.y(0), width, p.y(0))
-  ctx.globalAlpha = 1
-  ctx.strokeRect(0.5, 0.5, width - 1, height - 1)
-
-  // Over the cells and the graticule, under the subsolar point and the
-  // vessel marker: the absorption is the reading, the coastline is only what
-  // makes it locatable. Equirectangular here too, so the same function the
-  // regional aurora/D-RAP window uses draws the whole globe just as well.
-  drawCoastline(ctx, p.x, p.y, { color: ink })
-
-  const sun = subsolarPoint(now)
-  ctx.fillStyle = 'rgba(255,236,150,0.9)'
-  ctx.beginPath()
-  ctx.arc(p.x(sun.longitude), p.y(sun.latitude), 5, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.strokeStyle = 'rgba(255,236,150,0.35)'
-  ctx.beginPath()
-  ctx.arc(p.x(sun.longitude), p.y(sun.latitude), 10, 0, Math.PI * 2)
-  ctx.stroke()
-
-  if (probe?.points?.length) {
-    ctx.strokeStyle = ink
-    ctx.globalAlpha = 0.9
-    ctx.lineWidth = 1.5
-    ctx.beginPath()
-    let previousX = null
-    for (const point of probe.points) {
-      const x = p.x(point.longitude)
-      const y = p.y(point.latitude)
-      // A path crossing the antimeridian would otherwise be drawn as a line
-      // straight back across the whole map.
-      if (previousX !== null && Math.abs(x - previousX) > width / 2) {
-        ctx.moveTo(x, y)
-      } else if (previousX === null) {
-        ctx.moveTo(x, y)
-      } else {
-        ctx.lineTo(x, y)
-      }
-      previousX = x
-    }
-    ctx.stroke()
-    ctx.globalAlpha = 1
-
-    if (probe.worstAt) {
-      ctx.fillStyle = ink
-      ctx.beginPath()
-      ctx.arc(
-        p.x(probe.worstAt.longitude),
-        p.y(probe.worstAt.latitude),
-        3.5,
-        0,
-        Math.PI * 2
-      )
-      ctx.fill()
-    }
-    const end = probe.points[probe.points.length - 1]
-    marker(ctx, p.x(end.longitude), p.y(end.latitude), ink)
-  }
-
-  if (position) {
-    marker(
-      ctx,
-      p.x(position.longitude),
-      p.y(position.latitude),
-      '#4ad2ff',
-      true
-    )
-  }
-}
-
-function line(ctx, x1, y1, x2, y2) {
-  ctx.beginPath()
-  ctx.moveTo(x1, y1)
-  ctx.lineTo(x2, y2)
-  ctx.stroke()
-}
-
-function marker(ctx, x, y, color, filled = false) {
-  ctx.strokeStyle = color
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.arc(x, y, 5, 0, Math.PI * 2)
-  ctx.stroke()
-  if (filled) {
-    ctx.fillStyle = color
-    ctx.beginPath()
-    ctx.arc(x, y, 2, 0, Math.PI * 2)
-    ctx.fill()
-  }
-}
-
-/** Canvas pixel -> position, for a click on the map. */
-export function positionAt(canvas, offsetX, offsetY) {
-  const width = canvas.clientWidth || canvas.width
-  const height = canvas.clientHeight || canvas.height
-  if (!width || !height) return null
-  return {
-    latitude: 90 - (offsetY / height) * 180,
-    longitude: (offsetX / width) * 360 - 180
-  }
 }
