@@ -7,6 +7,23 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Turn on GitHub Pages (Settings → Pages → Source: "GitHub Actions") so
+      the demo deploy in
+      [#202](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/202)
+      has somewhere to publish — the URL in the README is dead until the first
+      deploy. Then show the page to the Signal K community and write the
+      feedback into
+      [#199](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/199),
+      the issue's own last checkbox
+- [ ] Launch the coastline-extraction build sessions — names are settled
+      (`coastlines` data, `coast-wright` lib, `portolani` generator), so run
+      the handoff prompt: generator repo, then data repo, then lib repo, then
+      the swap-in PR here
+      ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179))
+- [ ] Deliver the resource-delivery-layer detail you were holding, and open
+      the upstream Signal K discussion once the coastline packages exist
+      ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179)).
+      blocked: the packages shipping
 - [ ] Send the three coastline-package outreach drafts, in order — the
       SignalK/signalk "Show and tell" discussion first (highest reach), then
       Aitonos, then Flyguy86. All three packages are on npm now, but
@@ -90,17 +107,63 @@ what it is blocked by. Delete it when it is done.
       goes — the marine SSB band-edge contours over NOAA's colorbar are a
       Claude proposal you asked to see rather than discuss, and the toolbar
       checkbox is the A/B, not a settled design. Judge it during an actual
-      event: the quiet-day grid draws one contour and decides nothing
-      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170))
-- [ ] Rule on the map panel being dark in **both** themes — NOAA's D-RAP
-      colorbar starts at `#000000` and was sampled against a black globe, so
-      matching their colours on a light dashboard meant giving the panel its
-      own ground; the alternative is a lighter palette that no longer matches
-      NOAA
-      ([argument](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md#the-map-draws-on-its-own-dark-ground))
+      event: the quiet-day grid draws one contour and decides nothing.
+      Judged 2026-08-26 against a synthetic dayside blackout injected at the
+      drap-grid route — quiet draws a single line that reads as a stray
+      graticule, a storm draws seven that say which band has gone under, which
+      is the case for an off-by-default switch rather than always-on
+      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170),
+      [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191))
 
 ## Claude's
 
+- [ ] Tidy `mapView`'s return shape in `public/projection.js` once
+      [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191)
+      lands — it returns `center` as the *settled* value but `radiusDeg` as the
+      *requested* one (pass 0, get 0 back, render 1), and it computes
+      `proj.radiusWorld(radiusDeg)` internally then throws it away so
+      `spaceMap.js:213` re-derives it. Exposing the resolved `radius` fixes
+      both. Also unreachable: `toPixel`'s `if (!world) return null`, which is
+      why every call site carries a `!`. Not correctness bugs — the maths swept
+      clean in
+      [#194](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/194);
+      carded because #191 is being split into tiers and the comment on it
+      ([here](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191#issuecomment-5433552941))
+      would go with it
+- [ ] Once [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191)
+      lands, work through Mark's test-rig punch list on the unified map
+      (`public/spaceMap.js`, `public/index.html`):
+      - Give the current-position and clicked-target markers distinct icons —
+        a small white ship/vessel glyph for the vessel, crosshairs (or a
+        station/receiver icon) for the target — instead of two identical dots
+      - Cut the map's text density; a lot of what's on it now duplicates
+        another readout on the same tile
+      - Put the path's headline metric (the worst-cutoff cliff) as a label
+        drawn on the path itself, not off in a corner
+      - Stack the aurora and D-RAP scales vertically instead of side by side,
+        and widen them enough to show the range with real numbers, the way
+        NOAA's own scale graphics do — not pixel-identical, just legible with
+        a few numeric points on each
+      - Drop "Nothing selected" as a map-layer option — either it renders an
+        empty map or it isn't offered; removing the whole map tile is wrong
+      - Fix the band-edge contour rendering: keep the labelled ticks inside
+        the visible range instead of off the edge, stop drawing them directly
+        on top of the scale lines (reads as "mucky"), make the numbers read
+        clearly as labels, and give them units — "2 MHz" or "< 2 MHz", not
+        bare "2"
+      - Stack the aurora/HF refresh buttons the same way the scales stack
+      - Reflow each map section as: label (e.g. "HF Absorption"), then its
+        refresh button to the label's right, then its timestamp to the
+        button's right, with that section's scale further right again on a
+        wide viewport — dropping down below, still stacked as a group, as the
+        viewport narrows
+      - Move the help text up and shorten it to something like "Click any
+        point to score a path"; an info bubble can carry any extra context,
+        if it's worth having at all
+      - Stop listing multiple lat/lon pairs down at the bottom of the map —
+        if the far end of a path gets a coordinate readout, put it right next
+        to that point, and put the distance and worst/mean cutoff figures on
+        the path itself, as labels, not in a separate list
 - [ ] Fix the other D-RAP path-scoring bug that landed with
       [#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169) —
       `greatCirclePoints`'s fixed 100km step in `public/drapMap.js` can skip
@@ -199,6 +262,41 @@ what it is blocked by. Delete it when it is done.
       [#110](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/110)
       and
       [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md)
+- [ ] Derive the D-RAP grid geometry in `public/drapMap.js` instead of
+      hardcoding it — `cutoffAt` does `row = round((89 - lat)/2)` and
+      `col = round((lon + 178)/4)`, and `drawDrapMap` lays cells out on the
+      same assumption. Every other reader derives it: `drapLattice` in
+      `src/tiles.ts` says in as many words that a grid published
+      north-to-south or from -178 is _described_ rather than rewritten, and
+      `drapFrequencyAt` uses `nearestIndex` over the arrays. `parseDrapGrid`
+      checks only that both arrays are length 90, so a shifted grid publishes
+      right, tiles right, and draws and probes wrong in the webapp with no
+      signal — the failure
+      [docs/design-decisions.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md#noaa-changes-payload-shapes-without-notice)
+      exists to prevent. Both arrays are already in hand (`gridSummary` reads
+      them); ~10 lines, or one geometry assertion in `parseDrapGrid` instead.
+      While there: guard `greatCirclePoints` against the exact antipode
+      (`sin δ` → 0 scatters 82 of 202 points), and make
+      `test/drap-map.test.ts:38` assert against `drapFrequencyAt` rather than
+      a hardcoded 2.9
+      ([review](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169#issuecomment-5431300417))
+- [ ] Trim the "The D-RAP map is the deliverable" section in
+      [docs/design-decisions.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md) —
+      its colour-ramp paragraph re-argues "The D-RAP overlay is coloured by
+      band, not by frequency" and its cache paragraph re-argues "A global grid
+      is worth fetching before there is anywhere to index it". Cut to the
+      map-is-the-input argument and the sampling / worst-and-mean choices, and
+      link the other two. The same file also carries a half-finished
+      `*emphasis*` → `_emphasis_` pass that rode in on
+      [#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169)
+      (lines 167 and 341 still use `*`) — finish it or revert it, and decide
+      whether `format:check` should cover markdown at all, since today it only
+      covers `src/**/*.ts` and `test/**/*.ts`
+- [ ] Keep the vessel position across a map layer switch —
+      `document.getElementById('mapExtent').innerHTML = layer.extent` in
+      `public/index.html` re-inserts `<span id="vesselPos">the vessel</span>`,
+      so the extent reads "the vessel" until the next 60-second poll. Set the
+      text right after the swap
 - [ ] Decide whether a *named* destination is worth building on top of the
       absorption map's click-to-score probe — a route waypoint, a saved
       station list, a callsign lookup. The map answers the path question by
