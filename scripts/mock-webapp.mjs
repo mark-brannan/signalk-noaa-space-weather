@@ -294,10 +294,15 @@ function listenUrls() {
   // this function exists for.
   const six = HOST === '::'
   const wanted = six ? ['IPv6', 6] : ['IPv4', 4]
+  // Link-local is not internal, but it is not shareable either: an fe80::
+  // URL needs a zone identifier, and this machine's zone is meaningless on
+  // the device the link is being pasted into. Same for 169.254/16.
+  const linkLocal = (a) => /^fe80:/i.test(a) || a.startsWith('169.254.')
   const addrs = Object.values(os.networkInterfaces())
     .flat()
     .filter((n) => n && wanted.includes(n.family) && !n.internal)
     .map((n) => n.address)
+    .filter((a) => !linkLocal(a))
   return [
     `http://${six ? '[::1]' : '127.0.0.1'}:${PORT}/`,
     ...addrs.map((a) => `http://${authority(a)}:${PORT}/`)
