@@ -393,10 +393,12 @@ describe('dailyKb', () => {
     expect(off.other).toBe(on.other)
   })
 
-  it('scales D-RAP with the interval it actually rides on', () => {
+  it('scales D-RAP with its own interval, not the "everything else" one', () => {
     const base = dailyKb(settings)
-    const faster = dailyKb({ ...settings, updateInterval: 30 })
-    expect(faster.drap).toBeCloseTo(base.drap * 2)
+    const fasterOther = dailyKb({ ...settings, updateInterval: 30 })
+    expect(fasterOther.drap).toBeCloseTo(base.drap)
+    const fasterDrap = dailyKb({ ...settings, drapInterval: 30 })
+    expect(fasterDrap.drap).toBeCloseTo(base.drap * 2)
   })
 
   it('does not move the bulletins when an interval is halved', () => {

@@ -6,6 +6,7 @@ export interface Settings {
   auroraEnabled: boolean
   auroraInterval: number
   drapEnabled: boolean
+  drapInterval: number
   alarmLevel: number
   popupLevel: number
   updateInterval: number
@@ -109,10 +110,20 @@ export const schema = {
         ' through, barring other factors. NOAA serves one grid covering the' +
         ' whole globe, so it costs the same everywhere: about 3.3 KB on each' +
         ' fetch of the interval below, hourly by default, against 5 KB for' +
-        ' everything else in them. This only governs the recurring fetch' +
-        ' \u2014 with it off, the webapp can still fetch the grid once, when' +
-        ' you ask it to.',
+        ' everything else. This only governs the recurring fetch \u2014 with' +
+        ' it off, the webapp can still fetch the grid once, when you ask it' +
+        ' to.',
       default: true
+    },
+    drapInterval: {
+      type: 'number',
+      title: 'D-RAP fetch interval',
+      description:
+        'in minutes. Separate from the interval below, because D-RAP is the' +
+        ' one part of it a user can switch off: its own rate lets that choice' +
+        ' also control what it costs, rather than only whether it runs at' +
+        ' all.',
+      default: 60
     },
     auroraInterval: {
       type: 'number',
@@ -128,8 +139,8 @@ export const schema = {
       type: 'number',
       title: 'How often to fetch from NOAA',
       description:
-        'in minutes. Covers observations, forecasts and alerts alike, which' +
-        ' together come to about 5 KB per poll, plus 3.3 KB when D-RAP is on.',
+        'in minutes. Covers observations, forecasts and alerts alike,' +
+        ' together about 5 KB per poll.',
       default: 60
     }
   }
@@ -178,6 +189,10 @@ export function settingsFrom(props: any): Settings {
     // already fetching it, so defaulting off would silently stop publishing a
     // path that install already had.
     drapEnabled: p.drapEnabled !== false,
+    // A config saved before this split existed was fetching D-RAP on
+    // `updateInterval`, so that value -- not the new field's own default --
+    // is what a pre-existing install keeps.
+    drapInterval: minutes(p.drapInterval ?? p.updateInterval, 60),
     alarmLevel,
     popupLevel: popupBand(p.popupLevel, alarmLevel),
     // `observationsInterval` and `notificationsInterval` are the two settings

@@ -938,6 +938,7 @@ describe('plugin module', () => {
       'auroraEnabled',
       'auroraInterval',
       'drapEnabled',
+      'drapInterval',
       'updateInterval'
     ]) {
       expect(properties[key], key).toBeTruthy()

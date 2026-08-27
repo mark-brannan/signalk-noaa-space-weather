@@ -275,3 +275,28 @@ describe('auroraInterval default', () => {
     expect(settings.auroraInterval).toBeGreaterThan(settings.updateInterval)
   })
 })
+
+describe('drapInterval', () => {
+  it('defaults to 60 minutes', () => {
+    expect(settingsFrom({}).drapInterval).toBe(60)
+  })
+
+  it('uses drapInterval when present', () => {
+    expect(settingsFrom({ drapInterval: 15 }).drapInterval).toBe(15)
+  })
+
+  it('falls back to updateInterval for a config saved before the split', () => {
+    expect(settingsFrom({ updateInterval: 30 }).drapInterval).toBe(30)
+  })
+
+  it('prefers drapInterval over updateInterval', () => {
+    expect(
+      settingsFrom({ drapInterval: 10, updateInterval: 30 }).drapInterval
+    ).toBe(10)
+  })
+
+  it('rejects junk and falls back to 60', () => {
+    expect(settingsFrom({ drapInterval: 'soon' }).drapInterval).toBe(60)
+    expect(settingsFrom({ drapInterval: 0 }).drapInterval).toBe(60)
+  })
+})
