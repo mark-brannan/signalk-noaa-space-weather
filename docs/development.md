@@ -6,6 +6,20 @@ keeps the handful of things that bite before you get this far — the shared
 servers and their lock files, the branch the dev server follows, the ports —
 and points here for the procedures.
 
+**Whenever Claude makes a local change likely to affect the UI, show it
+running — a bare, LAN- or Tailscale-reachable URL (never `127.0.0.1`, which
+only resolves on the machine running the server), for the mock rig or the
+test rig, whichever fits the change. Share it before re-running the test
+suite, not after — Mark can be looking at it while the tests run.** Always
+the command documented below, never an ad hoc port or flag. Which rig fits is
+judgment: the mock rig for anything that doesn't need a real server round
+trip (styling, layout, control wiring, most webapp changes); the test rig
+when the change depends on real Signal K behavior (config-panel wiring
+through the actual server, a path only the plugin publishes, zone/notification
+behavior). Find this machine's addresses with `hostname -I` (LAN is usually
+the `192.168.x.x` one; Tailscale is the `100.x.x.x` one) and substitute
+directly into the URL below — don't paste `127.0.0.1` and call it done.
+
 ## Running against a real server
 
 A Docker Signal K installed from the published npm package backs any
@@ -39,7 +53,11 @@ clone.
 **`~/.signalk` is the integration environment.** It is the default config
 directory, so plain `bin/signalk-server` uses it with no environment variables
 at all. **It listens on 3010**, set as `port` in its own `settings.json` —
-clear of both 3000 and 3001 whichever way symphony's stack is currently
+bound to all interfaces (`ss -tlnp | grep 3010` shows `*:3010`, not
+`127.0.0.1:3010`), so it's already reachable at
+`http://<lan-or-tailscale-ip>:3010/` from another device with no proxy needed
+— get the address with `hostname -I` and use that form, per the note at the
+top of this file. Clear of both 3000 and 3001 whichever way symphony's stack is currently
 running, which is the whole point of picking it. 3000 is the signalk-server
 default and collides with too much else, so nothing here should be on it.
 `PORT` still overrides, which is what the `nmea-from-file`
@@ -139,6 +157,20 @@ somewhere the server doesn't look; symlink it into
 npm run dev:webapp        # http://127.0.0.1:8731, or pass a port
 ```
 
+It binds `127.0.0.1` only — no host flag, on purpose, so a stray port isn't
+open to the LAN by default. To show a change on another device (per the note
+at the top of this file), pick a free port for the mock (`ss -tlnp` to check)
+and proxy it onto every interface with `socat`, which is already installed
+here:
+
+```shell
+node scripts/mock-webapp.mjs 8740 &
+socat TCP-LISTEN:8741,fork,reuseaddr TCP:127.0.0.1:8740 &
+```
+
+then share `http://<lan-or-tailscale-ip>:8741/` (`hostname -I` for the
+address). Kill both when done; don't leave stray listeners behind.
+
 `scripts/mock-webapp.mjs` serves `public/` with a state switcher appended and
 answers the Signal K paths it understands with fabricated data, so the real
 `heroState`/`renderTimer`/`renderKp` decide what renders. A strip at the
@@ -147,8 +179,15 @@ the past 24h, a G3 forecast, a G3 eased to G1 and still in force, a G4+S4 in
 force, stale data, and no-data-since-start. Most are impractical to reach
 against a live server -- a G4 happens a few times a solar cycle, and the last
 one means breaking the plugin on purpose -- which is the whole reason the
-file exists. Reach for it instead of hand-editing the DOM in devtools, and
-add a state there rather than faking one in the console.
+file exists. **The switcher strip is part of this harness, not the product**
+-- a synthetic click meant for the map can land on it instead (it's fixed at
+the bottom of the viewport and a tall expanded tile scrolls underneath it),
+which navigates the page and looks exactly like the app misbehaving. Verify
+a synthetic click's target with `elementFromPoint` before trusting what it
+did.
+
+Reach for it instead of hand-editing the DOM in devtools, and add a state
+there rather than faking one in the console.
 
 It has no dependencies and nothing imports it. Keep it that way — it has to
 stay invisible to the registry's offline `npm ci`, build and test run.
