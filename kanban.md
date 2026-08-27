@@ -127,6 +127,14 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Nothing guards the map tile's Expand geometry: `applyExpandedWidth` in
+      `public/index.html` is layout behaviour, so it only fails in a real
+      browser, and the two attempts at it
+      ([#201](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/201))
+      were both verified by a throwaway Playwright script. Decide whether a
+      browser-level check earns a home in the repo — it cannot join `npm test`,
+      which the registry runs offline under a 60s cap, so it would have to be a
+      separate package like `scripts/screenshots/`
 - [ ] Tidy `mapView`'s return shape in `public/projection.js` once
       [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191)
       lands — it returns `center` as the *settled* value but `radiusDeg` as the
