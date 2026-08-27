@@ -288,15 +288,18 @@ function listenUrls() {
   const authority = (addr) => (addr.includes(':') ? `[${addr}]` : addr)
   if (HOST !== '0.0.0.0' && HOST !== '::')
     return [`http://${authority(HOST)}:${PORT}/`]
-  // Node 18.0.x reports `family` as the number 4 rather than 'IPv4', and
-  // package.json still supports >=18, so a string compare alone would print
-  // nothing but loopback there -- exactly the case this function exists for.
+  // Node 18.0.x reports `family` as the number 4 rather than 'IPv4' (and 6
+  // rather than 'IPv6'), and package.json still supports >=18, so a string
+  // compare alone would print nothing but loopback there -- exactly the case
+  // this function exists for.
+  const six = HOST === '::'
+  const wanted = six ? ['IPv6', 6] : ['IPv4', 4]
   const addrs = Object.values(os.networkInterfaces())
     .flat()
-    .filter((n) => n && (n.family === 'IPv4' || n.family === 4) && !n.internal)
+    .filter((n) => n && wanted.includes(n.family) && !n.internal)
     .map((n) => n.address)
   return [
-    `http://127.0.0.1:${PORT}/`,
+    `http://${six ? '[::1]' : '127.0.0.1'}:${PORT}/`,
     ...addrs.map((a) => `http://${authority(a)}:${PORT}/`)
   ]
 }
