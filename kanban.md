@@ -7,6 +7,14 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Send the three coastline-package outreach drafts, in order — the
+      SignalK/signalk "Show and tell" discussion first (highest reach), then
+      Aitonos, then Flyguy86. All three packages are on npm now, but
+      `coastlines` and `coast-wright` are at `0.0.1-alpha.0`; decide whether
+      to point strangers at an alpha or cut a real release first. Text, send
+      order and a re-verify list are held in the private state repo at
+      `state/global/drafts/coastlines-outreach.md`
+      ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179))
 - [ ] Decide the fate of `claude-review.yml` after the scope-down — keep the
       narrow version, or drop it entirely (delete the workflow and the
       `CLAUDE_CODE_OAUTH_TOKEN` secret) and let CodeRabbit be the one
@@ -137,9 +145,6 @@ what it is blocked by. Delete it when it is done.
       once `capture.mjs fast` catches one — the invented wording is a guess and
       nothing should parse against it
       ([#134](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/134))
-- [ ] Add `npm run format:check` to the typecheck job in
-      [ci.yml](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/.github/workflows/ci.yml)
-      — AGENTS.md orders it and no check enforces it
 - [ ] **2026-09-02**: revisit `RELEASE_WINDOW_HOURS` in
       [scripts/publish-impact.sh](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/scripts/publish-impact.sh)
       — started at 6h in [#136](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/136),

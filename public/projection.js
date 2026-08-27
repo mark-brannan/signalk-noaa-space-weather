@@ -78,13 +78,22 @@ function createAzimuthal(lat0, lon0) {
       let c = Math.acos(Math.max(-1, Math.min(1, cosC)))
       if (c < 1e-9) return [0, 0]
       if (c > Math.PI - 1e-6) c = Math.PI - 1e-6
-      const k = c / Math.sin(c)
-      return [
-        k * Math.cos(phi) * Math.sin(dLambda),
-        k *
-          (cosPhi0 * Math.sin(phi) -
-            sinPhi0 * Math.cos(phi) * Math.cos(dLambda))
-      ]
+      const dx = Math.cos(phi) * Math.sin(dLambda)
+      const dy = cosPhi0 * Math.sin(phi) - sinPhi0 * Math.cos(phi) * Math.cos(dLambda)
+      // (dx, dy) has magnitude sin(c), so dividing by it (rather than by
+      // sin(c) directly, as k = c / sin(c) does) is the same scaling but
+      // survives the case that sank near the antipode: c/sin(c) blows up as
+      // sin(c) -> 0 while dx and dy are *also* collapsing toward 0 there
+      // (sin(dLambda) -> sin(pi) = 0), and the two limits don't cancel
+      // cleanly in floating point -- the product lands near [0, 0], the
+      // centre, instead of on the boundary circle the docstring above
+      // promises. Normalising by the vector's own magnitude keeps the
+      // result on the circle of radius c right up to the antipode, where
+      // dx and dy underflow to exactly 0 and the fallback below picks one
+      // of the (equally valid, per the docstring) boundary points.
+      const norm = Math.hypot(dx, dy)
+      if (norm < 1e-12) return [c, 0]
+      return [(dx / norm) * c, (dy / norm) * c]
     },
     inverse(x, y) {
       const c = Math.hypot(x, y)

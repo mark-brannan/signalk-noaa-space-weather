@@ -288,4 +288,43 @@ describe('mapView', () => {
     expect(view.toPixel(180, 0)![0]).toBeCloseTo(900, 6)
     expect(view.toPixel(-180, 0)![0]).toBeCloseTo(0, 6)
   })
+
+  it('falls back to 0,0 when the centre is not yet a fix', () => {
+    // 'awaiting-position' passes no centre at all; a boat with a GPS fault
+    // could hand back NaN. Either way mapView must produce a usable view
+    // rather than propagate the non-finite value into every pixel.
+    for (const center of [undefined, {}, { latitude: NaN, longitude: NaN }]) {
+      const view = mapView({
+        projection: 'cylindrical',
+        center,
+        radiusDeg: 60,
+        width: 900,
+        height: 420
+      })
+      expect(view.center).toEqual({ latitude: 0, longitude: 0 })
+      expect(view.toPixel(0, 0)).not.toBeNull()
+    }
+  })
+
+  it('agrees with toPixel through the separable x/y accessors', () => {
+    // coast-wright's `limn` and the graticule call x() and y() one
+    // coordinate at a time rather than toPixel's paired call; they must
+    // land on the same pixel or the coastline and the map disagree.
+    const view = mapView({
+      projection: 'cylindrical',
+      center: { latitude: 47.6, longitude: -122.3 },
+      radiusDeg: 60,
+      width: 900,
+      height: 420
+    })
+    for (const [lon, lat] of [
+      [-122.3, 47.6],
+      [-90, 30],
+      [10, -20]
+    ]) {
+      const [px, py] = view.toPixel(lon, lat)!
+      expect(view.x(lon)).toBeCloseTo(px, 6)
+      expect(view.y(lat)).toBeCloseTo(py, 6)
+    }
+  })
 })

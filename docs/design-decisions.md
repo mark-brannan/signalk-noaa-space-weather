@@ -164,7 +164,7 @@ explain the dependency to the reader twice.
 
 So the fetch is unconditional, the grid is cached
 (`src/cache/entryCache.ts` and the two wrappers over it), and the value at the
-vessel is published *out of* the cache — straight away when there is a
+vessel is published _out of_ the cache — straight away when there is a
 position, and otherwise the moment one turns up. `refresh()` says which by
 returning `'awaiting-position'`, and the scheduler then retries through
 `publishFromCache()` rather than through `refresh()`, on the same geometric
@@ -434,7 +434,7 @@ straight across the disc; a pixel-length cap catches that and nothing else,
 since neighbouring coastline points are a degree apart on the ground.
 
 The chart-plotter tiles are the opposite case and must stay that way. They are
-drawn *over* the user's real charts, so geography is already there and ours
+drawn _over_ the user's real charts, so geography is already there and ours
 would be a second, wronger coastline printed on top of it. `tiles.ts` renders
 data and nothing else.
 

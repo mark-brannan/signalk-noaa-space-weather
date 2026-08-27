@@ -187,7 +187,9 @@ export function drapRampStop(cutoffHz) {
   for (let b = 0; b < edges.length; b++) {
     if (mhz >= edges[b]) continue
     const previous = b === 0 ? 0 : edges[b - 1]
-    return b + Math.min(1, Math.max(0, (mhz - previous) / (edges[b] - previous)))
+    return (
+      b + Math.min(1, Math.max(0, (mhz - previous) / (edges[b] - previous)))
+    )
   }
   return 0
 }
