@@ -1,5 +1,9 @@
 # signalk-noaa-space-weather
 
+[![The browser demo: NOAA's radio-blackout model and the aurora oval on a globe](docs/screenshots/demo.png)](https://mark-brannan.github.io/signalk-noaa-space-weather/)
+
+**[Try it in your browser](https://mark-brannan.github.io/signalk-noaa-space-weather/)** — the plugin's map on a saved NOAA snapshot. No boat, no server, nothing to install.
+
 ## Why should I care about space weather?
 
 **Q:** *Why would I, a mere **sailor**, care about "space weather"*?
@@ -140,6 +144,13 @@ Each tile carries `Last-Modified` from the fetch behind it, so a client can tell
 
 * Registering the overlay as a Signal K `charts` resource, so it appears in Freeboard-SK with no chart-source configuration at all
 
+## Installation
+
+Search for **signalk-noaa-space-weather** in the Signal K server's AppStore and
+install it from there, then enable it under *Server → Plugin Config*. Or, from
+a shell on the server: `npm install signalk-noaa-space-weather` in `~/.signalk`,
+restart, then enable it under *Server → Plugin Config* the same way.
+
 ## Configuration
 
 Seven settings, all optional, all with working defaults:
@@ -220,6 +231,10 @@ The **Map** tile draws both grids on one canvas — the aurora oval and HF absor
 Those buttons work whether or not `auroraEnabled` and `drapEnabled` are on, and with one off — where the button reads **Fetch once** — pressing it is the only thing that ever fetches that grid. So the aurora is available on a boat that has decided not to spend 145 KB every couple of hours on it: leave the recurring fetch off, and ask for a reading on the night you want one. Nothing else on the page reaches NOAA; the map draws from whatever the plugin last cached, and the periodic poll only reads your own server.
 
 ![The map](docs/screenshots/space-map.png)
+
+The coastline under that map costs 8 KB for the whole world, which is why the
+webapp can afford to ship its own instead of needing a chart server. Skeptical?
+[Drag the slider that proves it](https://mark-brannan.github.io/portolani/).
 
 ## Screenshots
 
