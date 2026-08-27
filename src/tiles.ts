@@ -125,12 +125,12 @@ function sample(lattice: Lattice, latitude: number, longitude: number): number {
  * at. NOAA publishes no numeric definition of this ramp anywhere, so the
  * image is the only source of truth there is.
  *
- * This deliberately no longer matches `auroraStops` in public/index.html,
- * which still uses this plugin's own 4-stop ramp saturating at 30%. Aligning
- * the webapp map is a separate decision -- it is a different picture, on a
- * dark page, at a different scale.
+ * `NOAA_AURORA_RAMP` in public/aurora.js is the same table -- the webapp map
+ * and this overlay are two pictures of one forecast, and
+ * test/aurora-webapp.test.ts pins them identical. Only the alpha differs, and
+ * for a stated reason: this one has to let a nautical chart through.
  */
-const NOAA_RAMP: ReadonlyArray<readonly [number, number, number]> = [
+export const NOAA_RAMP: ReadonlyArray<readonly [number, number, number]> = [
   [116, 166, 117], // 0%  -- desaturated; we draw this fully transparent
   [50, 196, 53], // 5%
   [23, 227, 16], // 10%
@@ -215,17 +215,22 @@ export function auroraLattice(values: Uint8Array): Lattice {
  * (2026-08-26, recorded in
  * [#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170)).
  *
- * `[MHz, r, g, b]`. Unlike aurora, whose webapp map keeps this plugin's own
- * desaturated ramp, D-RAP uses NOAA's colours: #170 settled that a picture
- * sitting beside NOAA's own image of the same grid has to be the same
- * picture. This is the chart-plotter overlay's half of that; the webapp map
- * still draws the band ladder below and follows separately.
+ * `[MHz, r, g, b]`, and **the same table as `NOAA_DRAP_STOPS` in
+ * public/drap-colors.js**, which the webapp's map and legend draw from; a
+ * browser cannot import this TypeScript, so the copy is pinned identical by
+ * `drap-colors.test.ts` -- along with the alpha ramp below, since a cell in
+ * two colours on two screens on the same boat is the failure this palette
+ * exists to prevent.
+ *
+ * Unlike aurora, whose webapp map keeps this plugin's own desaturated ramp,
+ * both D-RAP surfaces use NOAA's colours: #170 settled that a picture sitting
+ * beside NOAA's own image of the same grid has to be the same picture.
  *
  * The last sampled pixel of the strip is 255,12,0, but the legend's own end
  * box is pure red and the scale saturates there, so the table ends on the
  * colour the box holds and every value past 35 MHz gets it.
  */
-const NOAA_DRAP_STOPS: ReadonlyArray<
+export const NOAA_DRAP_STOPS: ReadonlyArray<
   readonly [number, number, number, number]
 > = [
   [0, 0, 0, 0],
@@ -250,18 +255,12 @@ const NOAA_DRAP_STOPS: ReadonlyArray<
 ]
 
 /**
- * Where the alpha ramp reaches opaque, in MHz.
- *
- * NOAA draws its bar over its own black background, where 0 MHz is #000000
- * and reads as "nothing". Over a nautical chart an opaque black cell reads as
- * void -- no data, or a hole in the chart -- so alpha fades in linearly from
- * invisible at 0 instead, and is flat above this stop.
- *
- * A fade rather than a threshold, because a cutoff switched on at some MHz
- * draws a crisp contour around the absorption footprint, and a crisp line is
- * exactly what a reader over-trusts on a 2x4 degree grid. And *fully* opaque,
- * early: now that hue carries the severity, a diluted colour would carry a
- * second, contradicting one.
+ * Where the alpha ramp reaches opaque, in MHz. The argument for the shape is
+ * in public/drap-colors.js, next to the copy of it the webapp uses; in short,
+ * NOAA's 0 MHz stop is #000000 and an opaque black cell over a chart reads as
+ * "no data", so alpha fades in from invisible instead -- and reaches *full*
+ * opacity early, because hue now carries the severity and a diluted colour
+ * would carry a second, contradicting one.
  */
 const DRAP_ALPHA_FULL_MHZ = 4
 

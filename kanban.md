@@ -15,6 +15,18 @@ what it is blocked by. Delete it when it is done.
       order and a re-verify list are held in the private state repo at
       `state/global/drafts/coastlines-outreach.md`
       ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179))
+- [ ] Decide whether the webapp should split into tab-like views instead of one
+      long scrolling page — the map (and maybe other sections) as its own
+      selectable pane, with switcher controls near the top; still a single-page
+      app, no real navigation, just controls that read as tabs. Needs your
+      call on scope before it's worth an issue
+      ([raised on this PR](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/196))
+- [ ] Pick how the D-RAP map tiles and webapp map should color-match NOAA's
+      colorbar — match NOAA exactly on both surfaces (as asked) or repeat
+      aurora's chart-overlay-exact/webapp-adapted split; the measured NOAA
+      color stops are on the issue
+      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170)).
+      Blocks the D-RAP map-tiles card below
 - [ ] Decide the fate of `claude-review.yml` after the scope-down — keep the
       narrow version, or drop it entirely (delete the workflow and the
       `CLAUDE_CODE_OAUTH_TOKEN` secret) and let CodeRabbit be the one
@@ -78,14 +90,13 @@ what it is blocked by. Delete it when it is done.
       goes — the marine SSB band-edge contours over NOAA's colorbar are a
       Claude proposal you asked to see rather than discuss, and the toolbar
       checkbox is the A/B, not a settled design. Judge it during an actual
-      event: the quiet-day grid draws one contour and decides nothing
-      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170))
-- [ ] Rule on the map panel being dark in **both** themes — NOAA's D-RAP
-      colorbar starts at `#000000` and was sampled against a black globe, so
-      matching their colours on a light dashboard meant giving the panel its
-      own ground; the alternative is a lighter palette that no longer matches
-      NOAA
-      ([argument](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md#the-map-draws-on-its-own-dark-ground))
+      event: the quiet-day grid draws one contour and decides nothing.
+      Judged 2026-08-26 against a synthetic dayside blackout injected at the
+      drap-grid route — quiet draws a single line that reads as a stray
+      graticule, a storm draws seven that say which band has gone under, which
+      is the case for an off-by-default switch rather than always-on
+      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170),
+      [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191))
 
 ## Claude's
 
@@ -102,6 +113,40 @@ what it is blocked by. Delete it when it is done.
       carded because #191 is being split into tiers and the comment on it
       ([here](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191#issuecomment-5433552941))
       would go with it
+- [ ] Once [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191)
+      lands, work through Mark's test-rig punch list on the unified map
+      (`public/spaceMap.js`, `public/index.html`):
+      - Give the current-position and clicked-target markers distinct icons —
+        a small white ship/vessel glyph for the vessel, crosshairs (or a
+        station/receiver icon) for the target — instead of two identical dots
+      - Cut the map's text density; a lot of what's on it now duplicates
+        another readout on the same tile
+      - Put the path's headline metric (the worst-cutoff cliff) as a label
+        drawn on the path itself, not off in a corner
+      - Stack the aurora and D-RAP scales vertically instead of side by side,
+        and widen them enough to show the range with real numbers, the way
+        NOAA's own scale graphics do — not pixel-identical, just legible with
+        a few numeric points on each
+      - Drop "Nothing selected" as a map-layer option — either it renders an
+        empty map or it isn't offered; removing the whole map tile is wrong
+      - Fix the band-edge contour rendering: keep the labelled ticks inside
+        the visible range instead of off the edge, stop drawing them directly
+        on top of the scale lines (reads as "mucky"), make the numbers read
+        clearly as labels, and give them units — "2 MHz" or "< 2 MHz", not
+        bare "2"
+      - Stack the aurora/HF refresh buttons the same way the scales stack
+      - Reflow each map section as: label (e.g. "HF Absorption"), then its
+        refresh button to the label's right, then its timestamp to the
+        button's right, with that section's scale further right again on a
+        wide viewport — dropping down below, still stacked as a group, as the
+        viewport narrows
+      - Move the help text up and shorten it to something like "Click any
+        point to score a path"; an info bubble can carry any extra context,
+        if it's worth having at all
+      - Stop listing multiple lat/lon pairs down at the bottom of the map —
+        if the far end of a path gets a coordinate readout, put it right next
+        to that point, and put the distance and worst/mean cutoff figures on
+        the path itself, as labels, not in a separate list
 - [ ] Fix the other D-RAP path-scoring bug that landed with
       [#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169) —
       `greatCirclePoints`'s fixed 100km step in `public/drapMap.js` can skip
