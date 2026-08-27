@@ -1712,33 +1712,73 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // real width outside it to borrow, taken back the moment it collapses.
   // Nothing changes on a window with no room to give, which is honest rather
   // than a fake toggle.
+  // The tile's width with the expansion taken off, and the viewport width it
+  // was measured at. Cached because measuring it means removing the
+  // expansion, and removing the expansion is the thing that bounces.
+  let naturalTileWidth = null
+  let naturalTileWidthAt = null
+
+  // Measuring the natural width by clearing the inline styles and reading the
+  // box back is what made this oscillate, and the transition is why -- though
+  // not the way the previous attempt had it. `width` cannot animate here at
+  // all: it runs between `auto` and a length, which is not interpolable. The
+  // *margins* can, and do, since they run 0 to -grow. So a plain
+  // clear-then-measure reads the box while the margins are still most of the
+  // way out at -grow, and reports the expanded width as the natural one: grow
+  // comes out 0, the styles stay cleared, the tile animates back in, and the
+  // next redraw expands it again. That is the bounce, and whatever redraw
+  // comes next fires it -- a canvas click, a checkbox, the periodic refresh.
+  //
+  // Suspending the transition for the measuring reflow gets the right number,
+  // but still clears and re-sets the styles on every redraw, so whether
+  // anything shows comes down to whether that engine's transition machinery
+  // notices the intermediate state. Two engines here say no; that is not a
+  // property to ship on. So: measure once per viewport width, and write
+  // nothing when the styles already say what they should. A steady-state
+  // redraw now touches no style at all, which no engine can animate.
   function applyExpandedWidth() {
     const tile = document.querySelector('.space-map-tile')
     if (!tile) return
-    tile.style.width = ''
-    tile.style.marginLeft = ''
-    tile.style.marginRight = ''
-    if (!mapControls.expanded) return
-    // .space-map-tile has a CSS transition on width/margin (for the visible
-    // Expand/Shrink animation). The reset above does not snap the box to
-    // its natural size synchronously -- the transition means a plain
-    // getBoundingClientRect() right after would read the *pre-reset*
-    // (still-expanded) geometry, not the target one, because the animation
-    // hasn't advanced yet. That stale "natural" width fed grow<=0 on the
-    // very next redraw regardless of the click that caused it, which is
-    // the expand/shrink oscillation Mark found. Suspending the transition
-    // for this one reflow forces the true natural width, then restoring it
-    // before applying any width keeps the animation visible for an actual
-    // Expand/Shrink click.
-    tile.style.transition = 'none'
-    const naturalWidth = tile.getBoundingClientRect().width
-    tile.style.transition = ''
-    const targetWidth = Math.min(document.documentElement.clientWidth - 24, 1600)
-    const grow = (targetWidth - naturalWidth) / 2
-    if (grow <= 0) return
-    tile.style.width = `${targetWidth}px`
-    tile.style.marginLeft = `${-grow}px`
-    tile.style.marginRight = `${-grow}px`
+    const viewport = document.documentElement.clientWidth
+    if (!mapControls.expanded) {
+      naturalTileWidth = null
+      if (tile.style.width) {
+        tile.style.width = ''
+        tile.style.marginLeft = ''
+        tile.style.marginRight = ''
+      }
+      return
+    }
+    const remeasuring = naturalTileWidth === null || naturalTileWidthAt !== viewport
+    // Already expanded and re-measuring means the window changed size, not
+    // that anything was clicked: the transition stays suspended across the
+    // re-apply below, so the tile tracks the window instead of chasing it.
+    const wasExpanded = !!tile.style.width
+    if (remeasuring) {
+      tile.style.transition = 'none'
+      tile.style.width = ''
+      tile.style.marginLeft = ''
+      tile.style.marginRight = ''
+      naturalTileWidth = tile.getBoundingClientRect().width
+      naturalTileWidthAt = viewport
+      // A genuine Expand click starts from the natural width anyway, so hand
+      // the transition back before the target is applied and the animation
+      // stays visible.
+      if (!wasExpanded) tile.style.transition = ''
+    }
+    const targetWidth = Math.min(viewport - 24, 1600)
+    const grow = (targetWidth - naturalTileWidth) / 2
+    const width = grow > 0 ? `${targetWidth}px` : ''
+    const margin = grow > 0 ? `${-grow}px` : ''
+    if (tile.style.width !== width) {
+      tile.style.width = width
+      tile.style.marginLeft = margin
+      tile.style.marginRight = margin
+    }
+    if (tile.style.transition) {
+      tile.getBoundingClientRect()
+      tile.style.transition = ''
+    }
   }
 
   // The canvas is sized here rather than in CSS because the shape that suits
