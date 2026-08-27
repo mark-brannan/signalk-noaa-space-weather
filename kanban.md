@@ -7,6 +7,15 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Launch the coastline-extraction build sessions — names are settled
+      (`coastlines` data, `coast-wright` lib, `portolani` generator), so run
+      the handoff prompt: generator repo, then data repo, then lib repo, then
+      the swap-in PR here
+      ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179))
+- [ ] Deliver the resource-delivery-layer detail you were holding, and open
+      the upstream Signal K discussion once the coastline packages exist
+      ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179)).
+      blocked: the packages shipping
 - [ ] Send the three coastline-package outreach drafts, in order — the
       SignalK/signalk "Show and tell" discussion first (highest reach), then
       Aitonos, then Flyguy86. All three packages are on npm now, but
