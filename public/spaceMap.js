@@ -108,8 +108,7 @@ export function drawSpaceMap(canvas, options = {}) {
     bandContours = false
   } = options
 
-  const ratio =
-    (typeof window !== 'undefined' && window.devicePixelRatio) || 1
+  const ratio = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
   const width = canvas.clientWidth || canvas.width
   const height = canvas.clientHeight || canvas.height
   canvas.width = Math.round(width * ratio)
@@ -195,7 +194,11 @@ function paintRaster(ctx, view, layers) {
   offscreen.height = raster.height
   const offCtx = offscreen.getContext('2d')
   if (!offCtx) return
-  offCtx.putImageData(new ImageData(raster.data, raster.width, raster.height), 0, 0)
+  offCtx.putImageData(
+    new ImageData(raster.data, raster.width, raster.height),
+    0,
+    0
+  )
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(offscreen, 0, 0, view.width, view.height)
@@ -274,7 +277,10 @@ export function strokeRings(ctx, rings, view, options = {}) {
         previous = null
         continue
       }
-      if (previous && Math.hypot(at[0] - previous[0], at[1] - previous[1]) > cap) {
+      if (
+        previous &&
+        Math.hypot(at[0] - previous[0], at[1] - previous[1]) > cap
+      ) {
         pendown = false
       }
       if (pendown) ctx.lineTo(at[0], at[1])
@@ -376,7 +382,7 @@ function drawBandContours(ctx, view, sample, ink) {
       }
       ctx.stroke()
     }
-    labelContour(ctx, segments, level, ink, placed)
+    labelContour(ctx, view, segments, level, ink, placed)
   }
   ctx.restore()
 }
@@ -389,11 +395,19 @@ function drawBandContours(ctx, view, sample, ink) {
  * stable one -- it does not jump around the ring as the field creeps
  * between redraws, which a "longest segment" or "nearest the centre" rule
  * would.
+ *
+ * Topmost *inside the viewport*, though. A blob wider than the map leaves
+ * every one of its contours through the top edge, and the topmost segment of
+ * each is then exactly where the label cannot be drawn -- half of it hanging
+ * off the canvas. Skipping the segments too close to an edge keeps the label
+ * on its own line rather than sliding it away from it.
  */
-function labelContour(ctx, segments, level, ink, placed) {
+function labelContour(ctx, view, segments, level, ink, placed) {
+  const margin = 10
   let best = null
   for (const [a, b] of segments) {
     const y = (a[1] + b[1]) / 2
+    if (y < margin || y > view.height - margin) continue
     if (!best || y < best.y) best = { x: (a[0] + b[0]) / 2, y }
   }
   if (!best) return
@@ -405,10 +419,14 @@ function labelContour(ctx, segments, level, ink, placed) {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   const half = ctx.measureText(text).width / 2 + 4
-  const box = { x0: best.x - half, y0: best.y - 8, x1: best.x + half, y1: best.y + 8 }
+  const cx = Math.min(view.width - half, Math.max(half, best.x))
+  const box = { x0: cx - half, y0: best.y - 8, x1: cx + half, y1: best.y + 8 }
   for (const other of placed) {
     const clear =
-      box.x1 < other.x0 || box.x0 > other.x1 || box.y1 < other.y0 || box.y0 > other.y1
+      box.x1 < other.x0 ||
+      box.x0 > other.x1 ||
+      box.y1 < other.y0 ||
+      box.y0 > other.y1
     if (!clear) return
   }
   placed.push(box)
@@ -417,7 +435,7 @@ function labelContour(ctx, segments, level, ink, placed) {
   ctx.roundRect(box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0, 3)
   ctx.fill()
   ctx.fillStyle = ink
-  ctx.fillText(text, best.x, best.y)
+  ctx.fillText(text, cx, best.y)
 }
 
 /**
@@ -518,7 +536,11 @@ function drawProbe(ctx, view, probe, ink) {
   // Dark under, colour over, the same as the coastline and the contours: the
   // path crosses the whole ramp by construction, since scoring it is the
   // point.
-  strokeRings(ctx, [path], view, { color: 'rgba(0,0,0,0.5)', alpha: 1, width: 3.4 })
+  strokeRings(ctx, [path], view, {
+    color: 'rgba(0,0,0,0.5)',
+    alpha: 1,
+    width: 3.4
+  })
   strokeRings(ctx, [path], view, { color: ink, alpha: 0.95, width: 1.8 })
   if (probe.worstAt) {
     const worst = view.toPixel(probe.worstAt.longitude, probe.worstAt.latitude)
