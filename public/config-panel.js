@@ -408,7 +408,15 @@ export function panelSettings(configuration) {
     auroraEnabled: c.auroraEnabled === true,
     auroraInterval: minutes(c.auroraInterval, DEFAULTS.auroraInterval),
     drapEnabled: c.drapEnabled !== false,
-    drapInterval: minutes(c.drapInterval, DEFAULTS.drapInterval),
+    // Mirrors `settingsFrom`: absent falls back to the resolved
+    // `updateInterval` (what a pre-split config was actually fetching D-RAP
+    // at), not straight to the 60-minute default -- an explicit but invalid
+    // `drapInterval` still lands on 60, since it names its own setting, wrong
+    // value and all.
+    drapInterval:
+      c.drapInterval === undefined
+        ? minutes(c.updateInterval, DEFAULTS.updateInterval)
+        : minutes(c.drapInterval, DEFAULTS.drapInterval),
     updateInterval: minutes(c.updateInterval, DEFAULTS.updateInterval)
   }
 }

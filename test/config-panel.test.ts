@@ -169,6 +169,20 @@ describe('panelSettings', () => {
     }
   })
 
+  it('shows the same drapInterval the plugin would actually run', () => {
+    // The panel and settingsFrom resolve the fallback independently; both have
+    // to land on the same number for the screen to describe what is running.
+    for (const configuration of [
+      { updateInterval: 30 },
+      { drapInterval: 10, updateInterval: 30 },
+      { drapInterval: 'soon', updateInterval: 30 }
+    ]) {
+      expect(panelSettings(configuration).drapInterval).toBe(
+        settingsFrom(configuration).drapInterval
+      )
+    }
+  })
+
   // What the panel saves replaces the saved configuration rather than patching
   // it, so this is exactly what ends up in the file on disk.
   describe('as the whole saved configuration', () => {

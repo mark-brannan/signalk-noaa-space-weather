@@ -289,6 +289,24 @@ describe('drapInterval', () => {
     expect(settingsFrom({ updateInterval: 30 }).drapInterval).toBe(30)
   })
 
+  it('falls back to the resolved legacy observations/notifications cadence', () => {
+    // Not the raw, absent `updateInterval` prop -- the value `settingsFrom`
+    // actually derives from it, which is what a pre-split install was really
+    // fetching D-RAP at.
+    expect(
+      settingsFrom({ observationsInterval: 15, notificationsInterval: 20 })
+        .drapInterval
+    ).toBe(15)
+  })
+
+  it('an explicit invalid drapInterval falls back to 60, not to updateInterval', () => {
+    // It names its own setting, wrong value and all -- borrowing a different
+    // field's value would be a second guess nobody asked for.
+    expect(
+      settingsFrom({ drapInterval: 'soon', updateInterval: 30 }).drapInterval
+    ).toBe(60)
+  })
+
   it('prefers drapInterval over updateInterval', () => {
     expect(
       settingsFrom({ drapInterval: 10, updateInterval: 30 }).drapInterval

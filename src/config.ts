@@ -180,6 +180,19 @@ export function settingsFrom(props: any): Settings {
     p.alarmLevel ?? shiftUp(p.zoneAlertThreshold ?? p.minScaleAlert),
     NoaaScaleValues.EXTREME
   )
+  // `observationsInterval` and `notificationsInterval` are the two settings
+  // this replaced. Both are still read so a saved config keeps its cadence
+  // instead of silently snapping back to 60, and the smaller wins, since that
+  // is the rate the install was already polling at. Resolved once, up front,
+  // because drapInterval's own fallback needs the *normalised* value below --
+  // reading `p.updateInterval` raw there would skip this migration and land a
+  // legacy observations/notifications-only config back on the 60-minute
+  // default instead of the cadence it was actually polling at.
+  const updateInterval = minutes(
+    p.updateInterval ??
+      smaller(p.observationsInterval, p.notificationsInterval),
+    60
+  )
   return {
     sendAdvisoryOutlook: p.sendAdvisoryOutlook !== false,
     auroraEnabled: p.auroraEnabled === true,
@@ -190,20 +203,18 @@ export function settingsFrom(props: any): Settings {
     // path that install already had.
     drapEnabled: p.drapEnabled !== false,
     // A config saved before this split existed was fetching D-RAP on
-    // `updateInterval`, so that value -- not the new field's own default --
-    // is what a pre-existing install keeps.
-    drapInterval: minutes(p.drapInterval ?? p.updateInterval, 60),
+    // `updateInterval`, so that's what a pre-existing install keeps -- the
+    // resolved value, not the raw prop, so it also carries a legacy
+    // observations/notifications-only config's cadence across. An explicit
+    // but invalid `drapInterval` still falls back to 60 rather than borrowing
+    // `updateInterval`: it names its own setting, wrong value and all.
+    drapInterval:
+      p.drapInterval === undefined
+        ? updateInterval
+        : minutes(p.drapInterval, 60),
     alarmLevel,
     popupLevel: popupBand(p.popupLevel, alarmLevel),
-    // `observationsInterval` and `notificationsInterval` are the two settings
-    // this replaced. Both are still read so a saved config keeps its cadence
-    // instead of silently snapping back to 60, and the smaller wins, since that
-    // is the rate the install was already polling at.
-    updateInterval: minutes(
-      p.updateInterval ??
-        smaller(p.observationsInterval, p.notificationsInterval),
-      60
-    )
+    updateInterval
   }
 }
 
