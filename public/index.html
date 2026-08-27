@@ -1716,7 +1716,7 @@ import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpac
       button.addEventListener('click', () =>
         handleRefreshClick(button, meta.refreshUrl, async () => {
           await refresh()
-          await loadMap()
+          await refetchLayer(id)
         }, meta.relabel))
     }
     labelAuroraButtons()
@@ -1766,6 +1766,21 @@ import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpac
         drawMapCanvas()
       })
     }
+  }
+
+  // After a manual NOAA fetch, the grid this page is holding is the old one.
+  // Dropping it is what makes the next loadMap() actually re-read the cache --
+  // loadMap only fetches layers it has nothing for, which is what keeps
+  // toggling a layer back on free.
+  //
+  // The reload is conditional and the invalidation is not: a fetch from a
+  // product tile must not open a map nobody asked for, but it must not leave a
+  // stale grid behind for whenever that map is opened either.
+  async function refetchLayer(id) {
+    mapEntries[id] = null
+    mapErrors[id] = null
+    if (id === 'drap') drapProbe = null
+    if (mapState !== 'idle') await loadMap()
   }
 
   // Reads back whichever selected layers this page does not already hold.
@@ -1912,7 +1927,7 @@ import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpac
   function handleAuroraRefreshClick(button) {
     return handleRefreshClick(button, AURORA_REFRESH_URL, async () => {
       await refresh() // re-polls everything, so the ring tile picks up the fresh value right away
-      if (mapState !== 'idle') await loadMap() // re-reads the fresh cache for any state but idle (never opened)
+      await refetchLayer('aurora')
     }, labelAuroraButton)
   }
 
@@ -1922,9 +1937,11 @@ import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpac
 
   document.getElementById('hfRefresh').addEventListener('click', () => {
     const button = document.getElementById('hfRefresh')
+    // Same as the aurora tile's button: a fresh grid reaches an open map
+    // rather than waiting to be asked for a second time (#185).
     handleRefreshClick(button, DRAP_REFRESH_URL, async () => {
       await refresh()
-      if (mapState !== 'idle') await loadMap() // same as the aurora tile's button: pick up the fresh grid if the map is open
+      await refetchLayer('drap')
     }, labelDrapButton)
   })
 
