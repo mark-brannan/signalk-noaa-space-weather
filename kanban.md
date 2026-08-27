@@ -7,6 +7,14 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Turn on GitHub Pages (Settings → Pages → Source: "GitHub Actions") so
+      the demo deploy in
+      [#202](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/202)
+      has somewhere to publish — the URL in the README is dead until the first
+      deploy. Then show the page to the Signal K community and write the
+      feedback into
+      [#199](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/199),
+      the issue's own last checkbox
 - [ ] Launch the coastline-extraction build sessions — names are settled
       (`coastlines` data, `coast-wright` lib, `portolani` generator), so run
       the handoff prompt: generator repo, then data repo, then lib repo, then
