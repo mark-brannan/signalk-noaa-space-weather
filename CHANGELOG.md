@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.29.3] - 2026-08-26
+
+### Added
+
+- **One map, with layers, a projection and a zoom.** The regional aurora
+  window and the global absorption rectangle were two maps behind a dropdown
+  that showed one and hid the other. They are now one tile: tick either layer
+  or both, pick **Great circle** (centred on the boat, where a straight line
+  from the vessel is a great circle and so is the HF path) or **Flat**, and
+  drag the zoom from a regional close-up out to the whole world. Aurora is
+  drawn on the global view for the first time.
+- **Marine band edges as contours on the absorption map.** NOAA's colours say
+  how much is absorbed; a labelled ring says which of your bands has gone
+  under. Switchable from the map's own toolbar.
+
+### Changed
+
+- **Both absorption maps now use NOAA's own published D-RAP colorbar** -- the
+  chart-plotter overlay and the webapp's map alike, so a reader comparing this
+  plugin against NOAA's image sees one picture rather than two. The webapp's
+  map panel is deliberately dark in both themes, because that palette was
+  drawn to sit on a black globe.
+- **The webapp's absorption map is no longer blocky.** It was one filled
+  rectangle per grid cell; it is now sampled per pixel and interpolated, the
+  same as NOAA's own image and this plugin's chart tiles.
+
 ## [0.29.2] - 2026-08-26
 
 ### Added
