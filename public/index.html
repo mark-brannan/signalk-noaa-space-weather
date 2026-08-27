@@ -83,6 +83,12 @@
   }
 
   * { box-sizing: border-box; }
+  /* Reserved always, not only once a scrollbar is showing: without it, the
+     page's own content growing past the viewport (scoring a path, a toggled
+     layer changing the footer's height) pops a scrollbar mid-interaction and
+     the ~15px it takes back shifts every column on the page sideways (Mark's
+     round-3 review). */
+  html { scrollbar-gutter: stable; }
   html, body { margin: 0; padding: 0; }
   body {
     background: var(--ink); color: var(--text); font-family: var(--font-mono);
@@ -428,7 +434,6 @@
   .map-header {
     display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   }
-  .map-extent { display: block; font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; }
   .btn-outline:disabled { opacity: 0.5; cursor: default; }
   .btn-outline:disabled:hover { border-color: var(--grid); color: var(--text); }
   .btn-outline {
@@ -506,19 +511,23 @@
     letter-spacing: 0.06em; font-size: 0.62rem; color: var(--text); min-width: 5.5em;
   }
   .sec-time { font-variant-numeric: tabular-nums; }
-  .map-legend { display: flex; flex-direction: column; gap: 3px; margin-left: auto; min-width: 160px; }
+  /* Shared by both legends so aurora's and D-RAP's bars come out the same
+     width regardless of what their own row's label/button/timestamp text
+     runs to (they used to differ, 160px vs 220px -- Mark's round-3 review). */
+  :root { --legend-bar-width: 190px; }
+  .map-legend { display: flex; flex-direction: column; gap: 3px; margin-left: auto; min-width: var(--legend-bar-width); }
   /* Matches NOAA_AURORA_RAMP in public/aurora.js, so the legend means the same
      thing the map does. Widened and given real tick numbers -- a colour ramp
      with no numbers on it isn't a scale, and NOAA's own legend graphics
      always carry a few (Mark's test-rig punch list). */
   .map-legend .bar {
-    position: relative; width: 100%; min-width: 160px; height: 10px; border-radius: 4px;
+    position: relative; width: 100%; min-width: var(--legend-bar-width); height: 10px; border-radius: 4px;
     background: linear-gradient(90deg, rgb(23,227,16), rgb(45,247,3), rgb(248,255,1), rgb(255,163,0), rgb(228,0,0));
   }
   /* NOAA's own D-RAP colorbar, filled from public/drap-colors.js at runtime so
      the strip cannot claim a colour the map does not paint. */
   .drap-legend .bar {
-    position: relative; width: 100%; min-width: 220px; height: 10px; border-radius: 2px;
+    position: relative; width: 100%; min-width: var(--legend-bar-width); height: 10px; border-radius: 2px;
     background: var(--grid);
   }
   .drap-legend .bar .ink { position: absolute; inset: 0; border-radius: 2px; }
@@ -529,6 +538,11 @@
   .scale-tick { position: absolute; top: 0; }
   .scale-tick.align-center { transform: translateX(-50%); }
   .scale-tick.align-right { transform: translateX(-100%); }
+  /* Band-edge ticks doubled, and in the same amber as the Kp line and the
+     aurora ring, so they read from across the cabin instead of blending
+     into the dim grey every other scale tick uses (Mark's round-3 review). */
+  .drap-legend .scale-ticks { height: 24px; }
+  .drap-legend .scale-tick { font-size: 1.2rem; color: var(--amber); }
   .map-note { font-size: 0.72rem; color: var(--text-dim); margin-top: 8px; }
 
   /* line-height is explicit because the two-line trim measures against it. */
@@ -703,7 +717,6 @@
       <div class="map-header">
         <div>
           <h2>Map</h2>
-          <span class="map-extent" id="mapExtent">Aurora and HF absorption, around <span id="vesselPos">the vessel</span></span>
         </div>
       </div>
       <div id="mapBody" class="map-body">
@@ -748,7 +761,7 @@ import { leafTime, leafValue, readAll } from './signalk.js';
 import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
 import { bandEdgeTicks, gridSummary, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
-import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpaceMap, fmtLat, fmtLon, positionAt } from './spaceMap.js';
+import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
 (() => {
   'use strict';
   const REFRESH_MS = 60000;
@@ -1448,6 +1461,9 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     layers: new Set(LAYER_IDS),
     projection: DEFAULT_PROJECTION,
     radiusDeg: DEFAULT_RADIUS_DEG,
+    // Shrunk by default -- Expand does nothing at a narrow viewport and
+    // wants a style pass of its own before it's the default (Mark's round-3
+    // review; carded).
     expanded: false,
     // NOAA's colorbar says how much is absorbed; these say which of the
     // reader's own bands has gone under. Drawn over NOAA's colours, never
@@ -1460,6 +1476,37 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // and on again is instant and costs the server nothing.
   const mapEntries = { aurora: null, drap: null }
   const mapErrors = { aurora: null, drap: null }
+
+  // The reader's own distance unit, read once from the server's Unit
+  // Preferences API (https://github.com/SignalK/signalk-server) rather than
+  // hardcoded nmi (Mark's round-3 review) -- a plain function of km so
+  // drawProbe never needs to know where the preference came from. Servers
+  // without that API (older ones, or none set) 404 and this stays the nmi
+  // formatDistanceNm already gave every reader, so there is nothing to fall
+  // back to but the existing behaviour.
+  let distanceFormat = formatDistanceNm
+  async function loadDistanceUnitPref() {
+    try {
+      const res = await fetch('/signalk/v1/unitpreferences/active', { headers: { Accept: 'application/json' } })
+      if (!res.ok) return
+      const prefs = await res.json()
+      const distance = prefs?.categories?.distance
+      // Never eval a formula that isn't plain arithmetic on `value` -- the
+      // server is a trusted origin for the numbers it publishes, but not
+      // trusted enough to hand it script execution over a preferences file a
+      // reader could edit or a proxy could tamper with. Strip every literal
+      // "value" token out first and check what's left is only digits,
+      // whitespace and arithmetic -- no other identifier can survive that.
+      const formula = distance?.formula
+      if (!formula || !/^[\d\s.+\-*/()]*$/.test(formula.split('value').join(''))) return
+      const convert = new Function('value', `"use strict"; return (${formula})`)
+      const digits = (distance.displayFormat?.split('.')[1] || '').length
+      distanceFormat = (km) => `${convert(km * 1000).toFixed(digits)} ${distance.symbol || distance.targetUnit}`
+    } catch {
+      // Network hiccup or a malformed response -- nmi is still a correct
+      // answer, just not necessarily the reader's preferred one.
+    }
+  }
 
   let lastPosition = null
   let mapState = 'idle' // idle | loading | ready | error
@@ -1549,13 +1596,47 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       ])}</div>`
   }
 
+  // One tick per marine SSB band edge is nine labels on a ~190px bar --
+  // `bandEdgeTicks` stays that granular because the map's own contours draw
+  // one per edge too, but the legend's row is too narrow to caption all nine
+  // without them overlapping into unreadable text (Mark's round-3 review).
+  // Greedy left-to-right thinning, forcing the topmost edge back in even if
+  // it collides with its neighbour -- it's the edge nearest the top of NOAA's
+  // own scale, and the one a reader most wants named.
+  function thinTicks(ticks, minGapFraction) {
+    if (!ticks.length) return []
+    const kept = [ticks[0]]
+    for (let i = 1; i < ticks.length; i++) {
+      if (ticks[i].fraction - kept[kept.length - 1].fraction >= minGapFraction) {
+        kept.push(ticks[i])
+      }
+    }
+    const last = ticks[ticks.length - 1]
+    if (kept[kept.length - 1] !== last) {
+      if (last.fraction - kept[kept.length - 1].fraction < minGapFraction) {
+        kept[kept.length - 1] = last
+      } else {
+        kept.push(last)
+      }
+    }
+    return kept
+  }
+
   function drapLegendHtml() {
     const stops = legendStops(24)
     const gradient = stops
       .map((stop, i) => `${stop.color} ${((i / (stops.length - 1)) * 100).toFixed(1)}%`)
       .join(', ')
+    // Rounded to whole MHz here (the map's own contours still draw from the
+    // exact edges) -- a legend tick is read at a glance, and "16.36 MHz" ate
+    // most of the room a thinned set of ticks was trying to buy back.
     const ticks = mapControls.bandEdges
-      ? scaleTicksHtml(bandEdgeTicks().map((tick) => ({ fraction: tick.fraction, label: `${tick.label} MHz` })))
+      ? scaleTicksHtml(
+          thinTicks(bandEdgeTicks(), 0.22).map((tick) => ({
+            fraction: tick.fraction,
+            label: `${Math.round(tick.mhz)} MHz`
+          }))
+        )
       : ''
     return `<div class="map-legend drap-legend"><span class="bar"><span class="ink"
       style="background:linear-gradient(90deg, ${gradient})"></span></span>${ticks}</div>`
@@ -1602,13 +1683,18 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
 
   // --- the viewport --------------------------------------------------------
 
-  // "Expand" used to only raise the height ceiling below, which does nothing
-  // at the width the tile already had -- width*0.62 (or /2) sits under 520
-  // (or 580) at every width narrower than about 840px (1160px cylindrical),
-  // which is most of them, so the toggle read as "just a blip" (Mark's
-  // punch-list follow-up). The actual lever this tile has is the page's own
-  // side margins: `.shell` caps out at 1180px, so on any wider window there
-  // is real width outside it to borrow, taken back the moment it collapses.
+  // Back after round 3 tried dropping it: with the width growing on *every*
+  // redraw (every checkbox, every clicked path) rather than only while
+  // expanded, the tile's width visibly flipped between its natural and grown
+  // size on each interaction -- restoring the flag restores the early return
+  // below, and toggling stops touching width at all in the (now default)
+  // shrunk state (Mark's round-3 review). The toggle itself still does
+  // nothing at narrow viewports -- width*0.62 (or /2) sits under the
+  // collapsed ceiling at almost every width narrower than about 840px -- so
+  // it's staying shrunk by default until that's worth a design pass of its
+  // own, carded separately. The lever this tile has is the page's own side
+  // margins: `.shell` caps out at 1180px, so on any wider window there is
+  // real width outside it to borrow, taken back the moment it collapses.
   // Nothing changes on a window with no room to give, which is honest rather
   // than a fake toggle.
   function applyExpandedWidth() {
@@ -1658,7 +1744,8 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       radiusDeg: mapControls.radiusDeg,
       position: lastPosition,
       probe: layerOn('drap') ? drapProbe : null,
-      bandContours: mapControls.bandEdges
+      bandContours: mapControls.bandEdges,
+      distanceFormat
     })
     canvas.classList.toggle('probe-cursor', layerOn('drap') && !!lastPosition && !!mapEntries.drap)
   }
@@ -1669,21 +1756,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     return `${Math.round(deg)}° around`
   }
 
-  function updateMapCaption() {
-    const names = LAYER_IDS.filter(layerOn).map((id) => LAYER_META[id].label)
-    const what = names.length ? names.join(' and ') : 'Nothing selected'
-    const where = mapControls.radiusDeg >= 175
-      ? 'the whole world, centred on <span id="vesselPos">the vessel</span>'
-      : `${zoomWording(mapControls.radiusDeg)} <span id="vesselPos">the vessel</span>`
-    // vesselPos is rewritten by every poll, so it has to be re-seeded with
-    // whatever the last one knew rather than reset to the placeholder.
-    document.getElementById('mapExtent').innerHTML = `${what} &mdash; ${where}`
-    const el = document.getElementById('vesselPos')
-    if (el && lastPosition) {
-      el.textContent = `${lastPosition.latitude.toFixed(4)}°, ${lastPosition.longitude.toFixed(4)}°`
-    }
-  }
-
   // --- the toolbar ---------------------------------------------------------
 
   function toolbarHtml() {
@@ -1692,14 +1764,16 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         `<button type="button" data-projection="${entry.id}" title="${entry.hint}"
           aria-pressed="${mapControls.projection === entry.id}">${entry.label}</button>`)
       .join('')
-    // The last checked layer can't be unchecked -- an empty map is a
+    // The last checked layer can't just switch off -- an empty map is a
     // legitimate picture, but "Nothing selected" as an offered choice is not
     // (Mark's test-rig punch list): either something is drawn, or the
-    // control to draw nothing isn't offered.
+    // control to draw nothing isn't offered. It stays clickable rather than
+    // `disabled`, though: clicking it swaps to the other layer, XOR-style,
+    // instead of no-op'ing (Mark's round-3 review).
     const layerBoxes = LAYER_IDS.map((id) => {
       const last = layerOn(id) && mapControls.layers.size === 1
-      return `<label class="check${last ? ' off' : ''}" title="${last ? 'At least one layer stays on.' : ''}"><input
-        type="checkbox" data-layer="${id}" ${layerOn(id) ? 'checked' : ''} ${last ? 'disabled' : ''}> ${LAYER_META[id].label}</label>`
+      return `<label class="check${last ? ' off' : ''}" title="${last ? 'Switches to the other layer -- at least one stays on.' : ''}"><input
+        type="checkbox" data-layer="${id}" ${layerOn(id) ? 'checked' : ''}> ${LAYER_META[id].label}</label>`
     }).join('')
     return `<div class="map-toolbar">
       <div class="group"><span class="label">Layers</span>${layerBoxes}</div>
@@ -1767,7 +1841,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       <div id="mapProbe"></div>
       ${footerHtml()}`
     wireToolbar()
-    updateMapCaption()
     drawMapCanvas()
     const probe = document.getElementById('mapProbe')
     if (probe) probe.innerHTML = drapProbeHtml()
@@ -1808,6 +1881,16 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     for (const box of body.querySelectorAll('input[data-layer]')) {
       box.addEventListener('change', () => {
         const id = box.dataset.layer
+        // The browser has already unchecked this box by the time `change`
+        // fires. If it was the last layer on, that would leave zero -- swap
+        // to the other layer instead of allowing it, so the "disabled-
+        // looking" checkbox reads as a switch rather than a no-op (Mark's
+        // round-3 review).
+        if (!box.checked && mapControls.layers.size === 1 && mapControls.layers.has(id)) {
+          for (const other of LAYER_IDS) {
+            if (other !== id) mapControls.layers.add(other)
+          }
+        }
         if (box.checked) mapControls.layers.add(id)
         else mapControls.layers.delete(id)
         // Turning the absorption layer off leaves its path scored against a
@@ -1828,7 +1911,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       zoom.addEventListener('input', () => {
         mapControls.radiusDeg = Number(zoom.value)
         document.getElementById('mapZoomReading').textContent = zoomWording(mapControls.radiusDeg)
-        updateMapCaption()
         drawMapCanvas()
       })
     }
@@ -1849,19 +1931,56 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     }
   }
 
+  // The body of a single layer's read-back, shared by loadMap (which only
+  // wants layers the reader has switched on) and refetchLayer (which wants
+  // exactly the one layer a fetch just refreshed, switched on or not).
+  async function loadLayer(id, loadId) {
+    try {
+      const entry = await fetchGridCache(LAYER_META[id].gridUrl)
+      if (loadId !== mapLoadId) return
+      mapEntries[id] = entry
+      mapErrors[id] = null
+      // A fresh D-RAP grid is fresh numbers, so a path scored against the
+      // previous one has to be re-scored against this one -- not silently
+      // dropped. Round 2 nulled it here, which meant every "Fetch" cleared
+      // whatever the reader had just clicked (Mark's round-3 review).
+      if (id === 'drap' && drapProbe && lastPosition) {
+        const end = drapProbe.points[drapProbe.points.length - 1]
+        drapProbe = pathAbsorption(entry.grid, lastPosition, end)
+      }
+    } catch (err) {
+      if (loadId !== mapLoadId) return
+      mapEntries[id] = null
+      mapErrors[id] = {
+        notCached: !!err.notCached,
+        message: err instanceof AuthRequiredError
+          ? 'not logged in to this Signal K server'
+          : String((err && err.message) || err)
+      }
+      if (err instanceof AuthRequiredError) {
+        document.getElementById('authBanner').classList.add('show')
+      }
+    }
+  }
+
   // After a manual NOAA fetch, the grid this page is holding is the old one.
-  // Dropping it is what makes the next loadMap() actually re-read the cache --
-  // loadMap only fetches layers it has nothing for, which is what keeps
-  // toggling a layer back on free.
-  //
-  // The reload is conditional and the invalidation is not: a fetch from a
-  // product tile must not open a map nobody asked for, but it must not leave a
-  // stale grid behind for whenever that map is opened either.
+  // Read the one layer the fetch was actually for straight back, rather than
+  // going through loadMap's own "only fetch what's switched on" filter --
+  // that filter is right for loadMap itself (don't fetch a layer nobody
+  // asked to see), but a layer that was just successfully refreshed needs
+  // its picture whether or not its checkbox happens to be off right now, or
+  // the map is left claiming "not loaded" for data the plugin is already
+  // holding (Mark's round-3 review: "Fetch" while a layer was off had
+  // unexpected effects).
   async function refetchLayer(id) {
     mapEntries[id] = null
     mapErrors[id] = null
-    if (id === 'drap') drapProbe = null
-    if (mapState !== 'idle') await loadMap()
+    if (mapState === 'idle') return
+    const loadId = ++mapLoadId
+    await loadLayer(id, loadId)
+    if (loadId !== mapLoadId) return
+    mapState = LAYER_IDS.filter(layerOn).some((lid) => mapEntries[lid]) ? 'ready' : 'error'
+    renderMap()
   }
 
   // Reads back whichever selected layers this page does not already hold.
@@ -1877,29 +1996,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       if (!document.getElementById('spaceMapCanvas')) {
         body.innerHTML = `<div class="empty-state">Loading the cached grids&hellip;</div>`
       }
-      await Promise.all(wanted.map(async (id) => {
-        try {
-          const entry = await fetchGridCache(LAYER_META[id].gridUrl)
-          if (loadId !== mapLoadId) return
-          mapEntries[id] = entry
-          mapErrors[id] = null
-          // A fresh D-RAP grid is fresh numbers; a path scored against the
-          // previous one is no longer a claim about this picture.
-          if (id === 'drap') drapProbe = null
-        } catch (err) {
-          if (loadId !== mapLoadId) return
-          mapEntries[id] = null
-          mapErrors[id] = {
-            notCached: !!err.notCached,
-            message: err instanceof AuthRequiredError
-              ? 'not logged in to this Signal K server'
-              : String((err && err.message) || err)
-          }
-          if (err instanceof AuthRequiredError) {
-            document.getElementById('authBanner').classList.add('show')
-          }
-        }
-      }))
+      await Promise.all(wanted.map((id) => loadLayer(id, loadId)))
     }
     if (loadId !== mapLoadId) return
     mapState = LAYER_IDS.filter(layerOn).some((id) => mapEntries[id]) ? 'ready' : 'error'
@@ -2098,14 +2195,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     renderKp(kp);
     renderAdvisory(data.advisory);
 
-    // Position reads as the map's extent caption ("60 degrees around <here>"),
-    // which is the only thing the webapp ever did with it. The fallback has to
-    // stay a noun phrase that sentence can end on.
-    const posText = pos
-      ? `${pos.latitude.toFixed(4)}°, ${pos.longitude.toFixed(4)}°`
-      : 'the vessel';
-    const posEl = document.getElementById('vesselPos');
-    if (posEl) posEl.textContent = posText;
     // A single failed/empty poll (e.g. the position source hasn't published
     // yet right after a server restart) must not erase a good position the
     // map is already centered on -- only overwrite it with an actual value.
@@ -2137,5 +2226,9 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // -- it is always on the page, so it loads its own cached grids up front
   // rather than waiting for a click that no longer exists.
   loadMap();
+  // Fire-and-forget: the map already drew with nmi by the time this
+  // resolves, so redraw once it lands rather than block the first paint on
+  // a request most servers will 404 anyway.
+  loadDistanceUnitPref().then(() => { if (mapState === 'ready') drawMapCanvas() });
 })();
 </script>
