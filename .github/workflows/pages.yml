@@ -1,0 +1,49 @@
+name: demo-pages
+
+# Publishes the browser demo (issue #199) to GitHub Pages: the map stack from
+# public/ against the saved NOAA snapshot in demo/, assembled by
+# scripts/build-demo.mjs. Requires Pages to be set to "GitHub Actions" in the
+# repo settings, once.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'demo/**'
+      - 'public/**'
+      - 'scripts/build-demo.mjs'
+      - 'scripts/sync-coastline.mjs'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # npm ci's prepare step vendors the coastline into public/, which is the
+      # only build the demo needs -- no tsc, nothing from dist/.
+      - run: npm ci
+      - run: node scripts/build-demo.mjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: demo-dist
+      - id: deployment
+        uses: actions/deploy-pages@v4

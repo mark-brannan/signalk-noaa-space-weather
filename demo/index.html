@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Space weather on a map — signalk-noaa-space-weather demo</title>
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --ground: #05070d;
+    --panel: #0b101c;
+    --ink: #e2e8f0;
+    --dim: #8b96a8;
+    --line: #1d2636;
+    --accent: #4ad2ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 20px 14px 40px; }
+  h1 { font-size: 1.5rem; margin: 0 0 6px; }
+  .lede { color: var(--dim); margin: 0 0 4px; }
+  .stamp {
+    display: inline-block;
+    margin: 10px 0 18px;
+    padding: 4px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--dim);
+    font-size: 0.85rem;
+  }
+  .stamp b { color: var(--ink); font-weight: 600; }
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center;
+    margin-bottom: 10px; font-size: 0.85rem;
+  }
+  .toolbar .label { color: var(--dim); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.08em; }
+  .seg button {
+    background: none; border: 1px solid var(--line); color: var(--ink);
+    padding: 5px 12px; cursor: pointer; font: inherit; font-size: 0.85rem;
+  }
+  .seg button:first-child { border-radius: 6px 0 0 6px; }
+  .seg button:last-child { border-radius: 0 6px 6px 0; margin-left: -1px; }
+  .seg button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); position: relative; }
+  label.check { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  canvas { width: 100%; display: block; border-radius: 8px; }
+  .legends { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 10px 0 4px; font-size: 0.8rem; color: var(--dim); }
+  .legend { display: inline-flex; gap: 8px; align-items: center; }
+  .legend .bar { position: relative; display: inline-block; width: 130px; height: 10px; border-radius: 3px; overflow: hidden; }
+  .legend .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.75); }
+  .stamps { font-size: 0.8rem; color: var(--dim); margin-bottom: 26px; }
+  .stamps b { color: var(--ink); font-weight: 600; }
+  section.card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px; margin: 0 0 26px;
+  }
+  section.card h2 { font-size: 1.05rem; margin: 0 0 10px; }
+  .bands { display: flex; gap: 4px; margin: 12px 0 8px; }
+  .band {
+    flex: 1; text-align: center; font-size: 0.8rem; padding: 8px 0 6px;
+    border-radius: 5px; border: 1px solid var(--line); color: var(--dim);
+  }
+  .band.absorbed { background: #7a1f2b; border-color: #a33; color: #fff; }
+  .band .mhz { display: block; font-size: 0.65rem; opacity: 0.7; }
+  .hf-facts { font-size: 0.9rem; color: var(--dim); }
+  .hf-facts b { color: var(--ink); font-weight: 600; }
+  footer { border-top: 1px solid var(--line); padding-top: 18px; color: var(--dim); font-size: 0.9rem; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Space weather on a map</h1>
+  <p class="lede">
+    NOAA's radio-blackout model and the aurora oval, drawn over a coastline —
+    and which marine HF bands the sun is taking out right now. No install, no
+    server: this page is the map from the
+    <a href="https://github.com/mark-brannan/signalk-noaa-space-weather">signalk-noaa-space-weather</a>
+    Signal K plugin, running on a saved NOAA capture.
+  </p>
+  <p class="stamp" id="capturedStamp">Loading the snapshot&hellip;</p>
+
+  <div class="toolbar">
+    <span class="label">View</span>
+    <span class="seg">
+      <button type="button" data-projection="azimuthal" aria-pressed="true">Globe</button>
+      <button type="button" data-projection="cylindrical" aria-pressed="false">Flat</button>
+    </span>
+    <span class="label">Layers</span>
+    <label class="check"><input type="checkbox" data-layer="drap" checked> HF absorption</label>
+    <label class="check"><input type="checkbox" data-layer="aurora" checked> Aurora</label>
+    <label class="check"><input type="checkbox" id="bandEdges" checked> Band edges</label>
+  </div>
+  <canvas id="demoMap"></canvas>
+  <div class="legends" id="legends"></div>
+  <div class="stamps" id="stamps"></div>
+
+  <section class="card">
+    <h2>Which HF bands are usable?</h2>
+    <p class="hf-facts" id="hfWording"></p>
+    <div class="bands" id="bandStrip"></div>
+    <p class="hf-facts" id="hfIndices"></p>
+  </section>
+
+  <footer>
+    <p>
+      What you're looking at is a snapshot: real NOAA data, captured once and
+      saved into this page, so it stays fast and can't break. On a boat the
+      plugin polls NOAA continuously, publishes these numbers into
+      <a href="https://signalk.org/">Signal K</a>, raises notifications when a
+      storm arrives, and overlays this map on your own charts.
+    </p>
+    <p>
+      Like it? <a href="https://github.com/mark-brannan/signalk-noaa-space-weather#installation">Run
+      it on your own boat</a> — it installs from the Signal K app store.
+    </p>
+  </footer>
+</main>
+
+<script type="module">
+  import { snapshot, readAll } from './signalk.js'
+  import { drawSpaceMap } from './spaceMap.js'
+  import { gridSummary, legendStops, bandEdgeTicks, LEGEND_MAX_MHZ } from './drapMap.js'
+  import { auroraRampColor } from './aurora.js'
+  import { hfCard, toPfu } from './hf.js'
+
+  const controls = {
+    projection: 'azimuthal',
+    layers: new Set(['drap', 'aurora']),
+    bandEdges: true
+  }
+  let grids = { aurora: null, drap: null }
+
+  const fmt = (iso) => {
+    const d = new Date(iso)
+    return isNaN(d) ? String(iso) : d.toUTCString().replace(':00 GMT', ' UTC')
+  }
+
+  function sizeCanvas(canvas) {
+    const width = canvas.clientWidth || canvas.parentElement.clientWidth || 800
+    const height = controls.projection === 'cylindrical'
+      ? Math.max(220, Math.round(width / 2))
+      : Math.max(280, Math.min(560, Math.round(width * 0.75)))
+    canvas.style.height = `${height}px`
+  }
+
+  function draw() {
+    const canvas = document.getElementById('demoMap')
+    sizeCanvas(canvas)
+    drawSpaceMap(canvas, {
+      grids: {
+        aurora: controls.layers.has('aurora') ? grids.aurora : null,
+        drap: controls.layers.has('drap') ? grids.drap : null
+      },
+      layers: [...controls.layers],
+      projection: controls.projection,
+      radiusDeg: 180,
+      position: null,
+      bandContours: controls.bandEdges,
+      // The sun terminator and the D-RAP grid must agree on the hour: this
+      // page shows a saved moment, so the sun is drawn at capture time, not
+      // at whatever time the page happens to be opened.
+      now: grids.drap?.validTime ? new Date(grids.drap.validTime) : undefined
+    })
+  }
+
+  function renderLegends() {
+    const parts = []
+    if (controls.layers.has('drap') && grids.drap) {
+      const stops = legendStops(24)
+      const gradient = stops
+        .map((s, i) => `${s.color} ${((i / (stops.length - 1)) * 100).toFixed(1)}%`)
+        .join(', ')
+      const ticks = controls.bandEdges
+        ? bandEdgeTicks()
+            .map((t) => `<span class="tick" style="left:${(t.fraction * 100).toFixed(1)}%"></span>`)
+            .join('')
+        : ''
+      parts.push(`<span class="legend">Absorbed
+        <span class="bar" style="background:linear-gradient(90deg, ${gradient})">${ticks}</span>
+        0 &rarr; ${LEGEND_MAX_MHZ} MHz</span>`)
+    }
+    if (controls.layers.has('aurora') && grids.aurora) {
+      const gradient = [0, 20, 40, 60, 80, 100]
+        .map((p) => `rgb(${auroraRampColor(p).join(',')}) ${p}%`)
+        .join(', ')
+      parts.push(`<span class="legend">Aurora
+        <span class="bar" style="background:linear-gradient(90deg, ${gradient})"></span>
+        low &rarr; high</span>`)
+    }
+    document.getElementById('legends').innerHTML = parts.join('')
+    const stamps = []
+    if (grids.drap) stamps.push(`HF absorption valid <b>${fmt(grids.drap.validTime)}</b>`)
+    if (grids.aurora) stamps.push(`aurora observed <b>${fmt(grids.aurora['Observation Time'])}</b>`)
+    document.getElementById('stamps').innerHTML = stamps.join(' &middot; ')
+  }
+
+  function renderHf(data) {
+    const summary = gridSummary(grids.drap)
+    // The plugin's own HF tile scores the cutoff at the vessel; this page has
+    // no vessel, so it scores the worst cell anywhere on the globe instead --
+    // the strip reads "somewhere on Earth, this is how bad it gets".
+    const card = hfCard({
+      ...data,
+      drap: summary
+        ? {
+            highest_affected_frequency: {
+              value: summary.maxMHz * 1e6,
+              timestamp: grids.drap.validTime
+            }
+          }
+        : null
+    })
+    document.getElementById('bandStrip').innerHTML = card.bands
+      .map(
+        (b) => `<span class="band${b.absorbed ? ' absorbed' : ''}">${b.label}<span class="mhz">MHz</span></span>`
+      )
+      .join('')
+    const wording = document.getElementById('hfWording')
+    if (!summary) {
+      wording.textContent = 'No absorption grid in the snapshot.'
+    } else if (summary.quiet) {
+      wording.innerHTML = `Nothing anywhere on the globe is absorbing a marine SSB band —
+        the worst cell in the model reads <b>${summary.maxMHz.toFixed(1)} MHz</b>, below the 2&nbsp;MHz band.`
+    } else {
+      wording.innerHTML = `At the worst spot on the globe the blackout reaches
+        <b>${summary.maxMHz.toFixed(1)} MHz</b>: <b>${card.bandsAbsorbed}</b> of the nine marine SSB
+        bands are absorbed there. Red bands are the ones that spot has lost.`
+    }
+    const facts = []
+    if (card.f107Band)
+      facts.push(`Solar flux <b>${Math.round(card.sfu)} sfu</b> — high bands: <b>${card.f107Band.label.toLowerCase()}</b>`)
+    if (card.protonPfu !== null)
+      facts.push(`protons <b>${card.protonPfu < 1 ? card.protonPfu.toFixed(2) : Math.round(card.protonPfu)} pfu</b>${card.protonElevated ? ' (elevated)' : ''}`)
+    if (card.trendWord) facts.push(`X-ray floor <b>${card.trendWord}</b>`)
+    document.getElementById('hfIndices').innerHTML = facts.join(' &middot; ')
+  }
+
+  function wire() {
+    for (const button of document.querySelectorAll('[data-projection]')) {
+      button.addEventListener('click', () => {
+        controls.projection = button.dataset.projection
+        for (const b of document.querySelectorAll('[data-projection]'))
+          b.setAttribute('aria-pressed', String(b === button))
+        draw()
+      })
+    }
+    for (const box of document.querySelectorAll('[data-layer]')) {
+      box.addEventListener('change', () => {
+        controls.layers[box.checked ? 'add' : 'delete'](box.dataset.layer)
+        draw()
+        renderLegends()
+      })
+    }
+    document.getElementById('bandEdges').addEventListener('change', (e) => {
+      controls.bandEdges = e.target.checked
+      draw()
+      renderLegends()
+    })
+    window.addEventListener('resize', draw)
+  }
+
+  const data = await snapshot()
+  grids = {
+    aurora: data.grids?.aurora?.grid ?? null,
+    drap: data.grids?.drap?.grid ?? null
+  }
+  document.getElementById('capturedStamp').innerHTML =
+    `A saved NOAA snapshot, captured <b>${fmt(data.capturedAt)}</b> — not live data.`
+  wire()
+  draw()
+  renderLegends()
+  renderHf(await readAll())
+</script>
+</body>
+</html>
