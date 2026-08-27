@@ -184,6 +184,34 @@ any other use of that instance. `--upstream` and the state switcher are
 mutually exclusive; passing it replaces the switcher strip with one naming
 the upstream instead.
 
+## The browser demo
+
+```shell
+npm install && npm run demo:build      # assembles demo-dist/
+npx http-server demo-dist              # any static server works
+```
+
+The public demo ([issue #199](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/199))
+is `public/`'s map stack served as static files, with exactly one
+substitution: `demo/signalk.js` lands in the assembled site as `signalk.js`,
+so `hf.js` and everything above it resolves `./signalk.js` to a version that
+answers every read from `demo/snapshot.json` — one saved NOAA capture —
+instead of a Signal K server. `demo/index.html` is the entry page;
+`test/demo.test.ts` pins the swap contract and that every import among the
+copied modules stays inside the copied set.
+
+`.github/workflows/pages.yml` deploys `demo-dist/` to GitHub Pages on every
+push to `main` that touches the demo or `public/`. To refresh the committed
+snapshot:
+
+```shell
+npm run build && node scripts/capture-demo-snapshot.mjs
+```
+
+It runs the real products out of `dist/` against a capturing publisher — the
+same pattern as the mock's `loadRealProducts` — so it needs the network and a
+build, and it is deliberately outside the test suite.
+
 ## Regenerating the README screenshots
 
 `scripts/screenshots/capture.mjs` rewrites all five PNGs in `docs/screenshots/`
