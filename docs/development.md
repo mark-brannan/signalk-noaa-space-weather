@@ -142,8 +142,9 @@ npm run dev:webapp        # http://127.0.0.1:8731, or pass a port
 `scripts/mock-webapp.mjs` serves `public/` with a state switcher appended and
 answers the Signal K paths it understands with fabricated data, so the real
 `heroState`/`renderTimer`/`renderKp` decide what renders. A strip at the
-bottom of the page switches between five states: quiet, G3 forecast, G4+S4,
-stale, and no-data-since-start. Four of those are impractical to reach
+bottom of the page switches between the states in `STATES`: quiet, an R2 in
+the past 24h, a G3 forecast, a G3 eased to G1 and still in force, a G4+S4 in
+force, stale data, and no-data-since-start. Most are impractical to reach
 against a live server -- a G4 happens a few times a solar cycle, and the last
 one means breaking the plugin on purpose -- which is the whole reason the
 file exists. Reach for it instead of hand-editing the DOM in devtools, and
@@ -152,11 +153,20 @@ add a state there rather than faking one in the console.
 It has no dependencies and nothing imports it. Keep it that way — it has to
 stay invisible to the registry's offline `npm ci`, build and test run.
 
-The aurora map is deliberately not mocked -- it needs a real grid cache to
-draw, and faking one would be mocking `tiles.ts` rather than the webapp -- so
-that tile renders its own empty state.
+The map's grids are the one thing here that is not fabricated: a made-up
+aurora or D-RAP grid would be mocking `tiles.ts` rather than the webapp. The
+four routes behind them -- `aurora-grid`, `drap-grid`, `aurora-refresh`,
+`drap-refresh` -- fall through to the real products, loaded out of `dist/`, so
+pressing **Fetch** on the map does a real NOAA request and caches a real grid
+on disk under the OS temp dir, with or without `--upstream`. Those buttons are
+therefore the one part of this that needs `npm run build` first and needs the
+network; everything else stays fabricated and offline. Until a real fetch has
+landed, the map renders its own empty state and the aurora and D-RAP readings
+come from `payload()` like every other path. A real `refresh()` also publishes
+the point value at the vessel, which the mock captures in place of an `app`
+object and serves back on those paths.
 
-`--upstream <base-url>` trades the five fabricated states for a running
+`--upstream <base-url>` trades the fabricated states for a running
 server's real numbers: the same paths are proxied there verbatim instead of
 going through `payload()`, so a branch's `public/` -- a changed card, new
 copy -- can be checked against genuine data without repointing
@@ -189,7 +199,7 @@ SK_USERNAME=... SK_PASSWORD=... node scripts/screenshots/capture.mjs
 
 It defaults to the dev server on `http://localhost:3010`, hard-coded in
 `capture.mjs`; `SK_URL` or `--url` points it somewhere else. `--only
-webapp,aurora-map` limits the run. Which one you want is a real choice, and the
+webapp,space-map` limits the run. Which one you want is a real choice, and the
 default takes the side of feature work: shots are part of the change that alters
 the UI, so capturing them against the published package means a PR that rewrote
 a panel ships a picture of the old one. Point `--url` at the published-package
