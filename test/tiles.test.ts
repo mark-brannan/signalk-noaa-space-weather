@@ -348,30 +348,34 @@ describe('drapLattice', () => {
     ).toBeNull()
   })
 
-  it('draws nothing where no marine SSB band is absorbed', () => {
-    const quiet = drapLattice({
+  const drapPixelAt = (mhz: number) => {
+    const lattice = drapLattice({
       ...grid,
-      frequenciesMHz: grid.frequenciesMHz.map((row) => row.map(() => 1))
+      frequenciesMHz: grid.frequenciesMHz.map((row) => row.map(() => mhz))
     })!
-    const raw = rasterizeTile(quiet, 0, 0, 0)
-    // 1 MHz is below the lowest marine band: absorption nobody aboard can
-    // hear is not worth putting ink on a chart for.
-    expect(pixel(raw, 128, 128).a).toBe(0)
+    return pixel(rasterizeTile(lattice, 0, 0, 0), 128, 128)
+  }
+
+  it('draws nothing where nothing is absorbed', () => {
+    // NOAA's own 0 MHz stop is #000000, which over a chart would read as a
+    // hole in it rather than as a quiet grid.
+    expect(drapPixelAt(0).a).toBe(0)
   })
 
-  it('gets louder as more bands go under the cutoff', () => {
-    const at = (mhz: number) => {
-      const lattice = drapLattice({
-        ...grid,
-        frequenciesMHz: grid.frequenciesMHz.map((row) => row.map(() => mhz))
-      })!
-      return pixel(rasterizeTile(lattice, 0, 0, 0), 128, 128)
-    }
-    const low = at(5)
-    const high = at(30)
-    expect(high.a).toBeGreaterThan(low.a)
+  it('fades the low end in rather than switching it on', () => {
+    const faint = drapPixelAt(1)
+    expect(faint.a).toBeGreaterThan(0)
+    expect(faint.a).toBeLessThan(255)
+    expect(drapPixelAt(4).a).toBe(255)
+  })
+
+  it('follows the NOAA colorbar from blue through to red', () => {
+    const low = drapPixelAt(5)
+    const high = drapPixelAt(30)
+    expect(low.b).toBeGreaterThan(low.r)
     expect(high.r).toBeGreaterThan(high.g)
-    expect(low.g).toBeGreaterThan(low.r)
+    expect(high.g).toBeGreaterThan(high.b)
+    expect(high.a).toBe(255)
   })
 
   it('renders the captured grid at every zoom it serves', async () => {
