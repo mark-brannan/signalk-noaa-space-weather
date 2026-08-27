@@ -15,6 +15,18 @@ what it is blocked by. Delete it when it is done.
       order and a re-verify list are held in the private state repo at
       `state/global/drafts/coastlines-outreach.md`
       ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179))
+- [ ] Decide whether the webapp should split into tab-like views instead of one
+      long scrolling page — the map (and maybe other sections) as its own
+      selectable pane, with switcher controls near the top; still a single-page
+      app, no real navigation, just controls that read as tabs. Needs your
+      call on scope before it's worth an issue
+      ([raised on this PR](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/196))
+- [ ] Pick how the D-RAP map tiles and webapp map should color-match NOAA's
+      colorbar — match NOAA exactly on both surfaces (as asked) or repeat
+      aurora's chart-overlay-exact/webapp-adapted split; the measured NOAA
+      color stops are on the issue
+      ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170)).
+      Blocks the D-RAP map-tiles card below
 - [ ] Decide the fate of `claude-review.yml` after the scope-down — keep the
       narrow version, or drop it entirely (delete the workflow and the
       `CLAUDE_CODE_OAUTH_TOKEN` secret) and let CodeRabbit be the one
