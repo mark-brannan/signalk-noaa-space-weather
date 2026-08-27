@@ -175,10 +175,17 @@ describe('panelSettings', () => {
     for (const configuration of [
       { updateInterval: 30 },
       { drapInterval: 10, updateInterval: 30 },
-      { drapInterval: 'soon', updateInterval: 30 }
+      { drapInterval: 'soon', updateInterval: 30 },
+      // A config with no updateInterval at all, only the two keys it
+      // replaced -- the case where the panel's own fallback used to stop
+      // short of `settingsFrom`'s migration.
+      { observationsInterval: 15, notificationsInterval: 20 }
     ]) {
       expect(panelSettings(configuration).drapInterval).toBe(
         settingsFrom(configuration).drapInterval
+      )
+      expect(panelSettings(configuration).updateInterval).toBe(
+        settingsFrom(configuration).updateInterval
       )
     }
   })

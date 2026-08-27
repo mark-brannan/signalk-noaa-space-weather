@@ -393,9 +393,24 @@ function popupBand(raw, alarmLevel) {
   return level === ALARM_NEVER ? level : Math.min(level, alarmLevel)
 }
 
+/** The lower of two possibly-absent minute values. Mirrors `smaller` in src/config.ts. */
+function smaller(a, b) {
+  const values = [a, b].map(Number).filter((n) => Number.isFinite(n) && n > 0)
+  return values.length > 0 ? Math.min(...values) : undefined
+}
+
 export function panelSettings(configuration) {
   const c = configuration ?? {}
   const alarmLevel = scaleValue(c.alarmLevel, DEFAULTS.alarmLevel)
+  // Mirrors `settingsFrom`: a config saved before `updateInterval` existed
+  // still carries `observationsInterval` / `notificationsInterval`, and the
+  // smaller of the two is the cadence that install was actually polling at.
+  // Resolved once so the field shown for it and the drapInterval fallback
+  // below agree with each other and with the plugin.
+  const updateInterval = minutes(
+    c.updateInterval ?? smaller(c.observationsInterval, c.notificationsInterval),
+    DEFAULTS.updateInterval
+  )
   return {
     sendAdvisoryOutlook: c.sendAdvisoryOutlook !== false,
     alarmLevel,
@@ -409,15 +424,15 @@ export function panelSettings(configuration) {
     auroraInterval: minutes(c.auroraInterval, DEFAULTS.auroraInterval),
     drapEnabled: c.drapEnabled !== false,
     // Mirrors `settingsFrom`: absent falls back to the resolved
-    // `updateInterval` (what a pre-split config was actually fetching D-RAP
-    // at), not straight to the 60-minute default -- an explicit but invalid
-    // `drapInterval` still lands on 60, since it names its own setting, wrong
-    // value and all.
+    // `updateInterval` above (what a pre-split config was actually fetching
+    // D-RAP at), not straight to the 60-minute default -- an explicit but
+    // invalid `drapInterval` still lands on 60, since it names its own
+    // setting, wrong value and all.
     drapInterval:
       c.drapInterval === undefined
-        ? minutes(c.updateInterval, DEFAULTS.updateInterval)
+        ? updateInterval
         : minutes(c.drapInterval, DEFAULTS.drapInterval),
-    updateInterval: minutes(c.updateInterval, DEFAULTS.updateInterval)
+    updateInterval
   }
 }
 
