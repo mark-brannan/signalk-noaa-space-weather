@@ -89,6 +89,14 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Decide whether the D-RAP overlay's new alpha is too much ink on a chart —
+      `DRAP_ALPHA_FULL_MHZ` in [src/tiles.ts](../src/tiles.ts) reaches full
+      opacity at 4 MHz, so on a quiet day the whole-globe tile goes solid
+      violet across mid-latitudes where the old band ramp drew almost nothing
+      (seen on the 3010 dev server against
+      [#193](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/193)).
+      The knob is that constant, or a transparent floor below the lowest
+      marine band.
 - [ ] Fix the other D-RAP path-scoring bug that landed with
       [#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169) —
       `greatCirclePoints`'s fixed 100km step in `public/drapMap.js` can skip
@@ -109,7 +117,7 @@ what it is blocked by. Delete it when it is done.
       there were seven, a precondition that had stopped being true), which is
       the tell that it is restating what `src/config.ts` already says rather
       than pointing at it. Mark has asked for hands off it until now, so agree
-      what the first screen is *for* before cutting: what an installer needs,
+      what the first screen is _for_ before cutting: what an installer needs,
       what a reader deciding whether to install needs, and what moves out to a
       `docs/` page. Blocked: that call is Mark's, and the cut is not worth
       making twice
@@ -187,7 +195,7 @@ what it is blocked by. Delete it when it is done.
       [#110](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/110)
       and
       [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md)
-- [ ] Decide whether a *named* destination is worth building on top of the
+- [ ] Decide whether a _named_ destination is worth building on top of the
       absorption map's click-to-score probe — a route waypoint, a saved
       station list, a callsign lookup. The map answers the path question by
       clicking, so this is a convenience now rather than the feature; wait
@@ -227,7 +235,7 @@ what it is blocked by. Delete it when it is done.
       ([#153](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/153))
 - [ ] Take the non-separable-projection gap upstream to
       [coast-wright](https://github.com/mark-brannan/coast-wright) — `limn`
-      takes `x(lon)` and `y(lat)` as *separate* functions, which only a
+      takes `x(lon)` and `y(lat)` as _separate_ functions, which only a
       cylindrical projection can satisfy: on an azimuthal map the pixel column
       a point lands in depends on its latitude too. The webapp now strokes its
       own rings for that case (`strokeRings` in `public/spaceMap.js`), which is
