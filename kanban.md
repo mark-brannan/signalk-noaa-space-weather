@@ -7,6 +7,16 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Say which widget the HF reference-lines nit means — the marine-band
+      strip (`.hf-bands` grid, `public/index.html:1119`) is 9 discrete band
+      chips, not a continuous MHz scale, so "add vertical lines at 2/6/12/18
+      MHz" doesn't fit it as built; confirm the target widget and the actual
+      MHz break points before this becomes work
+      ([#201](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/201))
+- [ ] Decide the map's Expand/Shrink control's fate — it does nothing at a
+      narrow viewport, only grows the tile past the page's other columns at
+      a wide one, and defaults to shrunk for now (round-3 review on
+      [#198](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/198))
 - [ ] Turn on GitHub Pages (Settings → Pages → Source: "GitHub Actions") so
       the demo deploy in
       [#202](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/202)
@@ -117,6 +127,14 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Nothing guards the map tile's Expand geometry: `applyExpandedWidth` in
+      `public/index.html` is layout behaviour, so it only fails in a real
+      browser, and the two attempts at it
+      ([#201](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/201))
+      were both verified by a throwaway Playwright script. Decide whether a
+      browser-level check earns a home in the repo — it cannot join `npm test`,
+      which the registry runs offline under a 60s cap, so it would have to be a
+      separate package like `scripts/screenshots/`
 - [ ] Tidy `mapView`'s return shape in `public/projection.js` once
       [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191)
       lands — it returns `center` as the *settled* value but `radiusDeg` as the
