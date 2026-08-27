@@ -53,6 +53,17 @@ describe('bandEdgeTicks', () => {
       expect(tick.fraction).toBeLessThanOrEqual(1)
     }
   })
+
+  // The legend (index.html's drapLegendHtml) puts "MHz" only on this last
+  // tick -- a since-removed thinning pass tried to caption every edge on
+  // the ~190px bar and collapsed to two overlapping labels instead
+  // (https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170).
+  // What the legend's last, unit-bearing tick actually names is the top of
+  // the marine SSB range.
+  it('names the top of the marine SSB range as its last edge', () => {
+    const ticks = bandEdgeTicks()
+    expect(ticks[ticks.length - 1].mhz).toBe(25.07)
+  })
 })
 
 describe('cutoffAt', () => {
