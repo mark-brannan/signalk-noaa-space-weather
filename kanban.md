@@ -7,12 +7,13 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
-- [ ] Say which widget the HF reference-lines nit means — the marine-band
-      strip (`.hf-bands` grid, `public/index.html:1119`) is 9 discrete band
-      chips, not a continuous MHz scale, so "add vertical lines at 2/6/12/18
-      MHz" doesn't fit it as built; confirm the target widget and the actual
-      MHz break points before this becomes work
-      ([#201](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/201))
+- [ ] Review and land `claude/drap-graph-regression-caa816` — fixes the
+      D-RAP map legend's band-edge ticks, which had silently collapsed to
+      two overlapping labels (a real bug in #201, not the HF strip the
+      original nit here was about — that widget was correctly left alone).
+      Branch is pushed, green, not opened as a PR by request; verify on the
+      real rig before deciding branch-vs-main
+      ([branch](https://github.com/mark-brannan/signalk-noaa-space-weather/tree/claude/drap-graph-regression-caa816))
 - [ ] Decide the map's Expand/Shrink control's fate — it does nothing at a
       narrow viewport, only grows the tile past the page's other columns at
       a wide one, and defaults to shrunk for now (round-3 review on
