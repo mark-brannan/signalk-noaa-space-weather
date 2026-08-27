@@ -7,8 +7,6 @@ import { MARINE_SSB_BAND_EDGES_HZ } from './hf.js'
 import { drapNoaaLegend } from './drap-colors.js'
 
 const FLOOR_MHZ = MARINE_SSB_BAND_EDGES_HZ[0] / 1e6
-const TOP_MHZ =
-  MARINE_SSB_BAND_EDGES_HZ[MARINE_SSB_BAND_EDGES_HZ.length - 1] / 1e6
 
 /** The scale the legend and the map are both drawn against, in MHz. */
 export const LEGEND_MAX_MHZ = 35
@@ -41,7 +39,10 @@ export function bandEdgeTicks() {
     const mhz = hz / 1e6
     return {
       mhz,
-      label: mhz >= TOP_MHZ ? `${mhz}+` : String(mhz),
+      // Plain, never "25.07+": the bar used to stop at the highest band edge,
+      // and it now runs to NOAA's own 35 MHz, so a "+" on the top tick would
+      // claim the scale ends two-thirds of the way along it.
+      label: String(mhz),
       fraction: Math.min(1, mhz / LEGEND_MAX_MHZ)
     }
   })
