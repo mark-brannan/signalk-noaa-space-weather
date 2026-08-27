@@ -23,7 +23,7 @@ import { auroraCellColor } from './aurora.js'
 import { drapNoaaColor } from './drap-colors.js'
 import { MARINE_SSB_BAND_EDGES_HZ } from './hf.js'
 import { auroraSampler, drapSampler, rasterize } from './mapRaster.js'
-import { subsolarPoint } from './drapMap.js'
+import { subsolarPoint, distanceKm } from './drapMap.js'
 import { mapView } from './projection.js'
 
 // The map draws on its own ground, not the page's.
@@ -164,7 +164,7 @@ export function drawSpaceMap(canvas, options = {}) {
 
   ctx.save()
   if (disc) ctx.clip(disc)
-  if (drap) drawSun(ctx, view, now)
+  if (drap) drawSun(ctx, view, now, position)
   if (probe?.points?.length) drawProbe(ctx, view, probe, MAP_TRACK)
   if (position) {
     const at = view.toPixel(position.longitude, position.latitude)
@@ -417,12 +417,16 @@ function labelContour(ctx, view, segments, level, ink, placed) {
   // spelled out because a bare number sitting on a contour line reads as
   // part of the map, not as a label for it.
   const text = `${Math.trunc(level)} MHz`
-  ctx.font = '600 10px ui-monospace, SFMono-Regular, Menlo, monospace'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  const half = ctx.measureText(text).width / 2 + 4
+  const size = 13
+  ctx.font = `700 ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`
+  const half = ctx.measureText(text).width / 2 + 3
   const cx = Math.min(view.width - half, Math.max(half, best.x))
-  const box = { x0: cx - half, y0: best.y - 8, x1: cx + half, y1: best.y + 8 }
+  const box = {
+    x0: cx - half,
+    y0: best.y - size / 2 - 2,
+    x1: cx + half,
+    y1: best.y + size / 2 + 2
+  }
   for (const other of placed) {
     const clear =
       box.x1 < other.x0 ||
@@ -432,12 +436,35 @@ function labelContour(ctx, view, segments, level, ink, placed) {
     if (!clear) return
   }
   placed.push(box)
-  ctx.fillStyle = 'rgba(0,0,0,0.75)'
-  ctx.beginPath()
-  ctx.roundRect(box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0, 3)
-  ctx.fill()
-  ctx.fillStyle = ink
-  ctx.fillText(text, cx, best.y)
+  // A halo instead of a solid chip: the box was one more opaque rectangle
+  // competing with the contour it labels, and at 10px in the map's own dim
+  // ink it read as "too small, too subtle, placed where we can't see it"
+  // (Mark's punch-list follow-up). White-on-black-stroke carries over both
+  // the near-black violet at the quiet end of NOAA's ramp and the yellow
+  // peak at the busy end, with no background needed either way.
+  haloText(ctx, cx, best.y, text, { size, color: '#fff7e6' })
+}
+
+/**
+ * Text with a dark stroke instead of a background chip -- legible over any
+ * part of the raster without adding an opaque rectangle of its own. For
+ * marks that sit directly on the data (the band-edge contours, the sun);
+ * `chipLabel` below still earns its chip for the probed path, which crosses
+ * the whole ramp by construction and needs a solid ground under it.
+ */
+function haloText(ctx, x, y, text, options = {}) {
+  const { size = 11, weight = 700, color = MAP_INK } = options
+  ctx.save()
+  ctx.font = `${weight} ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.lineJoin = 'round'
+  ctx.lineWidth = size / 4
+  ctx.strokeStyle = 'rgba(0,0,0,0.85)'
+  ctx.strokeText(text, x, y)
+  ctx.fillStyle = color
+  ctx.fillText(text, x, y)
+  ctx.restore()
 }
 
 /**
@@ -514,12 +541,19 @@ function marchingSquares(field, cols, rows, step, level, out) {
 
 // --- marks -----------------------------------------------------------------
 
+// A vessel near the subsolar point is a vessel at local midday, exactly
+// where its own marker and any probe labels already crowd the picture --
+// so the sun's label shrinks there rather than piling onto that crowd. 2200
+// km is a couple of hours either side of solar noon at the vessel, wide
+// enough that the shrink happens before the two marks actually overlap.
+const SUN_LABEL_CLEAR_KM = 2200
+
 /**
  * The subsolar point. D-region absorption is a dayside phenomenon, so this is
  * the one mark that makes the picture readable at a glance: the blob belongs
  * near it, and a blob that is not is worth a second look.
  */
-function drawSun(ctx, view, now) {
+function drawSun(ctx, view, now, position) {
   const sun = subsolarPoint(now)
   const at = view.toPixel(sun.longitude, sun.latitude)
   if (!at) return
@@ -531,6 +565,13 @@ function drawSun(ctx, view, now) {
   ctx.beginPath()
   ctx.arc(at[0], at[1], 10, 0, Math.PI * 2)
   ctx.stroke()
+
+  const near = position && distanceKm(position, sun) < SUN_LABEL_CLEAR_KM
+  const size = near ? 8 : 11
+  haloText(ctx, at[0], at[1] - size - 5, 'Sun', {
+    size,
+    color: `rgba(255,236,150,${near ? 0.6 : 0.95})`
+  })
 }
 
 // The map's own degree/distance formatting, used for the labels drawn on the

@@ -440,7 +440,11 @@
   .btn-outline:hover { border-color: var(--amber); color: var(--amber); }
   .btn-outline:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   .map-body { margin-top: 14px; }
-  .map-controls { display: flex; gap: 8px; align-items: center; }
+  /* Width and margin are set in JS (applyExpandedWidth) rather than here: how
+     much room "Expand" can give depends on the viewport, which CSS alone
+     cannot ask. The transition is the only thing that belongs in the
+     stylesheet. */
+  .space-map-tile { transition: width 0.15s ease, margin 0.15s ease; }
   /* The toolbar wraps rather than scrolls: on a phone the controls stack
      above the map, which is the order they are read in anyway. */
   .map-toolbar {
@@ -456,6 +460,11 @@
   /* The band-edge contours are drawn on the absorption layer, so with that
      layer off the control has nothing to act on. */
   .map-toolbar label.check.off { opacity: 0.4; cursor: default; }
+  /* Toggling a layer changes the map, not the surrounding text -- a section,
+     the click-help line, or the probe readout that popped in and out with
+     the checkbox read as content jumping (Mark's punch-list follow-up), so
+     they dim instead of disappearing once they have anything to show. */
+  .map-help.off, .map-section.off, .drap-probe.off { opacity: 0.4; }
   .map-toolbar input[type="checkbox"] { accent-color: var(--amber); cursor: pointer; }
   /* A segmented control rather than a <select>: there are two projections and
      the point of the control is that you can see both names and flip between
@@ -696,11 +705,8 @@
           <h2>Map</h2>
           <span class="map-extent" id="mapExtent">Aurora and HF absorption, around <span id="vesselPos">the vessel</span></span>
         </div>
-        <div class="map-controls">
-          <button type="button" id="mapToggle" class="btn-outline">Show map</button>
-        </div>
       </div>
-      <div id="mapBody" class="map-body" hidden>
+      <div id="mapBody" class="map-body">
         <div class="empty-state">Waiting for data&hellip;</div>
       </div>
     </div>
@@ -1419,9 +1425,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // Both grids are read back over the plugin's own routes, from the fetch it
   // already made server-side for the value at the vessel. One fetch serves
   // both the published reading and this map, and the browser only ever talks
-  // to the Signal K server it loaded the page from. Purely on request (the
-  // "Show map" toggle), never automatically, so opening the map never forces
-  // an off-cycle NOAA fetch.
+  // to the Signal K server it loaded the page from. The map used to be
+  // behind a "Show map" toggle so opening it never forced an off-cycle NOAA
+  // fetch -- but reading these routes back never does that regardless (they
+  // answer from the plugin's own cache), so loading it on page open costs
+  // nothing extra and the toggle was only ever hiding the map for its own
+  // sake.
   // Manual "fetch now": forces the plugin to fetch NOAA off its schedule,
   // cooldown-limited server-side (see aurora-refresh in src/index.ts). Shared
   // by the product tiles' own buttons and the map's, since a fresh fetch
@@ -1572,22 +1581,51 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const entry = mapEntries.drap
     if (!entry) return ''
     const grid = entry.grid
+    // Dimmed rather than removed when the layer is off, same as the footer
+    // sections and the help line -- toggling a layer changes the map, not
+    // whether this text exists (Mark's punch-list follow-up).
+    const off = layerOn('drap') ? '' : ' off'
     // A grid with nothing on it draws a blank map, which is the right picture
     // and an ambiguous one -- blank is also what a failed load looks like.
     const summary = gridSummary(grid)
     if (summary && summary.quiet) {
-      return `<div class="drap-probe">Nothing anywhere on the globe is absorbing a marine SSB band right now
+      return `<div class="drap-probe${off}">Nothing anywhere on the globe is absorbing a marine SSB band right now
         &mdash; the worst cell on the grid is <b>${summary.maxMHz.toFixed(1)} MHz</b>, below the 2 MHz band.
         <span class="verdict">The map is blank because the model is quiet, not because it failed to load.</span></div>`
     }
     if (!lastPosition) {
-      return `<div class="drap-probe">No vessel position yet, so there is nothing to draw a path from. The map above is the whole grid.</div>`
+      return `<div class="drap-probe${off}">No vessel position yet, so there is nothing to draw a path from. The map above is the whole grid.</div>`
     }
     if (!drapProbe) return ''
-    return `<div class="drap-probe">${absorbedWording(drapProbe.worstMHz)}</div>`
+    return `<div class="drap-probe${off}">${absorbedWording(drapProbe.worstMHz)}</div>`
   }
 
   // --- the viewport --------------------------------------------------------
+
+  // "Expand" used to only raise the height ceiling below, which does nothing
+  // at the width the tile already had -- width*0.62 (or /2) sits under 520
+  // (or 580) at every width narrower than about 840px (1160px cylindrical),
+  // which is most of them, so the toggle read as "just a blip" (Mark's
+  // punch-list follow-up). The actual lever this tile has is the page's own
+  // side margins: `.shell` caps out at 1180px, so on any wider window there
+  // is real width outside it to borrow, taken back the moment it collapses.
+  // Nothing changes on a window with no room to give, which is honest rather
+  // than a fake toggle.
+  function applyExpandedWidth() {
+    const tile = document.querySelector('.space-map-tile')
+    if (!tile) return
+    tile.style.width = ''
+    tile.style.marginLeft = ''
+    tile.style.marginRight = ''
+    if (!mapControls.expanded) return
+    const naturalWidth = tile.getBoundingClientRect().width
+    const targetWidth = Math.min(document.documentElement.clientWidth - 24, 1600)
+    const grow = (targetWidth - naturalWidth) / 2
+    if (grow <= 0) return
+    tile.style.width = `${targetWidth}px`
+    tile.style.marginLeft = `${-grow}px`
+    tile.style.marginRight = `${-grow}px`
+  }
 
   // The canvas is sized here rather than in CSS because the shape that suits
   // the picture depends on the projection: a disc wants to be nearly square,
@@ -1608,6 +1646,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   function drawMapCanvas() {
     const canvas = document.getElementById('spaceMapCanvas')
     if (!canvas) return
+    applyExpandedWidth()
     sizeMapCanvas(canvas)
     drawSpaceMap(canvas, {
       grids: {
@@ -1681,18 +1720,23 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   // Above the canvas, not buried in the probe result: the reader needs to
-  // know a click does something before they've clicked, not after.
+  // know a click does something before they've clicked, not after. Present
+  // once the grid has loaded once, regardless of the layer's own on/off --
+  // otherwise this line popped in and out with the checkbox (Mark's
+  // punch-list follow-up), and toggling a layer is supposed to change the
+  // map, not the text around it.
   function mapHelpHtml() {
-    if (!layerOn('drap') || !mapEntries.drap) return ''
-    return `<div class="map-help">Click any point to score a path.</div>`
+    if (!mapEntries.drap) return ''
+    return `<div class="map-help${layerOn('drap') ? '' : ' off'}">Click any point to score a path.</div>`
   }
 
-  // One row per active layer -- label, then its refresh button, then its
-  // timestamp, then that layer's scale, wrapping down together as a group on
-  // a narrow viewport rather than as two separately-wrapping lists (Mark's
-  // test-rig punch list).
+  // One row per layer -- label, then its refresh button, then its timestamp,
+  // then that layer's scale, wrapping down together as a group on a narrow
+  // viewport rather than as two separately-wrapping lists (Mark's test-rig
+  // punch list). Always both rows, dimmed rather than removed when a layer
+  // is off, for the same reason as mapHelpHtml above.
   function footerHtml() {
-    const sections = LAYER_IDS.filter(layerOn).map((id) => {
+    const sections = LAYER_IDS.map((id) => {
       const meta = LAYER_META[id]
       const entry = mapEntries[id]
       const button = `<button type="button" id="mapRefresh-${id}" class="btn-outline"
@@ -1701,7 +1745,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         ? `<span class="sec-time">${meta.stamp(entry)}, cached ${fmtTime(entry.fetchedAt)}</span>`
         : `<span class="sec-time">${mapErrors[id]?.notCached ? meta.empty : mapErrors[id]?.message || 'not loaded'}</span>`
       const scale = entry ? (typeof meta.legend === 'function' ? meta.legend() : meta.legend) : ''
-      return `<div class="map-section">
+      return `<div class="map-section${layerOn(id) ? '' : ' off'}">
         <span class="sec-label">${meta.label}</span>${button}${status}${scale}
       </div>`
     }).join('')
@@ -1726,7 +1770,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     updateMapCaption()
     drawMapCanvas()
     const probe = document.getElementById('mapProbe')
-    if (probe) probe.innerHTML = layerOn('drap') ? drapProbeHtml() : ''
+    if (probe) probe.innerHTML = drapProbeHtml()
 
     const canvas = document.getElementById('spaceMapCanvas')
     canvas.addEventListener('click', (event) => {
@@ -1992,26 +2036,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     }, labelDrapButton)
   })
 
-  document.getElementById('mapToggle').addEventListener('click', () => {
-    const body = document.getElementById('mapBody')
-    const btn = document.getElementById('mapToggle')
-    if (!body.hidden) {
-      body.hidden = true
-      btn.textContent = 'Show map'
-      return
-    }
-    body.hidden = false
-    btn.textContent = 'Hide map'
-    if (mapState === 'idle' || mapState === 'error') loadMap()
-    else renderMap()
-  })
-
   window.addEventListener('resize', () => {
     const canvas = document.getElementById('kpChart');
     if (canvas && canvas._series) drawKpTimeline(canvas, canvas._series);
     // The map's viewport is derived from the tile's width, so a resize is a
     // new projection window rather than the same picture stretched.
-    if (mapState === 'ready' && !document.getElementById('mapBody').hidden) drawMapCanvas()
+    if (mapState === 'ready') drawMapCanvas()
   })
 
 
@@ -2089,19 +2119,23 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       // moved makes the drawn path and its numbers stale.
       // The map is centred on the boat and every scored path starts there, so
       // a boat that has moved makes both the picture and its numbers stale.
-      if (moved && mapState === 'ready' && !document.getElementById('mapBody').hidden) {
+      if (moved && mapState === 'ready') {
         if (drapProbe && mapEntries.drap) {
           const end = drapProbe.points[drapProbe.points.length - 1];
           drapProbe = pathAbsorption(mapEntries.drap.grid, pos, end);
         }
         drawMapCanvas();
         const probe = document.getElementById('mapProbe');
-        if (probe) probe.innerHTML = layerOn('drap') ? drapProbeHtml() : '';
+        if (probe) probe.innerHTML = drapProbeHtml();
       }
     }
   }
 
   refresh();
   setInterval(refresh, REFRESH_MS);
+  // The map has no "Show map" toggle any more (Mark: "retire it, it's bad")
+  // -- it is always on the page, so it loads its own cached grids up front
+  // rather than waiting for a click that no longer exists.
+  loadMap();
 })();
 </script>
