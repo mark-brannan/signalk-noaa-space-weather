@@ -245,6 +245,41 @@ what it is blocked by. Delete it when it is done.
       [#110](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/110)
       and
       [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md)
+- [ ] Derive the D-RAP grid geometry in `public/drapMap.js` instead of
+      hardcoding it — `cutoffAt` does `row = round((89 - lat)/2)` and
+      `col = round((lon + 178)/4)`, and `drawDrapMap` lays cells out on the
+      same assumption. Every other reader derives it: `drapLattice` in
+      `src/tiles.ts` says in as many words that a grid published
+      north-to-south or from -178 is _described_ rather than rewritten, and
+      `drapFrequencyAt` uses `nearestIndex` over the arrays. `parseDrapGrid`
+      checks only that both arrays are length 90, so a shifted grid publishes
+      right, tiles right, and draws and probes wrong in the webapp with no
+      signal — the failure
+      [docs/design-decisions.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md#noaa-changes-payload-shapes-without-notice)
+      exists to prevent. Both arrays are already in hand (`gridSummary` reads
+      them); ~10 lines, or one geometry assertion in `parseDrapGrid` instead.
+      While there: guard `greatCirclePoints` against the exact antipode
+      (`sin δ` → 0 scatters 82 of 202 points), and make
+      `test/drap-map.test.ts:38` assert against `drapFrequencyAt` rather than
+      a hardcoded 2.9
+      ([review](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169#issuecomment-5431300417))
+- [ ] Trim the "The D-RAP map is the deliverable" section in
+      [docs/design-decisions.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md) —
+      its colour-ramp paragraph re-argues "The D-RAP overlay is coloured by
+      band, not by frequency" and its cache paragraph re-argues "A global grid
+      is worth fetching before there is anywhere to index it". Cut to the
+      map-is-the-input argument and the sampling / worst-and-mean choices, and
+      link the other two. The same file also carries a half-finished
+      `*emphasis*` → `_emphasis_` pass that rode in on
+      [#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169)
+      (lines 167 and 341 still use `*`) — finish it or revert it, and decide
+      whether `format:check` should cover markdown at all, since today it only
+      covers `src/**/*.ts` and `test/**/*.ts`
+- [ ] Keep the vessel position across a map layer switch —
+      `document.getElementById('mapExtent').innerHTML = layer.extent` in
+      `public/index.html` re-inserts `<span id="vesselPos">the vessel</span>`,
+      so the extent reads "the vessel" until the next 60-second poll. Set the
+      text right after the swap
 - [ ] Decide whether a *named* destination is worth building on top of the
       absorption map's click-to-score probe — a route waypoint, a saved
       station list, a callsign lookup. The map answers the path question by
