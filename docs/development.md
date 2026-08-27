@@ -157,19 +157,12 @@ somewhere the server doesn't look; symlink it into
 npm run dev:webapp        # http://127.0.0.1:8731, or pass a port
 ```
 
-It binds `127.0.0.1` only — no host flag, on purpose, so a stray port isn't
-open to the LAN by default. To show a change on another device (per the note
-at the top of this file), pick a free port for the mock (`ss -tlnp` to check)
-and proxy it onto every interface with `socat`, which is already installed
-here:
-
-```shell
-node scripts/mock-webapp.mjs 8740 &
-socat TCP-LISTEN:8741,fork,reuseaddr TCP:127.0.0.1:8740 &
-```
-
-then share `http://<lan-or-tailscale-ip>:8741/` (`hostname -I` for the
-address). Kill both when done; don't leave stray listeners behind.
+It binds every interface, and prints one URL per address it can be reached
+at — loopback, LAN, Tailscale. Showing a change on another device (per the
+note at the top of this file) is a matter of pasting the right line of that
+output; no proxy, and nothing to look up with `hostname -I`. Pass
+`--host 127.0.0.1` to narrow it back to loopback on a network you don't
+trust. Kill it when done; don't leave stray listeners behind.
 
 `scripts/mock-webapp.mjs` serves `public/` with a state switcher appended and
 answers the Signal K paths it understands with fabricated data, so the real

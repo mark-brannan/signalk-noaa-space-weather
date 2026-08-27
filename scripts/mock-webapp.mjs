@@ -3,6 +3,7 @@
 //
 //   node scripts/mock-webapp.mjs [port]     # default 8731
 //   node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3010 [port]
+//   node scripts/mock-webapp.mjs --host 127.0.0.1 [port]   # loopback only
 //
 // index.html ships unmodified except for a strip appended to it. Everything
 // fake is on the wire: every path ROUTES understands is answered here (and
@@ -263,13 +264,35 @@ async function handleGrid(name, res) {
 const argv = process.argv.slice(2)
 let upstreamArg = null
 let portArg = null
+let hostArg = null
 for (let i = 0; i < argv.length; i++) {
   if (argv[i] === '--upstream') upstreamArg = argv[++i]
   else if (argv[i].startsWith('--upstream='))
     upstreamArg = argv[i].slice('--upstream='.length)
+  else if (argv[i] === '--host') hostArg = argv[++i]
+  else if (argv[i].startsWith('--host='))
+    hostArg = argv[i].slice('--host='.length)
   else if (portArg === null) portArg = argv[i]
 }
 const PORT = Number(portArg || 8731)
+// Binds every interface by default: the point of this rig is to put a change in
+// front of somebody on another device, and 127.0.0.1 only resolves on the
+// machine running it. --host narrows it back for a hostile network.
+const HOST = hostArg || '0.0.0.0'
+
+// Printed rather than guessed at, so the URL to paste into a phone is in the
+// output instead of requiring an `ip addr` on the side.
+function listenUrls() {
+  if (HOST !== '0.0.0.0' && HOST !== '::') return [`http://${HOST}:${PORT}/`]
+  const addrs = Object.values(os.networkInterfaces())
+    .flat()
+    .filter((n) => n && n.family === 'IPv4' && !n.internal)
+    .map((n) => n.address)
+  return [
+    `http://127.0.0.1:${PORT}/`,
+    ...addrs.map((a) => `http://${a}:${PORT}/`)
+  ]
+}
 // Trailing slash stripped once here so every proxied request can just concatenate
 // base + path without re-checking for a double slash.
 const UPSTREAM = upstreamArg ? upstreamArg.replace(/\/+$/, '') : null
@@ -754,8 +777,9 @@ http
       res.writeHead(404).end('not found')
     }
   })
-  .listen(PORT, '127.0.0.1', () => {
-    console.log(`mock signalk + webapp on http://127.0.0.1:${PORT}/`)
+  .listen(PORT, HOST, () => {
+    for (const url of listenUrls())
+      console.log(`mock signalk + webapp on ${url}`)
     if (UPSTREAM)
       console.log(`proxying ${ROUTES.length} data paths to ${UPSTREAM}`)
     else console.log(`states: ${Object.keys(STATES).join(', ')}`)
