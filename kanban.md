@@ -391,3 +391,10 @@ what it is blocked by. Delete it when it is done.
       map tile's legend should switch the labels, with the choice remembered.
       Depends on the tick decision above, since a meters scale is only legible
       on band-edge ticks, not on NOAA's even fives
+- [ ] Fix the D-RAP legend's right edge — with NOAA's 0–35 MHz labels the last
+      two run together, because "35 MHz" is far wider than the 1–2 characters
+      the tick spacing was sized for. Still a visible defect, landed knowingly
+      (Mark, 2026-08-27: "I would rather lock in what we have right now").
+      Options not yet weighed: unit above or beside the bar instead of on the
+      last tick, drop the 30 label, or right-align the last tick against the
+      bar's end rather than centring it on its fraction

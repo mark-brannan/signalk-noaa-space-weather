@@ -766,7 +766,7 @@ import { scalesCard, scalesMarkup, sevClass, sevWord } from './scales.js';
 import { bandStrip, hfCard, solarCard } from './hf.js';
 import { leafTime, leafValue, readAll } from './signalk.js';
 import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
-import { bandEdgeTicks, gridSummary, legendStops, pathAbsorption } from './drapMap.js';
+import { gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
 import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
 (() => {
@@ -1625,13 +1625,19 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       .join('')}</div>`
   }
 
+  // 10/50/90, not 0/50/100: NOAA's own aurora legend carries those three, and
+  // they are the ones a reader acts on -- 0% and 100% label the ends of the
+  // bar, which are already visible as the ends of the bar. Marks under each,
+  // matching the D-RAP legend directly above it.
+  const AURORA_TICKS = [
+    { fraction: 0.1, label: '10%' },
+    { fraction: 0.5, label: '50%' },
+    { fraction: 0.9, label: '90%' }
+  ]
+
   function auroraLegendHtml() {
     return `<div class="map-legend"><span class="bar"></span>
-      ${scaleTicksHtml([
-        { fraction: 0, label: '0%' },
-        { fraction: 0.5, label: '50%' },
-        { fraction: 1, label: '100%' }
-      ])}</div>`
+      ${tickMarksHtml(AURORA_TICKS)}${scaleTicksHtml(AURORA_TICKS)}</div>`
   }
 
   function drapLegendHtml() {
@@ -1639,22 +1645,26 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const gradient = stops
       .map((stop, i) => `${stop.color} ${((i / (stops.length - 1)) * 100).toFixed(1)}%`)
       .join(', ')
-    // Every other band edge, not all nine -- nine numbers on a ~190px bar
-    // reads as noise, not a scale. Each shown tick gets a mark directly
-    // under the bar at its exact position (tickMarksHtml) so the number
-    // below it reads as pointing at a colour, not floating near one; only
-    // the last carries a unit, which reads as the axis's unit rather than
-    // needing to repeat it at every tick.
-    const shown = bandEdgeTicks().filter((_, i) => i % 2 === 0)
-    const chrome = mapControls.bandEdges
-      ? tickMarksHtml(shown) +
-        scaleTicksHtml(
-          shown.map((edge, i) => ({
-            fraction: edge.fraction,
-            label: i === shown.length - 1 ? `${Math.round(edge.mhz)} MHz` : String(Math.round(edge.mhz))
-          }))
-        )
-      : ''
+    // NOAA's own labels -- every 5 MHz to 35 -- not the marine SSB band edges
+    // this used to carry. The band edges are the more useful *answer* ("which
+    // of my bands has gone under") but they are not the scale NOAA draws, and
+    // a reader arriving from NOAA's product, or looking at a radio that tunes
+    // the whole band rather than the marine channels, reads them as an
+    // unexplained deviation (Mark, 2026-08-27). They remain the map's
+    // contours and the whole of the HF tile's strip; only the axis is NOAA's.
+    // Always drawn: this is the legend's axis, so it is not the band-contour
+    // checkbox's to switch off.
+    const shown = legendMhzTicks()
+    const chrome =
+      tickMarksHtml(shown) +
+      scaleTicksHtml(
+        // Unit on the last only -- it reads as the axis's unit rather than
+        // needing to repeat it at every tick.
+        shown.map((tick, i) => ({
+          fraction: tick.fraction,
+          label: i === shown.length - 1 ? `${tick.mhz} MHz` : String(tick.mhz)
+        }))
+      )
     return `<div class="map-legend drap-legend"><span class="bar"><span class="ink"
       style="background:linear-gradient(90deg, ${gradient})"></span></span>${chrome}</div>`
   }

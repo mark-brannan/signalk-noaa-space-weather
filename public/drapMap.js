@@ -34,6 +34,21 @@ export function legendStops(steps = 24) {
  * first one's scale, both as ticks on the legend and as contours on the map
  * (`BAND_EDGE_MHZ` in spaceMap.js).
  */
+/**
+ * The legend's own axis: NOAA labels its D-RAP colorbar every 5 MHz, and this
+ * is that. Kept separate from `bandEdgeTicks` because the two answer different
+ * questions and only one of them is a scale -- the band edges say which of a
+ * sailor's bands has gone under, and stay the map's contours and the HF tile's
+ * strip, but they are not the numbers NOAA prints and a reader coming from
+ * NOAA's product reads them as a deviation.
+ */
+export function legendMhzTicks(step = 5) {
+  const ticks = []
+  for (let mhz = 0; mhz <= LEGEND_MAX_MHZ; mhz += step)
+    ticks.push({ mhz, fraction: mhz / LEGEND_MAX_MHZ })
+  return ticks
+}
+
 export function bandEdgeTicks() {
   return MARINE_SSB_BAND_EDGES_HZ.map((hz) => {
     const mhz = hz / 1e6
