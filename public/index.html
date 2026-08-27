@@ -809,6 +809,15 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     if (isNaN(d.getTime())) return '–';
     return d.toISOString().slice(11, 16) + ' UTC';
   }
+  // For text that ends up in innerHTML but did not originate in this file --
+  // a NOAA-derived read error, a server error message -- so it renders as
+  // text rather than getting parsed as markup.
+  function escapeHtml(text) {
+    return String(text).replace(
+      /[&<>"']/g,
+      (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]
+    );
+  }
   // A value can sit at whatever it last was published as indefinitely --
   // Signal K doesn't clear a path just because a plugin stopped updating it
   // -- so "the gauge shows a normal-looking number" is not proof the plugin
@@ -1500,8 +1509,14 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       const formula = distance?.formula
       if (!formula || !/^[\d\s.+\-*/()]*$/.test(formula.split('value').join(''))) return
       const convert = new Function('value', `"use strict"; return (${formula})`)
-      const digits = (distance.displayFormat?.split('.')[1] || '').length
-      distanceFormat = (km) => `${convert(km * 1000).toFixed(digits)} ${distance.symbol || distance.targetUnit}`
+      const digits = Math.min(6, (distance.displayFormat?.split('.')[1] || '').length)
+      const unit = distance.symbol || distance.targetUnit
+      // Surviving the character allowlist above doesn't make a formula
+      // callable arithmetic (`value(value)` passes it and throws), and a
+      // unit-less reading is meaningless. Prove both once here, synchronously,
+      // rather than throwing out of drawMapCanvas on every redraw.
+      if (!unit || !Number.isFinite(convert(1000))) return
+      distanceFormat = (km) => `${convert(km * 1000).toFixed(digits)} ${unit}`
     } catch {
       // Network hiccup or a malformed response -- nmi is still a correct
       // answer, just not necessarily the reader's preferred one.
@@ -1632,7 +1647,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // most of the room a thinned set of ticks was trying to buy back.
     const ticks = mapControls.bandEdges
       ? scaleTicksHtml(
-          thinTicks(bandEdgeTicks(), 0.22).map((tick) => ({
+          thinTicks(bandEdgeTicks(), 0.34).map((tick) => ({
             fraction: tick.fraction,
             label: `${Math.round(tick.mhz)} MHz`
           }))
@@ -1817,7 +1832,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         style="padding:3px 9px;font-size:0.6rem;">Refresh</button>`
       const status = entry
         ? `<span class="sec-time">${meta.stamp(entry)}, cached ${fmtTime(entry.fetchedAt)}</span>`
-        : `<span class="sec-time">${mapErrors[id]?.notCached ? meta.empty : mapErrors[id]?.message || 'not loaded'}</span>`
+        : `<span class="sec-time">${mapErrors[id]?.notCached ? meta.empty : escapeHtml(mapErrors[id]?.message || 'not loaded')}</span>`
       const scale = entry ? (typeof meta.legend === 'function' ? meta.legend() : meta.legend) : ''
       return `<div class="map-section${layerOn(id) ? '' : ' off'}">
         <span class="sec-label">${meta.label}</span>${button}${status}${scale}
@@ -1945,8 +1960,15 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       // dropped. Round 2 nulled it here, which meant every "Fetch" cleared
       // whatever the reader had just clicked (Mark's round-3 review).
       if (id === 'drap' && drapProbe && lastPosition) {
-        const end = drapProbe.points[drapProbe.points.length - 1]
-        drapProbe = pathAbsorption(entry.grid, lastPosition, end)
+        // Re-scoring is not part of loading: a throw here must not send a
+        // grid that arrived intact into the catch below and get reported as
+        // a failed read.
+        try {
+          const end = drapProbe.points[drapProbe.points.length - 1]
+          drapProbe = pathAbsorption(entry.grid, lastPosition, end)
+        } catch {
+          drapProbe = null
+        }
       }
     } catch (err) {
       if (loadId !== mapLoadId) return
@@ -1979,7 +2001,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const loadId = ++mapLoadId
     await loadLayer(id, loadId)
     if (loadId !== mapLoadId) return
-    mapState = LAYER_IDS.filter(layerOn).some((lid) => mapEntries[lid]) ? 'ready' : 'error'
+    // `id` counts even with its own checkbox off: it was just read back
+    // successfully by this call, so the map is not in an error state.
+    mapState = LAYER_IDS.filter((lid) => layerOn(lid) || lid === id).some((lid) => mapEntries[lid])
+      ? 'ready'
+      : 'error'
     renderMap()
   }
 

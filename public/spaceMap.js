@@ -761,7 +761,11 @@ function chipLabel(ctx, x, y, text, ink, align = 'center', size = 10) {
   const boxX = align === 'left' ? x - pad : align === 'right' ? x - boxW + pad : x - boxW / 2
   ctx.fillStyle = 'rgba(0,0,0,0.75)'
   ctx.beginPath()
-  ctx.roundRect(boxX, y - boxH / 2, boxW, boxH, 3)
+  // roundRect landed in every evergreen browser by 2023, but a screenshot
+  // harness or an older embedded WebView's canvas can still lack it --
+  // a square chip beats a thrown exception that blanks the whole map.
+  if (ctx.roundRect) ctx.roundRect(boxX, y - boxH / 2, boxW, boxH, 3)
+  else ctx.rect(boxX, y - boxH / 2, boxW, boxH)
   ctx.fill()
   ctx.fillStyle = ink
   ctx.fillText(text, x, y)
