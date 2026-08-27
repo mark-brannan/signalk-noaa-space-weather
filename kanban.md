@@ -100,6 +100,46 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Round 3 on the unified map, from Mark's live review of
+      `claude/aurora-draps-map-work` (`public/spaceMap.js`,
+      `public/index.html`) after round 2 landed
+      ([#198](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/198)):
+      - Stack mean/worst directly on top of each other, centered over the
+        path line; distance goes directly below that, in the user's own unit
+        preference read from Signal K (not hardcoded nmi); all three a size
+        larger than they are now
+      - The coordinate label at the destination is too busy — keep it small
+        and push it out to the far side of the destination/path, away from
+        the MHz and distance labels
+      - The bearing chip ("218°T") is the initial true bearing from the
+        vessel to the clicked target — the heading you'd steer or point a
+        directional antenna along to follow that great-circle path
+        (`bearingDeg` in `public/drapMap.js`). Real value for a ham operator
+        beaming an antenna, distinct from distance. Mark's call on keeping
+        it — if kept, stack it below MHz/distance
+      - Band-edge contour label: double the size again and use the same
+        yellow already used for the aurora % and Kp plot, not the white-halo
+        treatment round 2 shipped
+      - Stop the "Fetch" button from clearing a scored path — the probe
+        should survive a refresh. Card a "Clear path" control separately,
+        deferred, not built this round
+      - Drop the Expand/Shrink button; always render at the expanded size
+      - Match the aurora and D-RAP legend widths — they currently differ
+      - Thin out the D-RAP band-edge tick labels on the legend scale itself —
+        too many, numbers overlapping/garbled
+      - The page shifts width when a Fetch button is clicked or a layer
+        checkbox is toggled — find and kill the reflow
+      - Drop the dynamic "HF absorption and Aurora" / "Aurora" / "HF
+        absorption" caption line entirely — no value, and the coordinates and
+        zoom-radius wording it also carries duplicate other readouts. If the
+        "N degrees around" wording is worth keeping, move it to sit with the
+        zoom slider itself and drop it from everywhere else
+      - Fix the last-layer-can't-be-unchecked checkbox: with one layer
+        checked-and-disabled and the other unchecked, clicking the
+        disabled one should flip both, XOR-style, not no-op
+      - Clicking Fetch while one overlay layer is off has "unexpected
+        effects" (Mark's wording, not yet reproduced/diagnosed) — investigate
+        `handleRefreshClick`/`refetchLayer` interaction with `layerOn()`
 - [ ] Once [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191)
       lands, work through Mark's test-rig punch list on the unified map
       (`public/spaceMap.js`, `public/index.html`):
