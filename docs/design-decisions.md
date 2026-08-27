@@ -164,7 +164,7 @@ explain the dependency to the reader twice.
 
 So the fetch is unconditional, the grid is cached
 (`src/cache/entryCache.ts` and the two wrappers over it), and the value at the
-vessel is published *out of* the cache — straight away when there is a
+vessel is published _out of_ the cache — straight away when there is a
 position, and otherwise the moment one turns up. `refresh()` says which by
 returning `'awaiting-position'`, and the scheduler then retries through
 `publishFromCache()` rather than through `refresh()`, on the same geometric
@@ -213,27 +213,40 @@ The webapp may never turn its own polling into a NOAA fetch — the map draws
 from cache, the poll reads Signal K, and only a press reaches NOAA.
 `plugin.test.ts` pins that an on-demand fetch starts no schedule of its own.
 
-## The D-RAP overlay is coloured by band, not by frequency
+## The D-RAP overlay draws NOAA's colorbar, not a band ladder
 
-The published value is the highest frequency degraded by 1 dB or more, and
-`zonesForDrap` in parse.ts already carries the argument that this is a
-frequency rather than a severity: 9.9 MHz absorbed ends the working day for
-someone on 8 MHz and means nothing to someone on 22. A smooth rainbow over MHz
-would draw a gradient across something that is actually a set of steps, and put
-the visible contours wherever the ramp happened to change hue.
+It used to carry a palette of this plugin's own, one stop per marine SSB band
+edge, on the argument `zonesForDrap` in parse.ts still makes: the published
+value is a frequency, not a severity, and 9.9 MHz absorbed ends the working
+day for someone on 8 MHz while meaning nothing to someone on 22. A smooth
+rainbow over MHz draws a gradient across what is really a set of steps.
 
-So the colour moves one stop for every marine SSB band edge the cutoff has
-passed, and the contour lands exactly on the boundary that changed what the
-reader can work. It is the HF Radio tile's band strip in map form, and cells
-below the lowest marine band are drawn fully transparent: absorption nobody
-aboard can hear is not worth ink on a chart, and on a quiet day most of the
-globe carries a small non-zero number that would otherwise wash the whole
-overlay.
+That was right about what a sailor needs and wrong about where to put it. A
+picture of NOAA's grid that sits beside NOAA's own picture of the same grid
+has to be the same picture — a reader who compares the two reads a mismatch as
+a bug in this plugin, and they are not wrong to. So the overlay draws NOAA's
+published 0–35 MHz colorbar, sampled from the legend image because NOAA
+publishes no numeric definition of it (`NOAA_DRAP_STOPS` in src/tiles.ts).
 
-Green through red rather than NOAA's own D-RAP rainbow, because this overlays
-a nautical chart where blue is water. The table is copied into public/hf.js for
-the webapp's canvas map, and `hf-render.test.ts` pins the two identical — two
-pictures of one number on two screens on the same boat must not disagree.
+The band ladder does not go away, it changes shape: "which of my bands has
+gone under" is a set of thresholds, and thresholds draw as lines over the
+colours rather than as the colours. Drawing those contours is the webapp map's
+work and lands separately; this is the chart overlay's half of
+[#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170).
+
+What survives from the old ramp is the treatment of the bottom of the scale.
+NOAA's 0 MHz stop is `#000000`, and an opaque black cell over a nautical chart
+reads as a hole in it — the opposite of what a quiet grid means. So alpha
+fades in from invisible at 0 MHz instead: a fade and not a cutoff, since a
+crisp threshold contour is exactly what a reader over-trusts on a 2°×4° grid,
+and reaching _full_ opacity by 4 MHz, because hue carries the severity now and
+a half-transparent cell would carry a second, contradicting one — the same
+violet composites to lavender over a paper chart and to near-black over a dark
+one.
+
+`DRAP_BAND_RAMP` in public/hf.js is still the band ladder, but only for the HF
+Radio tile's band strip and the webapp's map, both of which are ladders rather
+than fields. It is no longer pinned against src/tiles.ts.
 
 ## Tile rendering must not block the event loop
 
@@ -341,7 +354,7 @@ public domain, which the NOAA colour scales are not
 ([#12](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/12)).
 
 The chart-plotter tiles are the opposite case and must stay that way. They are
-drawn *over* the user's real charts, so geography is already there and ours
+drawn _over_ the user's real charts, so geography is already there and ours
 would be a second, wronger coastline printed on top of it. `tiles.ts` renders
 data and nothing else.
 
