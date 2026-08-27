@@ -378,3 +378,23 @@ what it is blocked by. Delete it when it is done.
       genuine NOAA payloads but whose surrounding values are fabricated.
       `scripts/screenshots/capture.mjs --only space-map` does it once
       `~/.signalk` is up on 3010
+- [ ] Carry the HF/D-RAP legends past 25 MHz — both the radio tile's band strip
+      and the map tile's legend stop at 25.07 MHz, the top **marine SSB** band
+      edge (`MARINE_SSB_BAND_EDGES_HZ` in `public/hf.js` / `src/parse.ts`), but
+      HF operators work the whole band to ~30 MHz and NOAA's own D-RAP colorbar
+      is labelled 0/5/10/15/20/25/30/35. The map bar already runs to 35
+      (`LEGEND_MAX_MHZ`); it is the *ticks* that stop early. Decide whether the
+      tick set becomes NOAA's fives, stays band edges, or carries both
+- [ ] Offer meters as well as MHz on both tiles — HF operators name bands in
+      wavelength ("20 meters") as often as in frequency, and the conversion is
+      fixed (300/MHz). One click on either the radio tile's band strip or the
+      map tile's legend should switch the labels, with the choice remembered.
+      Depends on the tick decision above, since a meters scale is only legible
+      on band-edge ticks, not on NOAA's even fives
+- [ ] Fix the D-RAP legend's right edge — with NOAA's 0–35 MHz labels the last
+      two run together, because "35 MHz" is far wider than the 1–2 characters
+      the tick spacing was sized for. Still a visible defect, landed knowingly
+      (Mark, 2026-08-27: "I would rather lock in what we have right now").
+      Options not yet weighed: unit above or beside the bar instead of on the
+      last tick, drop the 30 label, or right-align the last tick against the
+      bar's end rather than centring it on its fraction
