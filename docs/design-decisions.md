@@ -213,27 +213,108 @@ The webapp may never turn its own polling into a NOAA fetch — the map draws
 from cache, the poll reads Signal K, and only a press reaches NOAA.
 `plugin.test.ts` pins that an on-demand fetch starts no schedule of its own.
 
-## The D-RAP overlay is coloured by band, not by frequency
+## Both D-RAP surfaces draw NOAA's colorbar; the bands are contours over it
 
-The published value is the highest frequency degraded by 1 dB or more, and
-`zonesForDrap` in parse.ts already carries the argument that this is a
-frequency rather than a severity: 9.9 MHz absorbed ends the working day for
-someone on 8 MHz and means nothing to someone on 22. A smooth rainbow over MHz
-would draw a gradient across something that is actually a set of steps, and put
-the visible contours wherever the ramp happened to change hue.
+Both used to carry a palette of this plugin's own, one stop per marine SSB
+band edge, on the argument `zonesForDrap` in parse.ts still makes: the
+published value is a frequency, not a severity, and 9.9 MHz absorbed ends the
+working day for someone on 8 MHz while meaning nothing to someone on 22. A
+smooth rainbow over MHz draws a gradient across what is really a set of steps.
 
-So the colour moves one stop for every marine SSB band edge the cutoff has
-passed, and the contour lands exactly on the boundary that changed what the
-reader can work. It is the HF Radio tile's band strip in map form, and cells
-below the lowest marine band are drawn fully transparent: absorption nobody
-aboard can hear is not worth ink on a chart, and on a quiet day most of the
-globe carries a small non-zero number that would otherwise wash the whole
-overlay.
+That was right about what a sailor needs and wrong about where to put it. A
+picture of NOAA's grid that sits beside NOAA's own picture of the same grid
+has to be the same picture — a reader who compares the two reads a mismatch as
+a bug in this plugin, and they are not wrong to. So both surfaces draw NOAA's
+published 0–35 MHz colorbar, sampled from the legend image because NOAA
+publishes no numeric definition of it: `NOAA_DRAP_STOPS` in
+public/drap-colors.js for the webapp's map and legend, the same table in
+src/tiles.ts for the chart tiles, pinned identical by `drap-colors.test.ts`.
+One cell in two colours on two screens on the same boat is the failure that
+pin exists to prevent.
 
-Green through red rather than NOAA's own D-RAP rainbow, because this overlays
-a nautical chart where blue is water. The table is copied into public/hf.js for
-the webapp's canvas map, and `hf-render.test.ts` pins the two identical — two
-pictures of one number on two screens on the same boat must not disagree.
+The band ladder did not go away, it changed shape. "Which of my bands has gone
+under" is a set of thresholds, and thresholds draw as lines: `drawBandContours`
+in public/spaceMap.js traces the cutoff where it crosses each marine SSB band
+edge and labels the contour with the band's name. NOAA's bar answers how much
+is absorbed; the contour answers what that costs this reader. It is drawn over
+NOAA's colours rather than instead of them — additive, not a fork.
+
+What survives from the old ramp is the treatment of the bottom of the scale.
+NOAA's 0 MHz stop is `#000000` and neither surface can publish it literally:
+an opaque black cell reads as a hole in the chart, or as no data on the
+webapp's map, which is the opposite of what a quiet grid means. Both fade
+alpha in from invisible at 0 MHz instead — a fade and not a cutoff, since a
+crisp threshold contour is exactly what a reader over-trusts on a 2°×4° grid
+— and reach *full* opacity by 4 MHz, because hue carries the severity now and
+a half-transparent cell would carry a second, contradicting one: the same
+violet composites to lavender over a paper chart and to near-black over a dark
+page. The overlay puts that on the owner's own charts and gets no ground of
+its own; the webapp's map has the opposite problem, below.
+
+`DRAP_BAND_RAMP` in public/hf.js is still the band ladder, but only for the HF
+Radio tile's band strip, which is a ladder rather than a field. It is no
+longer a map palette and no longer pinned against src/tiles.ts.
+
+## One map: the products are layers, the projection is a control
+
+The webapp used to have two maps behind a dropdown, a regional aurora window
+and a global D-RAP rectangle, and it showed one while hiding the other. Each
+collected its own list of complaints, and they turned out to be one redesign
+rather than two patches
+([#177](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/177)):
+
+- The oval and the dayside absorption footprint could not be seen at once,
+  which is the comparison worth most to a reader deciding whether tonight's
+  schedule works.
+- Each product was welded to a projection it never asked for. Aurora was a
+  latitude band with a longitude correction applied by hand; absorption was a
+  whole-world rectangle. Neither can show a pole, and polar absorption is half
+  of what these grids exist to show.
+- The global view carried no aurora at all — the one view where the oval is a
+  whole shape rather than a stripe across the top.
+
+So the products became **layers** on one canvas and the projection and the
+extent became **controls**. `radiusDeg` is the whole zoom: degrees of arc from
+the centre to the nearer edge of the viewport, 15 for a regional close-up and
+180 for everywhere, meaning the same thing in both projections and at every
+latitude. The projections live in public/projection.js behind one interface,
+so nothing downstream branches on which is in use; a third is one more entry
+in `PROJECTIONS`. The vessel-centred azimuthal equidistant one is the default
+because a straight line from the centre of it *is* a great circle, so the
+line the probe draws is the propagation path rather than a decoration.
+
+Inverting the renderer is what made that one change instead of four.
+public/mapRaster.js walks *destination* pixels, asks the projection where each
+one is on the planet, and samples the grid there, rather than filling one
+rectangle per grid cell. A cell is only a rectangle on a cylindrical map, so
+the old way had a projection baked into the drawing; this way the projection
+is a parameter, an oblique azimuthal disc costs what a rectangle costs, and
+the picture is interpolated because the sampler is. That last part closed
+[#186](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/186):
+NOAA's own image and this plugin's chart tiles both interpolate this grid, and
+the webapp's map was the last blocky surface in the product.
+
+## The map draws on its own dark ground
+
+This one was found by looking. Composited onto the light dashboard, NOAA's
+near-black violet low end turned an ordinary quiet day — 1–3 MHz over most of
+the dayside — into a purple sheet that buried the coastline.
+
+NOAA's colorbar was sampled against a black globe, where dark reads as nothing
+happening, so matching their colours means matching their ground. The map
+panel is therefore dark in both themes (`MAP_GROUND` in public/spaceMap.js)
+rather than inheriting the page's, and the ink for everything drawn over the
+data is fixed there rather than taken from the theme. Every published
+space-weather map makes the same choice.
+
+The chart overlay is the opposite case and stays that way: it has the owner's
+own charts underneath, so it gets an alpha ramp and no ground of its own.
+
+The ground is also why the coastline and the band-edge contours are each drawn
+twice, a dark wide pass under a light narrow one. No single ink reads over both
+the violet low end and the yellow peak of the same ramp: a light line
+disappears into the peak, which is the part of the map somebody is looking
+hardest at, and a dark one disappears into the quiet ground.
 
 ## Tile rendering must not block the event loop
 
@@ -325,7 +406,7 @@ doesn't pay anywhere else, for a source it would depend on staying free and
 reachable underway.
 
 So `public/geo.js` carries a coastline and draws it through whatever projection
-the caller hands it — the aurora map and the D-RAP absorption map both. The
+the webapp's map hands it, over either product. The
 decoding and drawing are now the `coast-wright` and `coastlines` packages,
 extracted from this plugin and vendored into `public/` on build; the argument
 below is unchanged, only where the data comes from. The cost is the thing
@@ -339,6 +420,18 @@ screenshots. `test/coastline.test.ts` pins that ceiling rather than the
 tolerance, because the ceiling is what the argument rests on. Natural Earth is
 public domain, which the NOAA colour scales are not
 ([#12](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/12)).
+
+Drawing it takes two paths, because the library only has one. `limn`,
+coast-wright's drawing side, takes `x(lon)` and `y(lat)` as *separate*
+functions, and that can only express a cylindrical projection: on an azimuthal
+map the pixel column a point lands in depends on its latitude too. So the flat
+view still goes through the library, where its `lonCenter` seam guard is
+better than anything measured in pixels, and `strokeRings` in
+public/spaceMap.js strokes the azimuthal one against a different
+discontinuity. An azimuthal equidistant map has no antimeridian to break at,
+but a segment straddling the antipode of the centre is drawn as a chord
+straight across the disc; a pixel-length cap catches that and nothing else,
+since neighbouring coastline points are a degree apart on the ground.
 
 The chart-plotter tiles are the opposite case and must stay that way. They are
 drawn *over* the user's real charts, so geography is already there and ours
@@ -383,8 +476,6 @@ draw from. Unlike aurora, the product no longer waits for a vessel position
 before fetching: the grid is readable without knowing where the boat is, and
 the payload is a hundredth of OVATION's.
 
-The colour ramp is keyed to the marine SSB band edges rather than to round
-megahertz, for the reason `zonesForDrap` gives for bucketing the ladder that
-way: the published value is a frequency, not a severity, so the only reading
-of it that is the same for every reader is which of their bands it kills. A
-colour change on the map is therefore a band going under the cutoff.
+The colour is NOAA's own, and the marine SSB band edges are drawn over it as
+contours — the argument is above, under
+[Both D-RAP surfaces draw NOAA's colorbar](#both-d-rap-surfaces-draw-noaas-colorbar-the-bands-are-contours-over-it).
