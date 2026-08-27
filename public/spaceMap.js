@@ -413,8 +413,10 @@ function labelContour(ctx, view, segments, level, ink, placed) {
   if (!best) return
   // The band's name, not the edge's exact frequency: an operator asks for
   // "the 8 meg band", and 8.1 on a contour reads as a measurement of the
-  // absorption rather than as a label for what it takes out.
-  const text = String(Math.trunc(level))
+  // absorption rather than as a label for what it takes out. The unit is
+  // spelled out because a bare number sitting on a contour line reads as
+  // part of the map, not as a label for it.
+  const text = `${Math.trunc(level)} MHz`
   ctx.font = '600 10px ui-monospace, SFMono-Regular, Menlo, monospace'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'

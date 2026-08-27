@@ -1554,8 +1554,7 @@ import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpac
       : here === 0 ? 'nothing absorbed' : `${here.toFixed(1)} MHz`
     if (!drapProbe) {
       return `<div class="drap-probe">At the vessel: <b>${atVessel}</b>.
-        <span class="verdict">Click the map to score the path from here to anywhere &mdash; the worst cell
-        along a great circle is what a band has to clear, not the cell you are sitting in.</span></div>`
+        <span class="verdict">Click any point to score a path.</span></div>`
     }
     const end = drapProbe.points[drapProbe.points.length - 1]
     return `<div class="drap-probe">
@@ -1683,12 +1682,9 @@ import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpac
   // -- dragging it redraws only the canvas, so the thumb keeps the pointer.
   function renderMap() {
     const body = document.getElementById('mapBody')
-    if (!mapControls.layers.size) {
-      body.innerHTML = `${toolbarHtml()}<div class="empty-state">No layers selected. Tick one above to draw the map.</div>`
-      wireToolbar()
-      updateMapCaption()
-      return
-    }
+    // No special case for zero layers: an empty map (ground, coastline,
+    // graticule, the vessel) is still a map, and hiding the canvas here used
+    // to make "untick everything" read as "the map is gone".
     body.innerHTML = `${toolbarHtml()}
       <canvas id="spaceMapCanvas"></canvas>
       <div id="mapProbe"></div>
