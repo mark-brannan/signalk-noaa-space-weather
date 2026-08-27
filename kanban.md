@@ -100,6 +100,40 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Once [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191)
+      lands, work through Mark's test-rig punch list on the unified map
+      (`public/spaceMap.js`, `public/index.html`):
+      - Give the current-position and clicked-target markers distinct icons —
+        a small white ship/vessel glyph for the vessel, crosshairs (or a
+        station/receiver icon) for the target — instead of two identical dots
+      - Cut the map's text density; a lot of what's on it now duplicates
+        another readout on the same tile
+      - Put the path's headline metric (the worst-cutoff cliff) as a label
+        drawn on the path itself, not off in a corner
+      - Stack the aurora and D-RAP scales vertically instead of side by side,
+        and widen them enough to show the range with real numbers, the way
+        NOAA's own scale graphics do — not pixel-identical, just legible with
+        a few numeric points on each
+      - Drop "Nothing selected" as a map-layer option — either it renders an
+        empty map or it isn't offered; removing the whole map tile is wrong
+      - Fix the band-edge contour rendering: keep the labelled ticks inside
+        the visible range instead of off the edge, stop drawing them directly
+        on top of the scale lines (reads as "mucky"), make the numbers read
+        clearly as labels, and give them units — "2 MHz" or "< 2 MHz", not
+        bare "2"
+      - Stack the aurora/HF refresh buttons the same way the scales stack
+      - Reflow each map section as: label (e.g. "HF Absorption"), then its
+        refresh button to the label's right, then its timestamp to the
+        button's right, with that section's scale further right again on a
+        wide viewport — dropping down below, still stacked as a group, as the
+        viewport narrows
+      - Move the help text up and shorten it to something like "Click any
+        point to score a path"; an info bubble can carry any extra context,
+        if it's worth having at all
+      - Stop listing multiple lat/lon pairs down at the bottom of the map —
+        if the far end of a path gets a coordinate readout, put it right next
+        to that point, and put the distance and worst/mean cutoff figures on
+        the path itself, as labels, not in a separate list
 - [ ] Fix the other D-RAP path-scoring bug that landed with
       [#169](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169) —
       `greatCirclePoints`'s fixed 100km step in `public/drapMap.js` can skip
