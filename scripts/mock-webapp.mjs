@@ -283,14 +283,21 @@ const HOST = hostArg || '0.0.0.0'
 // Printed rather than guessed at, so the URL to paste into a phone is in the
 // output instead of requiring an `ip addr` on the side.
 function listenUrls() {
-  if (HOST !== '0.0.0.0' && HOST !== '::') return [`http://${HOST}:${PORT}/`]
+  // An IPv6 literal is only a valid authority in brackets, and --host takes
+  // one verbatim.
+  const authority = (addr) => (addr.includes(':') ? `[${addr}]` : addr)
+  if (HOST !== '0.0.0.0' && HOST !== '::')
+    return [`http://${authority(HOST)}:${PORT}/`]
+  // Node 18.0.x reports `family` as the number 4 rather than 'IPv4', and
+  // package.json still supports >=18, so a string compare alone would print
+  // nothing but loopback there -- exactly the case this function exists for.
   const addrs = Object.values(os.networkInterfaces())
     .flat()
-    .filter((n) => n && n.family === 'IPv4' && !n.internal)
+    .filter((n) => n && (n.family === 'IPv4' || n.family === 4) && !n.internal)
     .map((n) => n.address)
   return [
     `http://127.0.0.1:${PORT}/`,
-    ...addrs.map((a) => `http://${a}:${PORT}/`)
+    ...addrs.map((a) => `http://${authority(a)}:${PORT}/`)
   ]
 }
 // Trailing slash stripped once here so every proxied request can just concatenate
