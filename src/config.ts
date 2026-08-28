@@ -121,7 +121,7 @@ export const schema = {
       title: "Keep NOAA's aurora forecast grid up to date",
       // Every figure in these descriptions is interpolated from the declared
       // wire size in src/endpoints.ts rather than written into the sentence.
-      // A written one goes stale silently: "about 5 KB per poll" outlived the
+      // A written one goes stale silently: the old total outlived the
       // endpoints that made it wrong, and #223 had to re-measure to find that
       // out. Still per *fetch* and no daily figure -- what a day costs depends
       // on the interval, which public/config-panel.js prices as the user moves
