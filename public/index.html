@@ -1687,14 +1687,14 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   });
 
   // Escape clears a scored path; the arrow keys nudge its destination point.
-  // Both need the map to be the thing the reader means to act on -- typing
-  // in an input firing either would be a bug, not a feature -- and the arrow
-  // keys additionally need the canvas itself focused (by a click, or by tab)
-  // so an unrelated Escape/arrow doesn't reach across the page and move a
-  // path nobody was looking at.
+  // Both need the canvas itself focused (by a click, or by tab) -- typing in
+  // an input firing either would be a bug, not a feature, and so would an
+  // unrelated Escape or arrow key reaching across the page and moving a path
+  // nobody was looking at.
   function handleMapKey(e) {
     const canvas = document.getElementById('spaceMapCanvas');
     if (!canvas) return;
+    if (!document.getElementById('advisoryOverlay').hidden) return;
     const activeTag = document.activeElement && document.activeElement.tagName;
     if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
     if (e.key === 'Escape') {
