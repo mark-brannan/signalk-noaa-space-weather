@@ -959,16 +959,18 @@ describe('parse27DayOutlook', () => {
 
   describe('plausibility bounds', () => {
     it('nulls a column outside what the quantity can be', () => {
-      // Kp is 0-9 by definition and the planetary A index maxes at 400; an
-      // F10.7 below the quiet-sun background is as impossible as 1151 above it.
+      // Kp is 0-9 by definition and the planetary A index maxes at 400.
+      // F10.7 has no defined floor -- only NaN and a four-digit forecast
+      // like 1151 are impossible -- so 0 is accepted, not rejected.
       const outlook = parse27DayOutlook(
         '2026 Aug 10   90   500    4\n' +
           '2026 Aug 11   90    12   12\n' +
-          '2026 Aug 12    0    12    4\n'
+          '2026 Aug 12    0    12    4\n' +
+          '2026 Aug 13  999    12    4\n'
       )
-      expect(outlook?.days.map((d) => d.aIndex)).toEqual([null, 12, 12])
-      expect(outlook?.days.map((d) => d.kp)).toEqual([4, null, 4])
-      expect(outlook?.days.map((d) => d.f107)).toEqual([90, 90, null])
+      expect(outlook?.days.map((d) => d.aIndex)).toEqual([null, 12, 12, 12])
+      expect(outlook?.days.map((d) => d.kp)).toEqual([4, null, 4, 4])
+      expect(outlook?.days.map((d) => d.f107)).toEqual([90, 90, 0, null])
       expect(outlook?.rejected).toBe(3)
     })
 

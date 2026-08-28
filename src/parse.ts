@@ -1180,19 +1180,22 @@ export function parse27DayOutlook(text: string): Outlook27 | null {
  * corrupt Kp column would likewise reach `gScaleForKp`, which has no upper
  * bound, and publish a G level nothing in the sky supports.
  *
- * These are bounds on the quantity, not on what NOAA has been observed to
- * send, so they need no re-measuring:
+ * Kp and the A index are bounded by definition, so their limits need no
+ * re-measuring. F10.7 isn't: 64 sfu is the lowest the quiet sun has been
+ * *observed* at, not a value it's defined to stay above, so a weaker cycle
+ * than any on record is still physically possible and this plugin has no
+ * business rejecting it on that basis. Its floor is 0, the one bound a flux
+ * genuinely can't cross:
  *
- * - F10.7 is the quiet-sun 10.7cm background plus whatever active regions add,
- *   so it has a floor rather than reaching zero -- the background sits near 64
- *   sfu at solar minimum -- and even the strongest cycles peak around 300. A
- *   four-digit forecast has no physical route.
+ * - F10.7 can't be negative, and even the strongest cycles on record peak
+ *   around 300, so a four-digit forecast still has no physical route -- but
+ *   an implausibly *low* forecast is left alone.
  * - The planetary A index is a daily mean of ap, and ap saturates at 400 at
  *   Kp 9, so 400 is definitional rather than empirical.
  * - Kp is a 0-9 scale by definition.
  */
 const OUTLOOK_RANGES = {
-  f107: { min: 60, max: 400 },
+  f107: { min: 0, max: 400 },
   aIndex: { min: 0, max: 400 },
   kp: { min: 0, max: 9 }
 }
