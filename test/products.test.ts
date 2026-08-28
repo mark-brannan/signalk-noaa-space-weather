@@ -13,6 +13,7 @@ import {
   FLARE_ENDPOINT,
   FLARE_WEEK_ENDPOINT,
   FLARE_WEEK_FIXTURES,
+  OUTLOOK27_CORRUPT_FIXTURE,
   fixture,
   fixtureJson
 } from './fixtures'
@@ -313,6 +314,26 @@ describe('outlook27 product', () => {
     const h = stubbed()
     await outlook27.refresh(h.ctx)
     expect(h.published[0].timestamp).toBe('2026-08-10T01:53:00.000Z')
+  })
+
+  it('logs the columns it dropped rather than losing them silently', async () => {
+    // The 1151 sfu NOAA withdrew by reissuing. The series still publishes,
+    // with that one cell null -- but a hole nobody is told about reads like a
+    // column NOAA never sent.
+    const h = harness({
+      [OUTLOOK27_ENDPOINT]: fixture(OUTLOOK27_CORRUPT_FIXTURE)
+    })
+    await outlook27.refresh(h.ctx)
+
+    expect(h.errors).toHaveLength(1)
+    expect(h.errors[0]).toContain('1 implausible')
+    const series: any = h.valueAt(
+      'environment.noaa.swpc.kp.forecast.outlook27.series'
+    )
+    expect(series).toHaveLength(27)
+    expect(
+      series.find((d: any) => d.time === '2026-09-01T00:00:00.000Z').f107
+    ).toBeNull()
   })
 
   it('raises no notification for any of it', async () => {
