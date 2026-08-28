@@ -125,6 +125,13 @@ what it is blocked by. Delete it when it is done.
       over what it fetched — it has the payloads in hand and today only asserts
       wire size
       ([check-noaa-live.mjs](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/scripts/check-noaa-live.mjs))
+- [ ] Give the HF tile a **Fetch once** control for the new
+      `goesflux-refresh` route, the way the map layers have one for
+      `aurora-refresh`/`drap-refresh`. The route exists and is tested but
+      nothing calls it, so with `goesFluxEnabled` off the only way to a
+      reading is the schedule
+      ([#228](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/228)).
+      blocked: `public/index.html`, which #228 deliberately did not touch
 - [ ] Check whether the D-RAP legend's own labels collide in the plugin's
       tile the way they did on the demo page — at NOAA's 5 MHz interval and a
       190px bar, "35 MHz" runs back over the 30 next to it; the demo moved the
