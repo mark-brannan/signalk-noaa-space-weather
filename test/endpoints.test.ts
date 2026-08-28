@@ -215,20 +215,36 @@ describe('the panel and the plugin compute the same bill', () => {
         for (const sendAdvisoryOutlook of [true, false]) {
           for (const updateInterval of [5, 60, 720]) {
             for (const auroraInterval of [30, 120]) {
-              const settings = settingsFrom({
-                auroraEnabled,
-                drapEnabled,
-                sendAdvisoryOutlook,
-                updateInterval,
-                auroraInterval
-              })
-              const panel = dailyKb(settings)
-              const plugin = predictedBytesPerDay(settings)
-              for (const key of ['aurora', 'drap', 'other', 'fixed', 'total']) {
-                expect(
-                  panel[key] * 1024,
-                  `${key} at ${JSON.stringify(settings)}`
-                ).toBeCloseTo(plugin[key], 6)
+              for (const drapInterval of [30, 120]) {
+                for (const goesFluxEnabled of [true, false]) {
+                  for (const goesFluxInterval of [30, 120]) {
+                    const settings = settingsFrom({
+                      auroraEnabled,
+                      drapEnabled,
+                      sendAdvisoryOutlook,
+                      updateInterval,
+                      auroraInterval,
+                      drapInterval,
+                      goesFluxEnabled,
+                      goesFluxInterval
+                    })
+                    const panel = dailyKb(settings)
+                    const plugin = predictedBytesPerDay(settings)
+                    for (const key of [
+                      'aurora',
+                      'drap',
+                      'goesFlux',
+                      'other',
+                      'fixed',
+                      'total'
+                    ]) {
+                      expect(
+                        panel[key] * 1024,
+                        `${key} at ${JSON.stringify(settings)}`
+                      ).toBeCloseTo(plugin[key], 6)
+                    }
+                  }
+                }
               }
             }
           }

@@ -51,8 +51,8 @@ export const SCALE_NAMES = Object.freeze([
  * import from dist/ -- the same trade as DEFAULTS above.
  *
  * The panel holds these rather than a handful of per-product totals because a
- * total is what went stale last time: "about 5 KB per poll" outlived the
- * product that grew from one endpoint to three, and finding that out took a
+ * total is what went stale last time: the old figure outlived the product
+ * that grew from one endpoint to three, and finding that out took a
  * re-measurement. Sizes are docs/noaa-products.md's payload table at the
  * precision it records. Re-measure with scripts/measure-noaa.mjs.
  */
