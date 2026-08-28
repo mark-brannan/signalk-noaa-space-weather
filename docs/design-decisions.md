@@ -31,6 +31,72 @@ The general rule this is an instance of: a setting named for an output must
 not also gate the input that feeds it, unless something else can still fetch
 that input on demand.
 
+## The advisory outlook is also published as plain data, and archived
+
+The fix above landed narrow on purpose, to get the actual production bug (a
+notification frozen for a fortnight) shipped without waiting on two further
+questions. Both got settled in review and land here.
+
+**A plain-data path, not only a notification.** The notification setting is
+titled "Send notifications for...", so a client that wants the bulletin
+without opting into the alert had no path to read -- `sendAdvisoryOutlook`
+off meant no data at all, not just no notification. Every new bulletin now
+publishes plain data to `environment.noaa.swpc.advisory_outlook` regardless
+of the setting, deduped against the cache the same way the notification is,
+except once: an install upgrading straight into this feature already has
+today's bulletin cached from before this path existed, so the plain dedupe
+would leave it empty until next Monday without a one-time forced publish
+when the path itself is still empty.
+
+Each bulletin is also archived at `environment.noaa.swpc.advisory_outlook.<n>`
+(e.g. `.26-31`) — one per-week path, written once and never touched again.
+This is the same shape issue #104 burned us on for the notification, and it
+is deliberately unguarded by any retention cap, which needs saying plainly:
+those are not the same problem. #104's burn was that a *notification* is
+sticky, user-facing state — a client watching one week's alert path never saw
+it clear when the plugin moved to the next week's path instead of updating
+it, so a stale `alert` sat in front of the user forever with nothing above
+ever driving it back to `normal`. That is a correctness bug born of what a
+notification *is*, not of the path minting that carried it. A plain value has
+none of that machinery: nothing pops up, nothing needs acknowledging, and a
+client with no reason to read `.26-30` this month simply never asks for it.
+The only real cost of minting one of these every week is memory — on the
+order of 10-15 KB a year, against the 145 KB the aurora grid alone spends on
+a single fetch.
+
+The path segment *is* sanitized, though the value underneath still carries
+the raw `shortId` as an identifier. An earlier version of this argument
+treated the raw shortId (`#` and all) as safe because this path lives under
+`environment.*`, not `notifications.*`, so #104's stickiness doesn't apply —
+true, but beside the point: `#` opens a URL fragment, so
+`/signalk/v2/api/.../advisory_outlook/#26-30` never reaches the server at
+all, sticky or not. `shortId` is also unvalidated NOAA text; a `.` or a space
+in it would split or break the path the same way. `sanitizeShortId` in
+`src/products/advisory.ts` strips everything outside `[A-Za-z0-9_-]`.
+
+**`EXPIRY_MS` carries slack, and gates re-raising too.** The narrow fix above
+stands the notification down when the flag goes off, but nothing stood it
+down if a fetch kept silently failing (NOAA changing the payload shape under
+the parser, a dead network) while the flag stayed on — the same kind of
+invisible staleness the flag bug was, one layer down. `expireIfStale` checks
+the raised notification's age on every tick, ahead of that tick's own fetch,
+so a broken parse or a dead network can't keep it from firing. The first
+version of this check used a flat `WEEK_MS`, on the argument that expiry and
+the next bulletin are due at the same moment so a healthy week never trips
+it — our own fixtures say otherwise: consecutive issue dates as much as
+7d3h25m apart, so a flat week stood the notification down and re-raised it a
+few hours later, every week, on a perfectly healthy install. Two days of
+slack (`WEEK_MS + 2 * DAY_MS`) covers every gap measured so far; the argument
+is "NOAA is late", not "the week is up".
+
+The same age check gates re-raising, not just expiry. Without it, a fetch
+that keeps turning up the same bulletin past its expiry would see
+`expireIfStale`'s stand-down (state now `normal`) as *not* already current,
+and re-raise the identical stale bulletin on the very next tick — undoing the
+expiry it had just enforced. Belt and suspenders: the fetch is what's
+supposed to keep the notification current, the expiry (and the same check at
+publish time) is what stops a broken fetch from lying about it.
+
 ## The sun mark is labelled "Subsolar point", not "Sun"
 
 `drawSun` in `public/spaceMap.js` plots the point on the globe directly

@@ -144,6 +144,26 @@ happen. The webapp's own polling never turns into a NOAA fetch;
 Argument in
 [docs/design-decisions.md](docs/design-decisions.md#auroraenabled-and-drapenabled-govern-the-schedule-not-the-capability).
 
+**The advisory outlook is also published as plain data, and archived.**
+Beyond the notification-vs-fetch split above, each new bulletin publishes
+plain data to `environment.noaa.swpc.advisory_outlook` regardless of
+`sendAdvisoryOutlook` (deduped against the cache, so the 15-minute tight poll
+doesn't republish an unchanged bulletin — except once, forced, if the path is
+still empty, so an install upgrading straight into this feature isn't left
+waiting for next Monday). Each bulletin is also archived at
+`environment.noaa.swpc.advisory_outlook.<n>` (e.g. `.26-31`), one path per
+week, unguarded by any retention cap. The archive path segment is sanitized
+(`sanitizeShortId` in `src/products/advisory.ts`) — `#` opens a URL fragment
+and makes a raw NOAA bulletin number unaddressable over the REST API — but
+the value underneath still carries the raw `shortId`. `expireIfStale` stands
+the notification down once it is more than `WEEK_MS + 2 * DAY_MS` past its
+own issue date, not flat `WEEK_MS`: our own fixtures show consecutive issues
+up to 7d3h25m apart, so a flat week flaps the notification weekly on a
+healthy install. The same age check gates re-raising, not just expiry — a
+fetch that keeps turning up the same already-expired bulletin must not undo
+`expireIfStale`'s stand-down on the very next tick. Argument in
+[docs/design-decisions.md](docs/design-decisions.md#the-advisory-outlook-is-also-published-as-plain-data-and-archived).
+
 **The map's data goes through `public/mapRaster.js`; everything with a
 measurable edge is drawn vectorially over it.** One canvas — the products are
 layers, the projection and the extent are controls — and the rasteriser walks
