@@ -85,15 +85,16 @@ time-series windows are 32.3 KB together, against 9.7 KB for the other seven
 endpoints put together, and it was the only product on the interval with no
 `enabled` toggle
 ([#112](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/112)).
-It now has `goesFluxEnabled` and `goesFluxInterval`, both defaulting to what it
-already did — on, hourly — so the default bill is unchanged and the saving is
-the user's to take.
+It now has `goesFluxEnabled`, defaulting **off**, and `goesFluxInterval`,
+defaulting to 60 minutes. A fresh install therefore costs about 301 KB a day
+rather than the roughly 1.0 MB it did before, and switching the pair on takes
+it back to about 1.05 MB.
 
-The rest of the bill, at the defaults: the GOES flux pair 32.3 KB hourly, about
-775 KB a day; D-RAP 2.1 KB hourly, about 50 KB a day; the fixed-cadence
-bulletins and indices about 18 KB a day between them; aurora, if switched on,
-143.7 KB every two hours — about 1.7 MB a day. Everything but aurora, at the
-defaults, is roughly 1.0 MB a day, of which the GOES pair is three quarters.
+The rest of the bill, at the defaults: D-RAP 2.1 KB hourly, about 50 KB a day;
+the fixed-cadence bulletins and indices about 18 KB a day between them. That
+plus the 233 KB poll is the whole of a default install — about 301 KB a day.
+The two opt-in products, if switched on: the GOES flux pair 32.3 KB hourly,
+about 775 KB a day; aurora 143.7 KB every two hours, about 1.7 MB a day.
 
 **Consequence.** None of the fixed-cadence rows gets a setting. `outlook27` is
 442 B a day, `aIndex` 2.7 KB, `sunspot` 5.0 KB, `f107` 7.2 KB and `advisory`
@@ -138,12 +139,14 @@ governs whether the product runs at all, and because it shipped.
 
 The GOES flux pair (`goesFluxEnabled`, `goesFluxInterval`) is where that
 bandwidth job actually was: 775 KB a day, three quarters of the non-aurora
-bill and by far the largest thing a boat on a metered link pays for hourly.
-Both default to what it already did, because defaulting off would remove
-published paths from every existing install; the switch is for a boat that
-wants the traffic gone, and the interval is what a boat that wants the reading
-kept can open up. Neither is faster than the source: NOAA republishes both
-windows about once a minute.
+bill and by far the largest thing a boat on a metered link was paying for
+hourly. It defaults off, on the same rule as aurora — a default of on would
+charge exactly the boat the switch was built for, one that never opens the
+configuration screen. That is a behaviour change for an install upgrading
+across it, which the README states rather than a migration papering over.
+The interval is what a boat that does want the reading can open up; it is
+never faster than the source, since NOAA republishes both windows about once
+a minute.
 
 ## How often the content changes
 

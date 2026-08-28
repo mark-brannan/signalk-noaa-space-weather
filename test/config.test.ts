@@ -320,17 +320,21 @@ describe('drapInterval', () => {
 })
 
 describe('goesFluxEnabled', () => {
-  it('is on unless the config says otherwise', () => {
-    // An install saved before this setting existed was already publishing
-    // xray_flux, its trend and proton_flux, and the webapp's HF tile draws two
-    // of its rows from them. Defaulting off would empty those on upgrade.
-    expect(settingsFrom({}).goesFluxEnabled).toBe(true)
+  it('is off unless the config asks for it', () => {
+    // Opt-in, like aurora and unlike D-RAP: 775 KB a day is not something to
+    // charge a boat that has never opened the configuration screen. The cost
+    // is that an install upgrading across this release stops publishing
+    // xray_flux, its trend and proton_flux until the box is ticked.
+    expect(settingsFrom({}).goesFluxEnabled).toBe(false)
     expect(settingsFrom({ goesFluxEnabled: true }).goesFluxEnabled).toBe(true)
     expect(settingsFrom({ goesFluxEnabled: false }).goesFluxEnabled).toBe(false)
   })
 
-  it('treats a junk value as on rather than silently dropping the paths', () => {
-    expect(settingsFrom({ goesFluxEnabled: 'yes' }).goesFluxEnabled).toBe(true)
+  it('treats anything but a real `true` as off', () => {
+    // Same rule as auroraEnabled: the expensive default is never reached by
+    // accident, only by a value that actually says yes.
+    expect(settingsFrom({ goesFluxEnabled: 'yes' }).goesFluxEnabled).toBe(false)
+    expect(settingsFrom({ goesFluxEnabled: 1 }).goesFluxEnabled).toBe(false)
   })
 })
 

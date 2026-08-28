@@ -27,7 +27,7 @@ export const DEFAULTS = Object.freeze({
   auroraInterval: 120,
   drapEnabled: true,
   drapInterval: 60,
-  goesFluxEnabled: true,
+  goesFluxEnabled: false,
   goesFluxInterval: 60,
   updateInterval: 60
 })
@@ -457,7 +457,7 @@ export function panelSettings(configuration) {
       c.drapInterval === undefined
         ? updateInterval
         : minutes(c.drapInterval, DEFAULTS.drapInterval),
-    goesFluxEnabled: c.goesFluxEnabled !== false,
+    goesFluxEnabled: c.goesFluxEnabled === true,
     // Same migration as `drapInterval` above, for the same reason.
     goesFluxInterval:
       c.goesFluxInterval === undefined

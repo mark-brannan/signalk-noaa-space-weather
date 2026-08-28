@@ -982,10 +982,12 @@ describe('plugin module', () => {
         .flatMap((u: any) => u.values ?? [])
         .filter((v: any) => v.path === path)
 
-    it('stops the recurring fetch without touching the rest of the poll', () => {
+    it('fetches nothing on a fresh install, and leaves the rest of the poll alone', () => {
+      // The default, not a choice: an install that has never opened the
+      // configuration screen must not be charged 775 KB a day for this.
       stubSuccessfulFetch()
       const plugin = createPlugin(fakeApp())
-      plugin.start({ goesFluxEnabled: false })
+      plugin.start({})
 
       vi.advanceTimersByTime(10_000)
       expect(goesFetches()).toBe(0)
@@ -1000,7 +1002,7 @@ describe('plugin module', () => {
       stubSuccessfulFetch()
       const app = fakeApp()
       const plugin = createPlugin(app)
-      plugin.start({ goesFluxEnabled: false })
+      plugin.start({})
 
       expect(metaPaths(app.deltas)).not.toContain(XRAY_FLUX_BASE)
       expect(metaPaths(app.deltas)).not.toContain(PROTON_FLUX_BASE)
@@ -1011,7 +1013,11 @@ describe('plugin module', () => {
     it('follows goesFluxInterval rather than updateInterval', async () => {
       stubSuccessfulFetch()
       const plugin = createPlugin(fakeApp())
-      plugin.start({ updateInterval: 60, goesFluxInterval: 180 })
+      plugin.start({
+        goesFluxEnabled: true,
+        updateInterval: 60,
+        goesFluxInterval: 180
+      })
 
       await vi.advanceTimersByTimeAsync(10_000)
       expect(goesFetches()).toBe(2) // one window each, on the initial run
@@ -1029,7 +1035,7 @@ describe('plugin module', () => {
       const plugin = createPlugin(app)
       const router = fakeRouter()
       plugin.signalKApiRoutes(router)
-      plugin.start({ goesFluxEnabled: false })
+      plugin.start({}) // the default, which is off
 
       const response = await router.invoke(ROUTE)
       expect(response.status).toBe(200)
@@ -1046,7 +1052,7 @@ describe('plugin module', () => {
       const plugin = createPlugin(app)
       const router = fakeRouter()
       plugin.signalKApiRoutes(router)
-      plugin.start({ goesFluxEnabled: false })
+      plugin.start({})
 
       expect(metaPaths(app.deltas)).not.toContain(XRAY_FLUX_BASE)
       await router.invoke(ROUTE)
@@ -1062,7 +1068,7 @@ describe('plugin module', () => {
       const plugin = createPlugin(app)
       const router = fakeRouter()
       plugin.signalKApiRoutes(router)
-      plugin.start({ goesFluxEnabled: false })
+      plugin.start({})
 
       expect((await router.invoke(ROUTE)).status).toBe(200)
       expect(goesFetches()).toBe(2)
@@ -1079,7 +1085,7 @@ describe('plugin module', () => {
       const plugin = createPlugin(app)
       const router = fakeRouter()
       plugin.signalKApiRoutes(router)
-      plugin.start({ goesFluxEnabled: false })
+      plugin.start({})
 
       expect((await router.invoke(ROUTE)).status).toBe(502)
 
@@ -1092,7 +1098,7 @@ describe('plugin module', () => {
       const plugin = createPlugin(app)
       const router = fakeRouter()
       plugin.signalKApiRoutes(router)
-      plugin.start({})
+      plugin.start({ goesFluxEnabled: true })
 
       await vi.advanceTimersByTimeAsync(10_000)
       await router.invoke(ROUTE)

@@ -138,24 +138,27 @@ export const schema = {
       description:
         'The X-ray and proton measurements the R and S scales are bucketed' +
         ' from, plus the X-ray trend that says whether a radio blackout is' +
-        ' deepening or clearing. Much the most expensive thing on the poll:' +
-        ' two six-hour time series, about 32 KB on each fetch of the interval' +
-        ' below, against about 10 KB for everything else on it. On by default' +
-        ' \u2014 an install that has these paths keeps them. This only governs' +
+        ' deepening or clearing. Off by default on bandwidth, like the aurora' +
+        ' grid: switching it on is much the largest thing you can add to the' +
+        ' recurring poll \u2014 two six-hour time series, about 32 KB on each' +
+        ' fetch of the interval below, against about 10 KB for everything' +
+        ' else on it. Hourly that is roughly 775 KB a day, on top of about' +
+        ' 300 KB for the whole of the rest of the plugin. This only governs' +
         ' the recurring fetch \u2014 with it off, the webapp can still fetch' +
         ' the series once, when you ask it to.',
-      default: true
+      default: false
     },
     goesFluxInterval: {
       type: 'number',
       title: 'GOES flux fetch interval',
       description:
-        'in minutes. Separate from the interval below, because this is three' +
-        ' quarters of what that interval costs: its own rate lets a boat pay' +
-        ' less for it without giving up the reading altogether. NOAA' +
-        ' republishes both series every minute or so, so any rate here is' +
-        ' slower than the source; the paths declare a one-hour timeout, so a' +
-        ' rate above 60 publishes readings Signal K itself marks stale.',
+        'in minutes, and only while the box above is ticked. Separate from' +
+        ' the interval below, because this costs three times what the rest of' +
+        ' that interval does: its own rate lets a boat that wants the reading' +
+        ' pay less for it. NOAA republishes both series every minute or so,' +
+        ' so any rate here is slower than the source; the paths declare a' +
+        ' one-hour timeout, so a rate above 60 publishes readings Signal K' +
+        ' itself marks stale.',
       default: 60
     },
     auroraInterval: {
@@ -247,13 +250,15 @@ export function settingsFrom(props: any): Settings {
       p.drapInterval === undefined
         ? updateInterval
         : minutes(p.drapInterval, 60),
-    // On by default for the same reason D-RAP is, and more sharply: an
-    // install saved before this setting existed was already publishing
-    // `xray_flux`, its trend and `proton_flux`, and the webapp's HF tile
-    // draws two of its rows from them. Defaulting off would empty those rows
-    // on upgrade for every existing user, which is not a bandwidth saving
-    // anyone asked for.
-    goesFluxEnabled: p.goesFluxEnabled !== false,
+    // Off by default, the way aurora is and D-RAP is not: fetching this at
+    // all is opt-in. It is three quarters of what the poll used to cost, and
+    // the person the switch exists for -- a boat on metered airtime who never
+    // opens this screen -- is exactly the person a default of `true` would
+    // charge. That has a cost of its own, and it is not hidden: an install
+    // upgrading across this release stops publishing `xray_flux`, its trend
+    // and `proton_flux` until the box is ticked. Deliberate, and stated in
+    // the README rather than papered over with a migration.
+    goesFluxEnabled: p.goesFluxEnabled === true,
     // Same migration as drapInterval: a config saved before this split was
     // fetching the two series on `updateInterval`, so that is the cadence it
     // keeps -- the resolved value, so a legacy observations/notifications

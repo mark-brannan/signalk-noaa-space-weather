@@ -746,11 +746,14 @@ function createPanel(React) {
           null,
           'The X-ray and proton measurements the R and S scales are bucketed' +
             ' from, plus the X-ray trend that says whether a radio blackout' +
-            ' is deepening or clearing. Much the most expensive thing this' +
-            ' plugin fetches hourly: two six-hour time series, about 32 KB on' +
+            ' is deepening or clearing. Off by default on bandwidth, like the' +
+            ' aurora grid: it is much the largest thing you can add to the' +
+            ' recurring poll \u2014 two six-hour time series, about 32 KB on' +
             ' each fetch of the interval above, against about 10 KB for' +
-            ' everything left on the interval below. With it off the webapp' +
-            ' can still fetch the series once, when you ask it to. ',
+            ' everything left on the interval below. Ticking it is what' +
+            ' fills the HF tile\u2019s proton and X-ray-trend rows. With it' +
+            ' off the webapp can still fetch the series once, when you ask' +
+            ' it to. ',
           h(NoaaLink, { href: GOES_FLUX_URL, text: "NOAA's GOES X-ray flux" })
         )
       }),
