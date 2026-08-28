@@ -26,6 +26,8 @@ import {
   ADVISORY_FIXTURES,
   ALERT_FIXTURES,
   KP_FORECAST_FIXTURES,
+  OUTLOOK27_CORRECTED_FIXTURE,
+  OUTLOOK27_CORRUPT_FIXTURE,
   OUTLOOK27_FIXTURES,
   SCALES_FIXTURES,
   fixture,
@@ -831,14 +833,14 @@ describe('parse27DayOutlook', () => {
     expect(outlook?.days[26].time).toBe('2026-09-05T00:00:00.000Z')
   })
 
-  it('parses every captured outlook', () => {
+  it('parses every captured outlook without ever producing NaN', () => {
     for (const name of OUTLOOK27_FIXTURES) {
       const outlook = parse27DayOutlook(fixture(name))
       expect(outlook?.days.length, name).toBeGreaterThan(0)
       for (const day of outlook!.days) {
-        expect(Number.isFinite(day.kp), name).toBe(true)
-        expect(Number.isFinite(day.f107), name).toBe(true)
-        expect(Number.isFinite(day.aIndex), name).toBe(true)
+        for (const value of [day.kp, day.f107, day.aIndex]) {
+          expect(value === null || Number.isFinite(value), name).toBe(true)
+        }
       }
     }
   })
@@ -901,6 +903,105 @@ describe('parse27DayOutlook', () => {
     ).toBeNull()
     expect(parse27DayOutlook('2026 Foo 10 90 12 4\n')).toBeNull()
     expect(parse27DayOutlook('2026 Aug 10 x y z\n')).toBeNull()
+  })
+
+  describe('the outlook NOAA reissued to correct it', () => {
+    const sepFirst = (name: string) =>
+      parse27DayOutlook(fixture(name))?.days.find(
+        (day) => day.time === '2026-09-01T00:00:00.000Z'
+      )
+
+    it('refuses the radio flux NOAA itself withdrew', () => {
+      // 1151 sfu in the Sep 01 column of the 0259 issue. The corrected 1801
+      // reissue says 120, so this is a wrong number, not a rare one.
+      const day = sepFirst(OUTLOOK27_CORRUPT_FIXTURE)
+      expect(fixture(OUTLOOK27_CORRUPT_FIXTURE)).toContain('1151')
+      expect(day?.f107).toBeNull()
+      expect(day?.f107).not.toBe(1151)
+    })
+
+    it('publishes the corrected flux from the reissue', () => {
+      expect(sepFirst(OUTLOOK27_CORRECTED_FIXTURE)?.f107).toBe(120)
+    })
+
+    it('keeps the rest of the row a rejected column sits in', () => {
+      // The day still has a date and two good columns; dropping the whole row
+      // would lose a day of the rotation to one bad cell.
+      const day = sepFirst(OUTLOOK27_CORRUPT_FIXTURE)
+      expect(day?.aIndex).toBe(5)
+      expect(day?.kp).toBe(2)
+
+      const outlook = parse27DayOutlook(fixture(OUTLOOK27_CORRUPT_FIXTURE))
+      expect(outlook?.days).toHaveLength(27)
+      // Every other cell in the table survives, and the summary is still the
+      // one the good columns support.
+      const others = outlook!.days.filter(
+        (d) => d.time !== '2026-09-01T00:00:00.000Z'
+      )
+      expect(others).toHaveLength(26)
+      for (const other of others) {
+        expect(other.f107, other.time).not.toBeNull()
+        expect(other.aIndex, other.time).not.toBeNull()
+        expect(other.kp, other.time).not.toBeNull()
+      }
+      expect(outlook?.maxKp).toBe(3)
+    })
+
+    it('counts the rejected columns so the product can log them', () => {
+      expect(
+        parse27DayOutlook(fixture(OUTLOOK27_CORRUPT_FIXTURE))?.rejected
+      ).toBe(1)
+      expect(
+        parse27DayOutlook(fixture(OUTLOOK27_CORRECTED_FIXTURE))?.rejected
+      ).toBe(0)
+    })
+  })
+
+  describe('plausibility bounds', () => {
+    it('nulls a column outside what the quantity can be', () => {
+      // Kp is 0-9 by definition and the planetary A index maxes at 400; an
+      // F10.7 below the quiet-sun background is as impossible as 1151 above it.
+      const outlook = parse27DayOutlook(
+        '2026 Aug 10   90   500    4\n' +
+          '2026 Aug 11   90    12   12\n' +
+          '2026 Aug 12    0    12    4\n'
+      )
+      expect(outlook?.days.map((d) => d.aIndex)).toEqual([null, 12, 12])
+      expect(outlook?.days.map((d) => d.kp)).toEqual([4, null, 4])
+      expect(outlook?.days.map((d) => d.f107)).toEqual([90, 90, null])
+      expect(outlook?.rejected).toBe(3)
+    })
+
+    it('does not read a rejected Kp as a quiet day', () => {
+      // The peak and the first storm day have to come from the days that still
+      // carry a Kp, or a corrupt column silently lowers both.
+      const outlook = parse27DayOutlook(
+        '2026 Aug 10   90   12   99\n2026 Aug 11   90   20    5\n'
+      )
+      expect(outlook?.maxKp).toBe(5)
+      expect(outlook?.maxKpTime).toBe('2026-08-11T00:00:00.000Z')
+      expect(outlook?.nextStormKp).toBe(5)
+      expect(outlook?.maxNoaaScale).toBe(NoaaScaleValues.MINOR)
+    })
+
+    it('leaves the summary null when no row keeps a Kp', () => {
+      const outlook = parse27DayOutlook('2026 Aug 10   90   12   99\n')
+      expect(outlook?.days).toHaveLength(1)
+      expect(outlook?.maxKp).toBeNull()
+      expect(outlook?.maxKpTime).toBeNull()
+      expect(outlook?.maxNoaaScale).toBeNull()
+      expect(outlook?.nextStormKp).toBeNull()
+    })
+
+    it('keeps the edges of each range', () => {
+      const outlook = parse27DayOutlook('2026 Aug 10   400   400   9\n')
+      expect(outlook?.days[0]).toEqual({
+        time: '2026-08-10T00:00:00.000Z',
+        f107: 400,
+        aIndex: 400,
+        kp: 9
+      })
+    })
   })
 })
 
