@@ -130,6 +130,13 @@ what it is blocked by. Delete it when it is done.
       exists, and whether it signs commits (if so the release PR must be
       squash-merged)
 
+- [ ] Confirm or reverse the call made landing
+      [#231](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/231)
+      (v0.29.9): it went ahead of
+      [#225](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/225)
+      while a session was still working that branch, and cut the scope to the
+      fix alone. Landing tonight was instructed; those two were not
+
 - [ ] Decide whether the weekly live check should also run the product parsers
       over what it fetched — it has the payloads in hand and today only asserts
       wire size
