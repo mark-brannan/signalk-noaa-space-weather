@@ -13,8 +13,18 @@
     --dim: #8b96a8;
     --line: #1d2636;
     --accent: #4ad2ff;
+    --amber: #ffb238;
+    /* Both legends share one bar width, so aurora's and D-RAP's scales come
+       out the same regardless of what the label beside each one runs to.
+       Wider than the plugin's own tile because this page is one column and
+       has the room: at 190px D-RAP's 5 MHz labels ran into each other at the
+       top of the scale. */
+    --legend-bar-width: 260px;
   }
   * { box-sizing: border-box; }
+  /* Reserved always: scoring a path grows the page, and a scrollbar popping
+     in mid-interaction shifts the whole column sideways. */
+  html { scrollbar-gutter: stable; }
   body {
     margin: 0;
     background: var(--ground);
@@ -34,38 +44,93 @@
     font-size: 0.85rem;
   }
   .stamp b { color: var(--ink); font-weight: 600; }
-  .toolbar {
-    display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center;
-    margin-bottom: 10px; font-size: 0.85rem;
+
+  /* --- the map toolbar, as in the plugin's own webapp -------------------- */
+  .map-toolbar {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px;
+    margin-bottom: 10px; font-size: 0.78rem; color: var(--dim);
   }
-  .toolbar .label { color: var(--dim); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.08em; }
+  .map-toolbar .group { display: flex; align-items: center; gap: 8px; }
+  .map-toolbar .group > .label {
+    text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.65rem;
+  }
+  .map-toolbar label.check { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--ink); }
+  .map-toolbar label.check.off { opacity: 0.4; cursor: default; }
+  .map-toolbar input[type="checkbox"] { accent-color: var(--amber); cursor: pointer; }
+  .map-toolbar input[type="range"] { width: 110px; accent-color: var(--amber); cursor: pointer; }
+  .map-toolbar .reading { font-variant-numeric: tabular-nums; color: var(--ink); min-width: 5.5em; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
   .seg button {
-    background: none; border: 1px solid var(--line); color: var(--ink);
-    padding: 5px 12px; cursor: pointer; font: inherit; font-size: 0.85rem;
+    text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.65rem; font-weight: 600;
+    color: var(--dim); background: transparent; border: 0; padding: 5px 11px; cursor: pointer;
+    font-family: inherit; transition: color 0.2s, background 0.2s;
   }
-  .seg button:first-child { border-radius: 6px 0 0 6px; }
-  .seg button:last-child { border-radius: 0 6px 6px 0; margin-left: -1px; }
-  .seg button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); position: relative; }
-  label.check { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
-  canvas { width: 100%; display: block; border-radius: 8px; }
-  .legends { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 10px 0 4px; font-size: 0.8rem; color: var(--dim); }
-  .legend { display: inline-flex; gap: 8px; align-items: center; }
-  .legend .bar { position: relative; display: inline-block; width: 130px; height: 10px; border-radius: 3px; overflow: hidden; }
-  .legend .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.75); }
-  .stamps { font-size: 0.8rem; color: var(--dim); margin-bottom: 26px; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { color: var(--ground); background: var(--amber); }
+  .seg button:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+
+  /* Toggling a layer changes the map, not whether the text around it
+     exists -- these dim rather than disappear. */
+  .map-help.off, .map-section.off, .drap-probe.off { opacity: 0.4; }
+  .map-help { font-size: 0.75rem; color: var(--dim); margin-bottom: 8px; }
+  canvas { width: 100%; display: block; border-radius: 6px; background: var(--ground); }
+  canvas.probe-cursor { cursor: crosshair; }
+  .drap-probe { margin-top: 10px; font-size: 0.82rem; line-height: 1.5; color: var(--dim); }
+  .drap-probe b { color: var(--ink); font-weight: 600; }
+  .drap-probe .verdict { display: block; margin-top: 2px; }
+
+  /* --- the legends, with NOAA's own numbers on them ---------------------- */
+  .map-footer { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 4px; }
+  .map-section {
+    display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap;
+    font-size: 0.75rem; color: var(--dim);
+  }
+  .sec-label {
+    text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.65rem;
+    color: var(--ink); min-width: 5.5em;
+  }
+  .sec-time { font-variant-numeric: tabular-nums; }
+  .sec-unit { color: var(--dim); text-transform: none; letter-spacing: 0; }
+  .map-legend { display: flex; flex-direction: column; gap: 3px; margin-left: auto; min-width: var(--legend-bar-width); }
+  /* Matches NOAA_AURORA_RAMP in aurora.js, so the legend means what the map
+     paints. */
+  .map-legend .bar {
+    position: relative; width: 100%; min-width: var(--legend-bar-width); height: 10px; border-radius: 4px;
+    background: linear-gradient(90deg, rgb(23,227,16), rgb(45,247,3), rgb(248,255,1), rgb(255,163,0), rgb(228,0,0));
+  }
+  .drap-legend .bar { border-radius: 2px; background: var(--line); }
+  .drap-legend .bar .ink { position: absolute; inset: 0; border-radius: 2px; }
+  /* Ticks below the bar, not lines drawn over the gradient: overlaid on the
+     colour they read as mucky, and the mark is what says where the number
+     lines up. */
+  .scale-ticks { position: relative; height: 12px; font-size: 0.55rem; color: var(--dim); white-space: nowrap; }
+  .scale-tick { position: absolute; top: 0; }
+  .scale-tick.align-center { transform: translateX(-50%); }
+  .scale-tick.align-right { transform: translateX(-100%); }
+  .tick-marks { position: relative; height: 4px; }
+  .tick-mark { position: absolute; top: 0; width: 1px; height: 4px; background: var(--dim); }
+
+  .stamps { font-size: 0.8rem; color: var(--dim); margin: 8px 0 26px; }
   .stamps b { color: var(--ink); font-weight: 600; }
   section.card {
     background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
     padding: 16px; margin: 0 0 26px;
   }
   section.card h2 { font-size: 1.05rem; margin: 0 0 10px; }
-  .bands { display: flex; gap: 4px; margin: 12px 0 8px; }
+  .bands { display: flex; gap: 4px; margin: 12px 0 6px; }
   .band {
     flex: 1; text-align: center; font-size: 0.8rem; padding: 8px 0 6px;
     border-radius: 5px; border: 1px solid var(--line); color: var(--dim);
   }
   .band.absorbed { background: #7a1f2b; border-color: #a33; color: #fff; }
+  /* 2/6/12/18 MHz are the marine SSB calling frequencies. No continuous axis
+     to draw a line across, so the mark is the chip's own left edge. */
+  .band.ref { border-left: 2px solid var(--amber); }
   .band .mhz { display: block; font-size: 0.65rem; opacity: 0.7; }
+  .bands-legend { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 0.7rem; color: var(--dim); margin-bottom: 10px; }
+  .bands-legend i { font-style: normal; display: inline-block; width: 9px; height: 9px; border: 1px solid var(--line); border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .bands-legend i.absorbed { background: #7a1f2b; border-color: #a33; }
+  .bands-legend i.ref { border-left: 2px solid var(--amber); }
   .hf-facts { font-size: 0.9rem; color: var(--dim); }
   .hf-facts b { color: var(--ink); font-weight: 600; }
   footer { border-top: 1px solid var(--line); padding-top: 18px; color: var(--dim); font-size: 0.9rem; }
@@ -84,35 +149,28 @@
   </p>
   <p class="stamp" id="capturedStamp">Loading the snapshot&hellip;</p>
 
-  <div class="toolbar">
-    <span class="label">View</span>
-    <span class="seg">
-      <button type="button" data-projection="azimuthal" aria-pressed="true">Globe</button>
-      <button type="button" data-projection="cylindrical" aria-pressed="false">Flat</button>
-    </span>
-    <span class="label">Layers</span>
-    <label class="check"><input type="checkbox" data-layer="drap" checked> HF absorption</label>
-    <label class="check"><input type="checkbox" data-layer="aurora" checked> Aurora</label>
-    <label class="check"><input type="checkbox" id="bandEdges" checked> Band edges</label>
-  </div>
-  <canvas id="demoMap"></canvas>
-  <div class="legends" id="legends"></div>
-  <div class="stamps" id="stamps"></div>
+  <div id="mapBody"></div>
 
   <section class="card">
     <h2>Which HF bands are usable?</h2>
     <p class="hf-facts" id="hfWording"></p>
     <div class="bands" id="bandStrip"></div>
+    <div class="bands-legend">
+      <span><i class="absorbed"></i>Absorbed</span>
+      <span><i></i>Not blocked from below</span>
+      <span><i class="ref"></i>Calling frequency</span>
+    </div>
     <p class="hf-facts" id="hfIndices"></p>
   </section>
 
   <footer>
     <p>
       What you're looking at is a snapshot: real NOAA data, captured once and
-      saved into this page, so it stays fast and can't break. On a boat the
-      plugin polls NOAA continuously, publishes these numbers into
-      <a href="https://signalk.org/">Signal K</a>, raises notifications when a
-      storm arrives, and overlays this map on your own charts.
+      saved into this page, so it stays fast and can't break. The boat is a
+      stand-in too — on the water the plugin takes your own position from
+      <a href="https://signalk.org/">Signal K</a>, polls NOAA continuously,
+      publishes these numbers, raises notifications when a storm arrives, and
+      overlays this map on your own charts.
     </p>
     <p>
       Like it? <a href="https://github.com/mark-brannan/signalk-noaa-space-weather#installation">Run
@@ -123,101 +181,301 @@
 
 <script type="module">
   import { snapshot, readAll } from './signalk.js'
-  import { drawSpaceMap } from './spaceMap.js'
-  import { gridSummary, legendStops, bandEdgeTicks, LEGEND_MAX_MHZ } from './drapMap.js'
-  import { auroraRampColor } from './aurora.js'
-  import { hfCard, toPfu } from './hf.js'
+  import {
+    DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG,
+    drawSpaceMap, fmtLat, fmtLon, positionAt
+  } from './spaceMap.js'
+  import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js'
+  import { gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js'
+  import { bandStrip, hfCard } from './hf.js'
 
-  const controls = {
-    projection: 'azimuthal',
-    layers: new Set(['drap', 'aurora']),
+  // No Signal K server means no vessel, and without one the map loses the
+  // half of itself that is about a boat: the vessel-centred view, the zoom,
+  // and scoring a path. So the demo carries a stand-in — mid-Atlantic, on
+  // the great-circle run a sailor would actually be making — and says so
+  // rather than passing it off as a fix.
+  const DEMO_VESSEL = { latitude: 38.5, longitude: -40.0 }
+
+  const mapControls = {
+    projection: DEFAULT_PROJECTION,
+    layers: new Set(LAYER_IDS),
+    radiusDeg: DEFAULT_RADIUS_DEG,
     bandEdges: true
   }
+  const LAYER_META = {
+    drap: { label: 'HF absorption', scaleUnit: 'MHz', legend: drapLegendHtml },
+    aurora: { label: 'Aurora', scaleUnit: '', legend: auroraLegendHtml }
+  }
   let grids = { aurora: null, drap: null }
+  let drapProbe = null
+
+  const layerOn = (id) => mapControls.layers.has(id)
+  const MHZ = 1e6
 
   const fmt = (iso) => {
     const d = new Date(iso)
     return isNaN(d) ? String(iso) : d.toUTCString().replace(':00 GMT', ' UTC')
   }
 
+  // --- the map --------------------------------------------------------------
+
   function sizeCanvas(canvas) {
     const width = canvas.clientWidth || canvas.parentElement.clientWidth || 800
-    const height = controls.projection === 'cylindrical'
-      ? Math.max(220, Math.round(width / 2))
-      : Math.max(280, Math.min(560, Math.round(width * 0.75)))
+    const height = mapControls.projection === 'cylindrical'
+      ? Math.max(220, Math.min(580, Math.round(width / 2)))
+      : Math.max(280, Math.min(560, Math.round(width * 0.62)))
     canvas.style.height = `${height}px`
   }
 
   function draw() {
     const canvas = document.getElementById('demoMap')
+    if (!canvas) return
     sizeCanvas(canvas)
     drawSpaceMap(canvas, {
       grids: {
-        aurora: controls.layers.has('aurora') ? grids.aurora : null,
-        drap: controls.layers.has('drap') ? grids.drap : null
+        aurora: layerOn('aurora') ? grids.aurora : null,
+        drap: layerOn('drap') ? grids.drap : null
       },
-      layers: [...controls.layers],
-      projection: controls.projection,
-      radiusDeg: 180,
-      position: null,
-      bandContours: controls.bandEdges,
+      layers: [...mapControls.layers],
+      projection: mapControls.projection,
+      radiusDeg: mapControls.radiusDeg,
+      position: DEMO_VESSEL,
+      probe: layerOn('drap') ? drapProbe : null,
+      bandContours: mapControls.bandEdges,
       // The sun terminator and the D-RAP grid must agree on the hour: this
       // page shows a saved moment, so the sun is drawn at capture time, not
       // at whatever time the page happens to be opened.
       now: grids.drap?.validTime ? new Date(grids.drap.validTime) : undefined
     })
+    canvas.classList.toggle('probe-cursor', layerOn('drap') && !!grids.drap)
   }
 
-  function renderLegends() {
-    const parts = []
-    if (controls.layers.has('drap') && grids.drap) {
-      const stops = legendStops(24)
-      const gradient = stops
-        .map((s, i) => `${s.color} ${((i / (stops.length - 1)) * 100).toFixed(1)}%`)
-        .join(', ')
-      const ticks = controls.bandEdges
-        ? bandEdgeTicks()
-            .map((t) => `<span class="tick" style="left:${(t.fraction * 100).toFixed(1)}%"></span>`)
-            .join('')
-        : ''
-      parts.push(`<span class="legend">Absorbed
-        <span class="bar" style="background:linear-gradient(90deg, ${gradient})">${ticks}</span>
-        0 &rarr; ${LEGEND_MAX_MHZ} MHz</span>`)
+  function zoomWording(deg) {
+    if (deg >= 175) return 'the whole world'
+    if (deg >= 90) return 'a hemisphere'
+    return `${Math.round(deg)}° around`
+  }
+
+  function toolbarHtml() {
+    const projButtons = Object.values(PROJECTIONS)
+      .map((entry) =>
+        `<button type="button" data-projection="${entry.id}" title="${entry.hint}"
+          aria-pressed="${mapControls.projection === entry.id}">${entry.label}</button>`)
+      .join('')
+    // The last checked layer can't just switch off -- an empty map is a
+    // legitimate picture, but offering "nothing" as a choice isn't. Clicking
+    // it swaps to the other layer instead.
+    const layerBoxes = LAYER_IDS.map((id) => {
+      const last = layerOn(id) && mapControls.layers.size === 1
+      return `<label class="check${last ? ' off' : ''}" title="${last ? 'Switches to the other layer -- at least one stays on.' : ''}"><input
+        type="checkbox" data-layer="${id}" ${layerOn(id) ? 'checked' : ''}> ${LAYER_META[id].label}</label>`
+    }).join('')
+    return `<div class="map-toolbar">
+      <div class="group"><span class="label">Layers</span>${layerBoxes}</div>
+      <div class="group"><span class="label">View</span><span class="seg">${projButtons}</span></div>
+      <div class="group"><span class="label">Zoom</span>
+        <input type="range" id="mapZoom" min="${MIN_RADIUS_DEG}" max="${MAX_RADIUS_DEG}" step="5"
+          value="${mapControls.radiusDeg}" aria-label="Map zoom, degrees of arc from the vessel">
+        <span class="reading" id="mapZoomReading">${zoomWording(mapControls.radiusDeg)}</span>
+      </div>
+      <div class="group">
+        <label class="check${layerOn('drap') ? '' : ' off'}"
+          title="Draw a line where the absorption cutoff crosses each marine SSB band edge."><input
+          type="checkbox" id="mapBandEdges" ${mapControls.bandEdges ? 'checked' : ''}
+          ${layerOn('drap') ? '' : 'disabled'}> Band edges</label>
+      </div>
+    </div>`
+  }
+
+  // Above the canvas, not buried in the result: the reader needs to know a
+  // click does something before they've clicked.
+  function mapHelpHtml() {
+    if (!grids.drap) return ''
+    return `<div class="map-help${layerOn('drap') ? '' : ' off'}">Click any point to score the HF path
+      from the demo boat (${fmtLat(DEMO_VESSEL.latitude)} ${fmtLon(DEMO_VESSEL.longitude)}, mid-Atlantic) to it.</div>`
+  }
+
+  function footerHtml() {
+    const stampFor = {
+      drap: () => (grids.drap ? `valid ${fmt(grids.drap.validTime)}` : ''),
+      aurora: () => (grids.aurora ? `observed ${fmt(grids.aurora['Observation Time'])}` : '')
     }
-    if (controls.layers.has('aurora') && grids.aurora) {
-      const gradient = [0, 20, 40, 60, 80, 100]
-        .map((p) => `rgb(${auroraRampColor(p).join(',')}) ${p}%`)
-        .join(', ')
-      parts.push(`<span class="legend">Aurora
-        <span class="bar" style="background:linear-gradient(90deg, ${gradient})"></span>
-        low &rarr; high</span>`)
+    const sections = LAYER_IDS.map((id) => {
+      if (!grids[id]) return ''
+      return `<div class="map-section${layerOn(id) ? '' : ' off'}">
+        <span class="sec-label">${LAYER_META[id].label}${LAYER_META[id].scaleUnit ? ` <span class="sec-unit">(${LAYER_META[id].scaleUnit})</span>` : ''}</span>
+        <span class="sec-time">${stampFor[id]()}</span>
+        ${LAYER_META[id].legend()}
+      </div>`
+    }).join('')
+    return `<div class="map-footer">${sections}</div>`
+  }
+
+  // --- the legends ----------------------------------------------------------
+
+  function tickMarksHtml(ticks) {
+    return `<div class="tick-marks">${ticks
+      .map((tick) => `<span class="tick-mark" style="left:${(tick.fraction * 100).toFixed(1)}%"></span>`)
+      .join('')}</div>`
+  }
+
+  function scaleTicksHtml(ticks) {
+    return `<div class="scale-ticks">${ticks
+      .map((tick) => {
+        const left = Math.min(97, Math.max(3, tick.fraction * 100)).toFixed(1)
+        const align = tick.fraction < 0.08 ? 'left' : tick.fraction > 0.92 ? 'right' : 'center'
+        return `<span class="scale-tick align-${align}" style="left:${left}%">${tick.label}</span>`
+      })
+      .join('')}</div>`
+  }
+
+  // 10/50/90, not 0/50/100: NOAA's own aurora legend carries those three, and
+  // they are the ones a reader acts on.
+  const AURORA_TICKS = [
+    { fraction: 0.1, label: '10%' },
+    { fraction: 0.5, label: '50%' },
+    { fraction: 0.9, label: '90%' }
+  ]
+
+  function auroraLegendHtml() {
+    return `<div class="map-legend"><span class="bar"></span>
+      ${tickMarksHtml(AURORA_TICKS)}${scaleTicksHtml(AURORA_TICKS)}</div>`
+  }
+
+  function drapLegendHtml() {
+    const stops = legendStops(24)
+    const gradient = stops
+      .map((stop, i) => `${stop.color} ${((i / (stops.length - 1)) * 100).toFixed(1)}%`)
+      .join(', ')
+    // NOAA's own labels -- every 5 MHz to 35 -- not the marine SSB band edges.
+    // The band edges are the more useful answer and stay the map's contours
+    // and the whole of the strip below; only the axis is NOAA's.
+    const shown = legendMhzTicks()
+    const chrome =
+      tickMarksHtml(shown) +
+      // Bare numbers, with the unit carried by the row's own label: NOAA's
+      // 5 MHz interval puts the ticks about one label-width apart, so a
+      // "35 MHz" on the end runs back over the 30 next to it.
+      scaleTicksHtml(shown.map((tick) => ({ fraction: tick.fraction, label: String(tick.mhz) })))
+    return `<div class="map-legend drap-legend"><span class="bar"><span class="ink"
+      style="background:linear-gradient(90deg, ${gradient})"></span></span>${chrome}</div>`
+  }
+
+  // --- the probe ------------------------------------------------------------
+
+  // What the number means for somebody about to transmit: the bands it takes
+  // out, named. Every other number a scored path produces -- coordinates,
+  // distance, bearing, worst and mean cutoff -- is drawn on the path itself.
+  function absorbedWording(mhz) {
+    const all = bandStrip(mhz * MHZ)
+    const absorbed = all.filter((band) => band.absorbed)
+    if (!absorbed.length) return 'No marine SSB band is absorbed on this path.'
+    if (absorbed.length === all.length)
+      return 'Every marine SSB band is absorbed somewhere on this path.'
+    return `Marine bands up to ${absorbed[absorbed.length - 1].label} MHz are absorbed somewhere on this path.`
+  }
+
+  function drapProbeHtml() {
+    if (!grids.drap) return ''
+    const off = layerOn('drap') ? '' : ' off'
+    // A grid with nothing on it draws a blank map, which is the right picture
+    // and an ambiguous one -- blank is also what a failed load looks like.
+    const summary = gridSummary(grids.drap)
+    if (summary && summary.quiet) {
+      return `<div class="drap-probe${off}">Nothing anywhere on the globe was absorbing a marine SSB band
+        at capture time &mdash; the worst cell on the grid is <b>${summary.maxMHz.toFixed(1)} MHz</b>,
+        below the 2 MHz band.
+        <span class="verdict">The map is blank because the model is quiet, not because it failed to load.</span></div>`
     }
-    document.getElementById('legends').innerHTML = parts.join('')
-    const stamps = []
-    if (grids.drap) stamps.push(`HF absorption valid <b>${fmt(grids.drap.validTime)}</b>`)
-    if (grids.aurora) stamps.push(`aurora observed <b>${fmt(grids.aurora['Observation Time'])}</b>`)
-    document.getElementById('stamps').innerHTML = stamps.join(' &middot; ')
+    if (!drapProbe) return ''
+    return `<div class="drap-probe${off}">${absorbedWording(drapProbe.worstMHz)}</div>`
+  }
+
+  // --- rendering ------------------------------------------------------------
+
+  function renderMap() {
+    document.getElementById('mapBody').innerHTML = `${toolbarHtml()}
+      ${mapHelpHtml()}
+      <canvas id="demoMap"></canvas>
+      <div id="mapProbe"></div>
+      ${footerHtml()}`
+    wireToolbar()
+    draw()
+    document.getElementById('mapProbe').innerHTML = drapProbeHtml()
+
+    const canvas = document.getElementById('demoMap')
+    canvas.addEventListener('click', (event) => {
+      if (!layerOn('drap') || !grids.drap) return
+      const rect = canvas.getBoundingClientRect()
+      const target = positionAt(canvas, event.clientX - rect.left, event.clientY - rect.top)
+      // A click outside an azimuthal disc is not a place on the planet.
+      if (!target) return
+      drapProbe = pathAbsorption(grids.drap, DEMO_VESSEL, target)
+      draw()
+      document.getElementById('mapProbe').innerHTML = drapProbeHtml()
+    })
+  }
+
+  function wireToolbar() {
+    for (const button of document.querySelectorAll('[data-projection]')) {
+      button.addEventListener('click', () => {
+        mapControls.projection = button.dataset.projection
+        renderMap()
+      })
+    }
+    for (const box of document.querySelectorAll('[data-layer]')) {
+      box.addEventListener('change', () => {
+        const id = box.dataset.layer
+        if (!box.checked && mapControls.layers.size === 1) {
+          // XOR rather than a no-op: unticking the only layer left swaps to
+          // the other one.
+          mapControls.layers = new Set(LAYER_IDS.filter((other) => other !== id))
+        } else {
+          mapControls.layers[box.checked ? 'add' : 'delete'](id)
+        }
+        if (id === 'drap' && !box.checked) drapProbe = null
+        renderMap()
+      })
+    }
+    const zoom = document.getElementById('mapZoom')
+    if (zoom) {
+      // The slider redraws only the canvas, so the thumb keeps the pointer.
+      zoom.addEventListener('input', () => {
+        mapControls.radiusDeg = Number(zoom.value)
+        document.getElementById('mapZoomReading').textContent = zoomWording(mapControls.radiusDeg)
+        draw()
+      })
+    }
+    const bandEdges = document.getElementById('mapBandEdges')
+    if (bandEdges) {
+      bandEdges.addEventListener('change', () => {
+        mapControls.bandEdges = bandEdges.checked
+        draw()
+      })
+    }
   }
 
   function renderHf(data) {
     const summary = gridSummary(grids.drap)
     // The plugin's own HF tile scores the cutoff at the vessel; this page has
-    // no vessel, so it scores the worst cell anywhere on the globe instead --
-    // the strip reads "somewhere on Earth, this is how bad it gets".
+    // no live vessel, so the strip scores the worst cell anywhere on the
+    // globe instead -- "somewhere on Earth, this is how bad it gets".
     const card = hfCard({
       ...data,
       drap: summary
         ? {
             highest_affected_frequency: {
-              value: summary.maxMHz * 1e6,
+              value: summary.maxMHz * MHZ,
               timestamp: grids.drap.validTime
             }
           }
         : null
     })
+    const REF_MHZ = [2, 6, 12, 18]
     document.getElementById('bandStrip').innerHTML = card.bands
       .map(
-        (b) => `<span class="band${b.absorbed ? ' absorbed' : ''}">${b.label}<span class="mhz">MHz</span></span>`
+        (b) => `<span class="band${b.absorbed ? ' absorbed' : ''}${REF_MHZ.includes(Number(b.label)) ? ' ref' : ''}"
+          title="${b.label} MHz band">${b.label}<span class="mhz">MHz</span></span>`
       )
       .join('')
     const wording = document.getElementById('hfWording')
@@ -240,30 +498,6 @@
     document.getElementById('hfIndices').innerHTML = facts.join(' &middot; ')
   }
 
-  function wire() {
-    for (const button of document.querySelectorAll('[data-projection]')) {
-      button.addEventListener('click', () => {
-        controls.projection = button.dataset.projection
-        for (const b of document.querySelectorAll('[data-projection]'))
-          b.setAttribute('aria-pressed', String(b === button))
-        draw()
-      })
-    }
-    for (const box of document.querySelectorAll('[data-layer]')) {
-      box.addEventListener('change', () => {
-        controls.layers[box.checked ? 'add' : 'delete'](box.dataset.layer)
-        draw()
-        renderLegends()
-      })
-    }
-    document.getElementById('bandEdges').addEventListener('change', (e) => {
-      controls.bandEdges = e.target.checked
-      draw()
-      renderLegends()
-    })
-    window.addEventListener('resize', draw)
-  }
-
   const data = await snapshot()
   grids = {
     aurora: data.grids?.aurora?.grid ?? null,
@@ -271,9 +505,8 @@
   }
   document.getElementById('capturedStamp').innerHTML =
     `A saved NOAA snapshot, captured <b>${fmt(data.capturedAt)}</b> — not live data.`
-  wire()
-  draw()
-  renderLegends()
+  renderMap()
+  window.addEventListener('resize', draw)
   renderHf(await readAll())
 </script>
 </body>
