@@ -5,6 +5,26 @@ That file keeps the imperative and the issue number; the defence for each one
 — why the alternative was rejected, what it cost when it was tried — lives
 here instead, so it isn't reloaded into every session's context.
 
+## The sun mark is labelled "Subsolar point", not "Sun"
+
+`drawSun` in `public/spaceMap.js` plots the point on the globe directly
+under the sun — that's what D-region absorption is keyed to, not the sun
+itself. "Sun" as a label was wrong on the merits, not just naive-looking:
+the mark isn't the sun, it's a projection of it onto the earth's surface.
+"Subsolar point" with "(Sun's zenith)" as smaller subtext under it says
+what the mark actually is and reads clearly to anyone who doesn't know the
+term.
+
+Deferred, not decided: an info bubble on the mark, and drawing the
+computed solar zenith angle at the vessel alongside it. Both are additive —
+neither changes the label — and need their own scope call (bubble
+placement/trigger on a canvas with no existing hover-bubble pattern; where
+the zenith-angle number would live in `parse.ts`/`paths.ts` if it's ever
+published as a Signal K value versus computed client-side only for the
+map). Revisit when there's a concrete want driving one of them, same as
+[The D-RAP map is the deliverable; a station list is not](#the-d-rap-map-is-the-deliverable-a-station-list-is-not)
+argues for not building ahead of demand.
+
 ## Alerts are keyed by message code, not serial number
 
 `/products/alerts.json` is a rolling 30-day archive, not a list of current
@@ -255,6 +275,31 @@ its own; the webapp's map has the opposite problem, below.
 Radio tile's band strip, which is a ladder rather than a field. It is no
 longer a map palette and no longer pinned against src/tiles.ts.
 
+## Band-edge contour labels are large, yellow, and offset from the line
+
+At the size and colour the ramp's own labels first shipped at, "which of my
+bands has gone under" was answered in text a reader had to hunt for: 13px
+near-white sitting directly on the contour it named, on a canvas that is
+mostly dark absorption and a hairline coastline in the same tonal range. A
+label competing with the thing it labels for the same pixels is not legible,
+it is technically present.
+
+The fix is three changes to the same label, not one: roughly 2.3x the size
+(30px, weight 800), a colour the ramp does not otherwise use at any severity
+(`#ffe600`, a saturated yellow against a palette that runs
+black→violet→orange→desaturated yellow), and a position pushed clear of the
+line by most of its own height rather than centred on it, with a thin leader
+stroke back to the point it actually marks — so the offset does not cost the
+"which line is this" link that centring gave away for free.
+
+Where on the contour still follows the existing rule: the topmost segment
+inside the viewport (`labelContour` in public/spaceMap.js). That rule is what
+keeps a label from jumping around the ring as the field reshapes between
+redraws — a "nearest the centre" or "most prominent" rule would chase the
+data and never stay in the same place, which is worse for noticing a label
+than being a few pixels from the optimal spot. Size and colour made it
+legible; the placement rule already did its job.
+
 ## One map: the products are layers, the projection is a control
 
 The webapp used to have two maps behind a dropdown, a regional aurora window
@@ -479,3 +524,23 @@ the payload is a hundredth of OVATION's.
 The colour is NOAA's own, and the marine SSB band edges are drawn over it as
 contours — the argument is above, under
 [Both D-RAP surfaces draw NOAA's colorbar](#both-d-rap-surfaces-draw-noaas-colorbar-the-bands-are-contours-over-it).
+
+A clicked destination is a mouse-precision guess, and a keyboard is the tool
+for refining one without another blind click across an ocean. The arrow keys
+nudge the target in screen pixels (`Shift` for a bigger step) through the same
+viewport the click used, and re-score the path against the current grid; Escape
+clears the path outright, the undo a reader reaches for by habit and cheaper
+than hit-testing the marker itself. Both are gated on the canvas actually being
+the thing focused — a click focuses it, same as a tab-to would — and both stay
+off the page's text inputs and the advisory overlay, so an unrelated Escape or
+arrow key does not reach across the page and move a path nobody was looking at.
+
+Unchecking the HF absorption layer used to null the path too, on the argument
+that a path scored against a picture nobody can see is worse than none kept
+around. That argument does not survive a reader unticking the layer to compare
+the absorption footprint against the aurora oval and reticking it a moment
+later: the destination is not part of what the layer draws, and losing it to a
+two-click detour costs more than a dimmed line costs by staying. The path now
+survives the checkbox in both directions; only turning the layer off dims its
+display, per the same rule the footer sections and the help line already
+follow.

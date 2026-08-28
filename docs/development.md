@@ -168,6 +168,14 @@ leaves the server bound to every interface, which is the one mistake this
 option exists to prevent. Kill it when done; don't leave stray listeners
 behind.
 
+**In a sandboxed agent session, background it with `&` and `disown` in the
+same shell call, and don't use `pkill` to manage it.** `pkill` gets killed
+by the sandbox itself the instant it runs — even `pkill -f
+some-pattern-that-matches-nothing` dies with exit 144 — so any command chain
+that runs it can take the whole chain down, including a freshly backgrounded
+server. `pgrep -f mock-webapp` to find the pid and plain `kill` to stop it
+both work fine.
+
 `scripts/mock-webapp.mjs` serves `public/` with a state switcher appended and
 answers the Signal K paths it understands with fabricated data, so the real
 `heroState`/`renderTimer`/`renderKp` decide what renders. A strip at the

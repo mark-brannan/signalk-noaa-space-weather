@@ -124,6 +124,11 @@ Stage by path. Never `git add -A`.
 
 ## Pull requests
 
+**`main` is branch-protected — direct pushes are rejected.** Every change
+lands via a PR, no matter how small; `~/.claude/rules/code.md`'s
+branch-vs-main size/time thresholds don't apply here, they assume a repo
+where pushing straight to `main` is possible.
+
 - Branch from latest `main`
 - `npm run format` and `npm test` must pass
 - One logical change per PR. A refactor and a behaviour change are two PRs.

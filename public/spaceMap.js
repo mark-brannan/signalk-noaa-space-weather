@@ -174,7 +174,16 @@ export function drawSpaceMap(canvas, options = {}) {
   ctx.save()
   if (disc) ctx.clip(disc)
   if (drap) drawSun(ctx, view, now, position)
-  if (probe?.points?.length) drawProbe(ctx, view, probe, width, height, MAP_TRACK, options.distanceFormat)
+  if (probe?.points?.length)
+    drawProbe(
+      ctx,
+      view,
+      probe,
+      width,
+      height,
+      MAP_TRACK,
+      options.distanceFormat
+    )
   if (position) {
     const at = view.toPixel(position.longitude, position.latitude)
     if (at) vesselMarker(ctx, at[0], at[1], MAP_TRACK)
@@ -426,15 +435,31 @@ function labelContour(ctx, view, segments, level, ink, placed) {
   // spelled out because a bare number sitting on a contour line reads as
   // part of the map, not as a label for it.
   const text = `${Math.trunc(level)} MHz`
-  const size = 13
-  ctx.font = `700 ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`
-  const half = ctx.measureText(text).width / 2 + 3
+  // 2.3x the size this used to draw at (Mark: too small to notice at a
+  // glance against the raster and the coastline sharing its pixels).
+  const size = 30
+  ctx.font = `800 ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`
+  const half = ctx.measureText(text).width / 2 + 4
   const cx = Math.min(view.width - half, Math.max(half, best.x))
+  // Pushed clear of the line it names rather than centred on it -- sitting
+  // directly on the contour, the label used to visually fuse with the line
+  // (and, wherever the ring crossed the coast, with the coastline too). The
+  // leader stroke below ties the offset label back to the point it actually
+  // marks, so moving it doesn't cost the reader the "which line is this"
+  // link that centring used to give for free.
+  const offset = size * 0.95
+  // Above the line when there's room; otherwise below it. best.y near the
+  // top edge (inside margin..minCenterY, e.g. 10-19px) used to clamp ly to
+  // minCenterY regardless -- close enough to best.y that the contour sat
+  // inside the label's own box and the leader never left it either.
+  const minCenterY = size / 2 + 4
+  const above = best.y - offset >= minCenterY
+  const ly = above ? best.y - offset : Math.min(view.height - minCenterY, best.y + offset)
   const box = {
     x0: cx - half,
-    y0: best.y - size / 2 - 2,
+    y0: ly - size / 2 - 2,
     x1: cx + half,
-    y1: best.y + size / 2 + 2
+    y1: ly + size / 2 + 2
   }
   for (const other of placed) {
     const clear =
@@ -445,13 +470,21 @@ function labelContour(ctx, view, segments, level, ink, placed) {
     if (!clear) return
   }
   placed.push(box)
+  ctx.save()
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)'
+  ctx.lineWidth = 1.4
+  ctx.beginPath()
+  ctx.moveTo(best.x, best.y)
+  ctx.lineTo(cx, ly + (above ? size / 2 : -size / 2))
+  ctx.stroke()
+  ctx.restore()
   // A halo instead of a solid chip: the box was one more opaque rectangle
-  // competing with the contour it labels, and at 10px in the map's own dim
-  // ink it read as "too small, too subtle, placed where we can't see it"
-  // (Mark's punch-list follow-up). White-on-black-stroke carries over both
-  // the near-black violet at the quiet end of NOAA's ramp and the yellow
-  // peak at the busy end, with no background needed either way.
-  haloText(ctx, cx, best.y, text, { size, color: '#fff7e6' })
+  // competing with the contour it labels. Bright yellow rather than the old
+  // near-white -- it has to read as an alert against a ramp that runs from
+  // near-black violet to yellow itself, and a colour the raster also uses at
+  // its busy end still separates from the raster because the dark stroke and
+  // the offset carry the contrast the fill colour used to have to do alone.
+  haloText(ctx, cx, ly, text, { size, weight: 800, color: '#ffe600' })
 }
 
 /**
@@ -577,9 +610,15 @@ function drawSun(ctx, view, now, position) {
 
   const near = position && distanceKm(position, sun) < SUN_LABEL_CLEAR_KM
   const size = near ? 8 : 11
-  haloText(ctx, at[0], at[1] - size - 5, 'Sun', {
+  const alpha = near ? 0.6 : 0.95
+  const subSize = Math.round(size * 0.7)
+  haloText(ctx, at[0], at[1] - size - subSize - 7, 'Subsolar point', {
     size,
-    color: `rgba(255,236,150,${near ? 0.6 : 0.95})`
+    color: `rgba(255,236,150,${alpha})`
+  })
+  haloText(ctx, at[0], at[1] - size - 5, "(Sun's zenith)", {
+    size: subSize,
+    color: `rgba(255,236,150,${alpha * 0.85})`
   })
 }
 
@@ -588,8 +627,10 @@ function drawSun(ctx, view, now, position) {
 // kept here rather than duplicated, since a click-scored path and the map
 // that drew it should never disagree about how a coordinate reads.
 export const KM_TO_NM = 0.539957
-export const fmtLat = (lat) => `${Math.abs(lat).toFixed(1)}°${lat < 0 ? 'S' : 'N'}`
-export const fmtLon = (lon) => `${Math.abs(lon).toFixed(1)}°${lon < 0 ? 'W' : 'E'}`
+export const fmtLat = (lat) =>
+  `${Math.abs(lat).toFixed(1)}°${lat < 0 ? 'S' : 'N'}`
+export const fmtLon = (lon) =>
+  `${Math.abs(lon).toFixed(1)}°${lon < 0 ? 'W' : 'E'}`
 
 /** Plain nmi formatting -- the fallback when the Signal K server carries no
  * unit preference for `distance` (older servers, or no preference set), so
@@ -621,7 +662,15 @@ export function formatDistanceNm(km) {
  * module -- which has no fetch of its own -- never has to guess the reader's
  * unit preference; formatDistanceNm above is what it defaults to.
  */
-function drawProbe(ctx, view, probe, width, height, ink, distanceFormat = formatDistanceNm) {
+function drawProbe(
+  ctx,
+  view,
+  probe,
+  width,
+  height,
+  ink,
+  distanceFormat = formatDistanceNm
+) {
   const path = probe.points.map((point) => [point.longitude, point.latitude])
   // Dark under, colour over, the same as the coastline and the contours: the
   // path crosses the whole ramp by construction, since scoring it is the
@@ -632,7 +681,11 @@ function drawProbe(ctx, view, probe, width, height, ink, distanceFormat = format
     alpha: 1,
     width: 3.4
   })
-  strokeRings(ctx, [path], view, { color: MAP_PROBE_LINE, alpha: 0.95, width: 1.8 })
+  strokeRings(ctx, [path], view, {
+    color: MAP_PROBE_LINE,
+    alpha: 0.95,
+    width: 1.8
+  })
 
   const midIdx = Math.floor(path.length / 2)
   const mid = path[midIdx]
@@ -647,7 +700,10 @@ function drawProbe(ctx, view, probe, width, height, ink, distanceFormat = format
   // label was pushed along the line.
   let stackDir = { x: 0, y: -1 }
   if (midAt) {
-    const beforeAt = view.toPixel(path[Math.max(0, midIdx - 1)][0], path[Math.max(0, midIdx - 1)][1])
+    const beforeAt = view.toPixel(
+      path[Math.max(0, midIdx - 1)][0],
+      path[Math.max(0, midIdx - 1)][1]
+    )
     const afterAt = view.toPixel(
       path[Math.min(path.length - 1, midIdx + 1)][0],
       path[Math.min(path.length - 1, midIdx + 1)][1]
@@ -666,11 +722,24 @@ function drawProbe(ctx, view, probe, width, height, ink, distanceFormat = format
       { x: ty, y: -tx }
     ]
     const roomToEdge = (dir) => {
-      const roomX = dir.x > 0 ? (width - midAt[0]) / dir.x : dir.x < 0 ? midAt[0] / -dir.x : Infinity
-      const roomY = dir.y > 0 ? (height - midAt[1]) / dir.y : dir.y < 0 ? midAt[1] / -dir.y : Infinity
+      const roomX =
+        dir.x > 0
+          ? (width - midAt[0]) / dir.x
+          : dir.x < 0
+            ? midAt[0] / -dir.x
+            : Infinity
+      const roomY =
+        dir.y > 0
+          ? (height - midAt[1]) / dir.y
+          : dir.y < 0
+            ? midAt[1] / -dir.y
+            : Infinity
       return Math.min(roomX, roomY)
     }
-    stackDir = roomToEdge(candidates[0]) >= roomToEdge(candidates[1]) ? candidates[0] : candidates[1]
+    stackDir =
+      roomToEdge(candidates[0]) >= roomToEdge(candidates[1])
+        ? candidates[0]
+        : candidates[1]
   }
 
   // Also used below to keep the destination label clear of the stack on a
@@ -692,7 +761,10 @@ function drawProbe(ctx, view, probe, width, height, ink, distanceFormat = format
     const clearance = 12 // gap between the line and the nearest edge of the stack
     const blockHeight = lines.length * lineHeight
     stackReach = clearance + blockHeight / 2
-    stackAnchor = { x: midAt[0] + stackDir.x * stackReach, y: midAt[1] + stackDir.y * stackReach }
+    stackAnchor = {
+      x: midAt[0] + stackDir.x * stackReach,
+      y: midAt[1] + stackDir.y * stackReach
+    }
     let y = stackAnchor.y - ((lines.length - 1) * lineHeight) / 2
     for (const line of lines) {
       chipLabel(ctx, stackAnchor.x, y, line, ink, 'center', 13)
@@ -758,7 +830,12 @@ function chipLabel(ctx, x, y, text, ink, align = 'center', size = 10) {
   const textWidth = ctx.measureText(text).width
   const boxW = textWidth + pad * 2
   const boxH = size + 6
-  const boxX = align === 'left' ? x - pad : align === 'right' ? x - boxW + pad : x - boxW / 2
+  const boxX =
+    align === 'left'
+      ? x - pad
+      : align === 'right'
+        ? x - boxW + pad
+        : x - boxW / 2
   ctx.fillStyle = 'rgba(0,0,0,0.75)'
   ctx.beginPath()
   // roundRect landed in every evergreen browser by 2023, but a screenshot
