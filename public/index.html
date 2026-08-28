@@ -1243,8 +1243,13 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // scale along the bottom, same as the band numbers get their own row
     // above the track. A "(Marine SSB Bands)" caption briefly shared this
     // row -- dropped, because at tile width it ran into these ticks rather
-    // than clearing them.
-    const axis = gauge.ticks.map((tick) => `<span style="left:${pct(tick.fraction)}">${tick.mhz}</span>`).join('');
+    // than clearing them. Unit on the last tick only, same as the map
+    // legend's axis: a bare row of digits reads as unlabelled, and repeating
+    // "MHz" at every tick would crowd the ladder back into the caption's
+    // old problem.
+    const axis = gauge.ticks
+      .map((tick, i) => `<span style="left:${pct(tick.fraction)}">${i === gauge.ticks.length - 1 ? `${tick.mhz}&nbsp;MHz` : tick.mhz}</span>`)
+      .join('');
 
     // The marine band numbers, over the tick each one belongs to. Truncated,
     // not rounded: the band at 18.78 MHz is the one everyone calls 18.
@@ -1307,7 +1312,10 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       ''
     );
 
-    body.innerHTML = strip + sfiRow + protonRow + trendRow;
+    // Solar flux first: it is the day's headline number, and it gates
+    // whether the LUF/MUF window below is even worth reading -- low SFI and
+    // the ceiling is down wherever the gauge draws it.
+    body.innerHTML = sfiRow + strip + protonRow + trendRow;
   }
 
   function drawKpTimeline(canvas, series) {
