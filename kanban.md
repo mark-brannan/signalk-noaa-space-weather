@@ -135,6 +135,21 @@ what it is blocked by. Delete it when it is done.
       browser-level check earns a home in the repo — it cannot join `npm test`,
       which the registry runs offline under a 60s cap, so it would have to be a
       separate package like `scripts/screenshots/`
+- [ ] Fix the release process — today's manual batching (2026-08-27) didn't
+      match Mark's expectations and needed a hand-tagged commit off `main` to
+      unstick it (bad, since fixed via
+      [#207](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/207)).
+      Two real problems to solve, not just the mistake: (1) `RELEASE_WINDOW_HOURS=6`
+      debounce has no upper bound — a busy day with merges every 30-60min never
+      closes the window and nothing ships for 15+ hours; add a cap that forces a
+      publish once pending changes have waited long enough, independent of how
+      recently `main` last moved. (2) the tag-vs-`main` coupling in
+      `release.yml`/`publish-impact.sh` is fragile in practice — manually
+      flushing a specific batch means either waiting on the hook to bump
+      `package.json` via a real merge, or building a version-bump PR by hand;
+      there's no clean "release main as of right now" primitive. Rework
+      `scripts/publish-impact.sh` and `release.yml` so a deliberate manual
+      release doesn't require choreographing commits
 - [ ] Tidy `mapView`'s return shape in `public/projection.js` once
       [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191)
       lands — it returns `center` as the *settled* value but `radiusDeg` as the
