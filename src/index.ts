@@ -12,6 +12,7 @@ import { readAuroraCache } from './cache/auroraCache.js'
 import { readDrapCache } from './cache/drapCache.js'
 import { readAdvisoryCache } from './cache/advisoryCache.js'
 import { createPublisher } from './publisher.js'
+import { PROTON_FLUX_BASE, XRAY_FLUX_BASE } from './paths.js'
 import { advisory } from './products/advisory.js'
 import { aIndex } from './products/aIndex.js'
 import { aurora } from './products/aurora.js'
@@ -545,9 +546,38 @@ export default function (app: any): Plugin {
       // off and then having to turn it back on, wait out an interval and turn
       // it off again is four steps to answer one question, and it leaves a
       // recurring cost behind if the last step is forgotten.
+      /**
+       * What `goesFlux` currently has to show, read back out of Signal K --
+       * the store it publishes to, which is also the only place it keeps
+       * anything. Null when neither channel has ever landed, which is the one
+       * outcome that makes a refresh a failure.
+       */
+      function publishedFlux() {
+        const xrayFlux = publisher.selfPath(`${XRAY_FLUX_BASE}.value`) ?? null
+        const protonFlux =
+          publisher.selfPath(`${PROTON_FLUX_BASE}.value`) ?? null
+        if (xrayFlux === null && protonFlux === null) return null
+        return {
+          xrayFlux,
+          protonFlux,
+          trend: publisher.selfPath(`${XRAY_FLUX_BASE}.trend.value`) ?? null
+        }
+      }
+
+      //
+      // `read` answers what the product has to show right now, and `landed`
+      // decides whether this request produced it. The grids keep a capture on
+      // disk stamped with the instant it was written, so a `fetchedAt` that
+      // did not move means nothing new arrived. `goesFlux` keeps no capture --
+      // it publishes straight to Signal K, and skips a channel whose value has
+      // not changed since the last poll -- so an unchanged reading there is a
+      // successful refresh, and the question is only whether there is a
+      // reading at all.
       function refreshHandler(
         product: Product,
-        readCache: (dataDirPath: string) => { fetchedAt: string } | null
+        read: () => any,
+        landed: (before: any, after: any) => boolean = (before, after) =>
+          !!after && after.fetchedAt !== before?.fetchedAt
       ) {
         return async (_req: any, res: any) => {
           const settings = currentSettings
@@ -582,7 +612,7 @@ export default function (app: any): Plugin {
           // produced something from one that only returned. Every entry
           // carries the instant it was written, so an unchanged `fetchedAt`
           // means nothing new was written under this request.
-          const before = readCache(publisher.dataDirPath())
+          const before = read()
 
           let result: RefreshResult
           try {
@@ -594,15 +624,15 @@ export default function (app: any): Plugin {
             return
           }
 
-          const cached = readCache(publisher.dataDirPath())
+          const cached = read()
           // `refresh()` returns without throwing when the payload carried no
-          // usable grid, and its cache write is best effort. Either way
-          // nothing new landed, and answering 200 with the previous grid would
-          // report a refresh that did not happen -- on the webapp, a button
-          // that says it worked over a reading that has not moved.
-          if (!cached || cached.fetchedAt === before?.fetchedAt) {
+          // usable data, and a cache write is best effort. Either way nothing
+          // landed, and answering 200 with the previous reading would report a
+          // refresh that did not happen -- on the webapp, a button that says it
+          // worked over a reading that has not moved.
+          if (!landed(before, cached)) {
             res.status(502).json({
-              error: `Refreshed, but no new ${product.name} grid came back from NOAA.`
+              error: `Refreshed, but no new ${product.name} data came back from NOAA.`
             })
             return
           }
@@ -623,11 +653,24 @@ export default function (app: any): Plugin {
 
       router.get(
         '/signalk-noaa-space-weather/aurora-refresh',
-        refreshHandler(aurora, readAuroraCache)
+        refreshHandler(aurora, () => readAuroraCache(publisher.dataDirPath()))
       )
       router.get(
         '/signalk-noaa-space-weather/drap-refresh',
-        refreshHandler(drap, readDrapCache)
+        refreshHandler(drap, () => readDrapCache(publisher.dataDirPath()))
+      )
+      // Whether or not `goesFluxEnabled` schedules it, for the same reason the
+      // two grids have a route: the setting says what the plugin may spend on
+      // its own initiative, and a press is not the plugin's own initiative.
+      // Without this, switching off the poll's most expensive product is the
+      // one toggle that makes its data unobtainable.
+      router.get(
+        '/signalk-noaa-space-weather/goesflux-refresh',
+        refreshHandler(
+          goesFlux,
+          publishedFlux,
+          (_before, after) => after !== null
+        )
       )
 
       // When the webapp has no values, "the first fetch has not landed yet"
