@@ -36,13 +36,14 @@ states the consequence exactly:
 
 **Today the plugin measures the floor and cannot see the ceiling.** That
 asymmetry is the single most important fact in this document. It is why the
-webapp's HF gauge fills the absorbed floor and hatches everything above it as
-_ceiling unmeasured_ rather than colouring it "good" — a claim above the
-cutoff would be unbacked. The gauge is built to take a ceiling the day one
-exists: `hfGauge` in `public/hf.js` reads
-`environment.noaa.swpc.muf`, and a value on that path turns the hatch into an
-open window and a closed region above the MUF with no further change to the
-tile.
+webapp's HF gauge hatches everything above the absorbed floor as _ceiling
+unmeasured_ rather than colouring it "good" — a claim above the cutoff
+would be unbacked — whenever neither a measured nor a derived MUF is
+available. `hfCard` in `public/hf.js` reads `environment.noaa.swpc.muf` as
+the measured path and falls back to `estimateMufHz` (below) when that path
+carries nothing; either one turns the hatch into an open window and a
+closed region above the MUF, with the estimate labelled `est` everywhere it
+draws.
 
 ### The X-ray flux does not help with the ceiling
 
@@ -289,7 +290,8 @@ mockups at 1180 / 900 / 760 px in both themes, on
   zones (absorbed / likely usable / above the estimated ceiling), so the
   uncertainty lives in the drawing rather than in a paragraph of legend. Built
   as of 2026-08-27: the tile draws all three, and the middle one only appears
-  once both ends are measured.
+  once the floor is measured and a ceiling is available — measured or
+  derived, either counts.
 - **The gauge is a frequency axis, not a ladder of band names.** Nine
   equal-width chips put the 2→4 MHz gap as far apart as 18→22 and shared no
   scale with the map. It now runs 0–35 MHz, NOAA's own colorbar span, and
@@ -341,6 +343,13 @@ mockups at 1180 / 900 / 760 px in both themes, on
   is the day's headline number and gates whether the window below is even
   worth reading — low SFI and the ceiling is down wherever the gauge draws
   it — so it reads first, not second.
+- **A known MUF with no D-RAP reading gets its own hatch and legend line,
+  distinct from "ceiling unmeasured."** D-RAP can be silent (not yet fetched,
+  or errored) while F10.7 and position are still present, so `hfCard` can
+  derive a MUF with no cutoff to pair it against. `gauge.floorUnmeasured`
+  hatches the span below the MUF instead of leaving it undrawn, and the
+  legend says "Floor unmeasured" rather than implying an open window that
+  nothing was actually drawn for.
 
 ## Ideas raised, not decided
 

@@ -1217,7 +1217,9 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         ? seg('hf-seg-unknown', gauge.unknownFrom, gauge.unknownTo,
             gauge.ceilingUnmeasured
               ? 'Ceiling unmeasured — nothing here measures the F2 layer, so no band above the cutoff is claimed usable'
-              : 'No reading')
+              : gauge.floorUnmeasured
+                ? 'Floor unmeasured — D-RAP has not reported a cutoff yet'
+                : 'No reading')
         : '');
 
     const edges = gauge.bandEdges
@@ -1266,9 +1268,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         <span><i class="hf-seg-absorbed"></i>Absorbed (LUF)</span>
         ${gauge.ceilingUnmeasured
           ? '<span><i class="hf-seg-unknown"></i>Ceiling unmeasured</span>'
-          : gauge.windowClosed
-            ? `<span><i class="hf-seg-above"></i>Above the MUF &mdash; no open window</span>`
-            : `<span><i class="hf-seg-open"></i>Open</span><span><i class="hf-seg-above"></i>Above the MUF</span>`}
+          : gauge.floorUnmeasured
+            ? '<span><i class="hf-seg-unknown"></i>Floor unmeasured</span><span><i class="hf-seg-above"></i>Above the MUF</span>'
+            : gauge.windowClosed
+              ? `<span><i class="hf-seg-above"></i>Above the MUF &mdash; no open window</span>`
+              : `<span><i class="hf-seg-open"></i>Open</span><span><i class="hf-seg-above"></i>Above the MUF</span>`}
       </div>`;
 
     // The zone ladder the plugin publishes on the path itself, drawn as the
@@ -1280,7 +1284,10 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const sfiNeedle = sfuGauge.fraction === null
       ? ''
       : `<i class="needle" style="left:${pct(sfuGauge.fraction)}" title="${sfu.toFixed(0)} sfu"></i>`;
-    const sfiAxis = [0, 70, 90, 120, 150, sfuGauge.maxSfu]
+    // From the same bands the fills are drawn from, not a second copy of the
+    // thresholds: a boundary moving in src/parse.ts moved the fills and the
+    // axis together, rather than only one of them.
+    const sfiAxis = [...sfuGauge.bands.map((band) => band.from), sfuGauge.maxSfu]
       .map((v) => `<span style="left:${pct(v / sfuGauge.maxSfu)}">${v}</span>`)
       .join('');
     const sfiGauge = `<div class="hf-sfi-gauge">

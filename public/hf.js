@@ -157,9 +157,13 @@ export function hfGauge(cutoffHz, mufHz = null) {
     absorbedFraction,
     mufFraction,
     // A null cutoff absorbs nothing, but it also clears nothing: with no
-    // reading at either end the whole axis is unknown, not open.
+    // reading at either end the whole axis is unknown, not open. A null
+    // cutoff with a *known* MUF is the same claim over the shorter span
+    // below it -- the region has to close at the MUF rather than run to the
+    // top, or it draws as bare track: `to > from` in the renderer's `seg()`
+    // is false against a null `to`.
     unknownFrom: cutoffHz === null ? 0 : mufHz === null ? openFrom : null,
-    unknownTo: mufHz === null ? 1 : null,
+    unknownTo: mufHz === null ? 1 : cutoffHz === null ? mufFraction : null,
     openFrom: cutoffHz !== null && mufHz !== null ? openFrom : null,
     openTo:
       cutoffHz !== null && mufHz !== null
@@ -173,7 +177,11 @@ export function hfGauge(cutoffHz, mufHz = null) {
     aboveTo: mufHz === null ? null : 1,
     windowClosed:
       cutoffHz !== null && mufHz !== null && mufFraction <= openFrom,
-    ceilingUnmeasured: mufHz === null
+    ceilingUnmeasured: mufHz === null,
+    // Distinct from ceilingUnmeasured: this is the D-RAP-not-published case
+    // with an otherwise-derivable MUF, which needs its own legend line so it
+    // doesn't claim an "Open" swatch that nothing was drawn for.
+    floorUnmeasured: cutoffHz === null && mufHz !== null
   }
 }
 
@@ -200,13 +208,22 @@ function zoneLabel(message, index) {
 
 export function f107Zones(meta) {
   const zones = Array.isArray(meta?.zones) ? meta.zones : null
+  // Sorted before `key`/`label` are assigned by index -- the published order
+  // is ascending today, but assigning first and sorting after would silently
+  // pair each zone with the wrong band the day it isn't.
   const source =
     zones && zones.length
-      ? zones.map((zone, i) => ({
-          from: Number.isFinite(Number(zone.lower)) ? Number(zone.lower) : 0,
-          key: F107_BANDS[i]?.key ?? F107_BANDS[F107_BANDS.length - 1].key,
-          label: zoneLabel(zone.message, i)
-        }))
+      ? zones
+          .map((zone) => ({
+            from: Number.isFinite(Number(zone.lower)) ? Number(zone.lower) : 0,
+            message: zone.message
+          }))
+          .sort((a, b) => a.from - b.from)
+          .map((zone, i) => ({
+            from: zone.from,
+            key: F107_BANDS[i]?.key ?? F107_BANDS[F107_BANDS.length - 1].key,
+            label: zoneLabel(zone.message, i)
+          }))
       : F107_BANDS.map((band) => ({ ...band }))
   return source
     .slice()

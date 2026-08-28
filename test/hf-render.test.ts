@@ -314,6 +314,18 @@ describe('the HF gauge', () => {
     expect(gauge.unknownFrom).toBe(0)
     expect(gauge.unknownTo).toBe(1)
   })
+
+  it('closes the unknown span at the MUF when the floor is unmeasured', () => {
+    // D-RAP silent while F10.7/position still let hfCard derive a MUF: the
+    // span below it must hatch, not vanish -- `to > from` in the renderer's
+    // `seg()` draws nothing against a null `to`.
+    const gauge = hfGauge(null, 24_000_000)
+    expect(gauge.floorUnmeasured).toBe(true)
+    expect(gauge.ceilingUnmeasured).toBe(false)
+    expect(gauge.unknownFrom).toBe(0)
+    expect(gauge.unknownTo).toBeCloseTo(24 / 35, 6)
+    expect(gauge.openFrom).toBeNull()
+  })
 })
 
 describe('the solar flux gauge', () => {
@@ -345,6 +357,16 @@ describe('the solar flux gauge', () => {
     const top = f107Zones(meta).at(-1)!
     expect(top.to).toBe(250)
     expect(top.width).toBeGreaterThan(0)
+  })
+
+  it('keys each zone to the right band even if the server sends them out of order', () => {
+    // Sorted by `from` before `key`/`label` are assigned by position, not
+    // after -- assigning first would pair whichever zone arrived first with
+    // the lowest band regardless of its actual threshold.
+    const shuffled = { zones: [...zonesForF107()].reverse() }
+    expect(f107Zones(shuffled).map((b) => b.label)).toEqual(
+      f107Zones(meta).map((b) => b.label)
+    )
   })
 
   it('puts the needle where the reading is, and names the same band', () => {
