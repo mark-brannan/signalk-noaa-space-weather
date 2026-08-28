@@ -36,8 +36,14 @@ states the consequence exactly:
 
 **Today the plugin measures the floor and cannot see the ceiling.** That
 asymmetry is the single most important fact in this document. It is why the
-webapp's band strip fills absorbed bands and merely outlines the rest rather
-than colouring them "good" — a claim above the cutoff would be unbacked.
+webapp's HF gauge hatches everything above the absorbed floor as _ceiling
+unmeasured_ rather than colouring it "good" — a claim above the cutoff
+would be unbacked — whenever neither a measured nor a derived MUF is
+available. `hfCard` in `public/hf.js` reads `environment.noaa.swpc.muf` as
+the measured path and falls back to `estimateMufHz` (below) when that path
+carries nothing; either one turns the hatch into an open window and a
+closed region above the MUF, with the estimate labelled `est` everywhere it
+draws.
 
 ### The X-ray flux does not help with the ceiling
 
@@ -157,7 +163,25 @@ call, 2026-08-26 — on the reasoning that a defensible derivation is a scoping
 decision we are choosing to descope, not a correctness problem. Ship it,
 label it.
 
-### foF2 and MUF — not yet, and deliberately not guessed here
+### foF2 and MUF — a derived estimate ships, 2026-08-27
+
+**Built and drawn on the HF gauge**, from inputs the plugin already has:
+`estimateFoF2`/`estimateMufHz` in `public/hf.js`. Webapp only — a modelled
+number on a Signal K path is read as measured by every consumer that is not
+this tile — and every surface labels it `est`. A measured MUF on
+`environment.noaa.swpc.muf` replaces it outright the day one exists.
+
+Two stated anchors instead of a fitted coefficient, so a reader can argue
+with the assumptions rather than a regression: mid-latitude local noon at
+F10.7 = 150 gives foF2 ≈ 10 MHz, and night falls to ≈ 0.35 of that. The
+night ratio is applied as a floor on cos χ (`0.35⁴`), which is how the
+extrapolation-to-zero problem below is answered — the curve into night is
+continuous and never claims the low bands are dead. Storm depression is
+`0.04` per unit Kp, weighted by latitude to full effect past 60°, floored at
+half. Real coefficients, when someone calibrates against GIRO, replace these
+three numbers and nothing else.
+
+The reasoning the estimate is built on:
 
 Every input is already on hand and free:
 
@@ -184,12 +208,13 @@ calibration pass must include night-time samples on purpose, or the
 estimate must decline to render past some zenith angle rather than
 extrapolate. Either is defensible; silent extrapolation is not.
 
-**Coefficients are deliberately absent from this file.** A regression quoted
-from memory is precisely the kind of plausible-and-wrong number that survives
-review undetected. A first cut needs one calibration pass against GIRO
-ionosonde spot values (free) or a published foF2/F10.7 regression — day and
-night both, per the paragraph above. That is bounded work, and it is carded —
-not a research project, and not a blocker for anything else here.
+**The shipped coefficients are anchors, not a regression**, for the reason
+this section used to give for having none at all: a regression quoted from
+memory is precisely the kind of plausible-and-wrong number that survives
+review undetected. An anchor is at least arguable on its face. The
+calibration pass against GIRO ionosonde spot values — day and night both, per
+the paragraph above — is still the work that turns this into a real estimate,
+and it is still carded.
 
 ## Thresholds as Signal K zones
 
@@ -260,10 +285,71 @@ mockups at 1180 / 900 / 760 px in both themes, on
 - **The tile renamed to Solar Activity is forced, not cosmetic.** A flare is
   not solar wind, so the tile cannot take the flare and proton rows and keep
   the old title honestly.
-- **The band strip fills the floor and claims nothing above it.** When a
-  ceiling estimate exists it must render _differently_ from the measurement —
-  three zones (absorbed / likely usable / above the estimated ceiling), so the
-  uncertainty lives in the drawing rather than in a paragraph of legend.
+- **The gauge fills the floor and claims nothing above it.** When a ceiling
+  estimate exists it must render _differently_ from the measurement — three
+  zones (absorbed / likely usable / above the estimated ceiling), so the
+  uncertainty lives in the drawing rather than in a paragraph of legend. Built
+  as of 2026-08-27: the tile draws all three, and the middle one only appears
+  once the floor is measured and a ceiling is available — measured or
+  derived, either counts.
+- **The gauge is a frequency axis, not a ladder of band names.** Nine
+  equal-width chips put the 2→4 MHz gap as far apart as 18→22 and shared no
+  scale with the map. It now runs 0–35 MHz, NOAA's own colorbar span, and
+  `MARINE_SSB_BAND_EDGES_HZ` survives as ticks at their true positions rather
+  than as the scale itself.
+- **The solar flux gauge is drawn from `meta.zones` on the path.** The
+  published ladder is the setting; `F107_BANDS` in `public/hf.js` is only the
+  fallback for a server that sends no metadata.
+- **Every readout row's name can carry an inline info bubble**, not just the
+  tile-level one next to the `<h2>`. Sunspot number reads "Sunspot number
+  (SSN)" with a bubble explaining that it tracks loosely with F10.7 and MUF,
+  and that F10.7 is the more direct measure — because a reader who already
+  knows what SSN means will still ask why the tile carries both.
+- **A quality word (Fair / Good / …) never runs into the number it
+  qualifies.** `10.7 cm Solar Flux Index (SFI)` reads name, then quality,
+  then `96 sfu` — three parts, not two run together as `Fair96`. The
+  quality word sits in a dedicated middle flex cell (`.sfi-row .q`) that
+  takes up the slack between the label and the number, so it lands roughly
+  centered in that gap rather than merely prefixed to the value.
+- **An info bubble may render past its own tile's edge, but never past the
+  page's.** Every bubble on the page (`.info .bubble`) is positioned in JS
+  from the icon's own `getBoundingClientRect` (`positionInfoBubble` in
+  `public/index.html`) and clamped to the viewport, not the tile — CSS alone
+  can't do this, because the tile clips with `overflow: hidden` for its
+  gauges and rings, and an `absolute`-positioned bubble is clipped by that
+  ancestor the moment it's wider than the icon-to-tile-edge gap. This is the
+  bubble mechanism for the whole page, not a fix scoped to one tile: a
+  second bubble that starts clipping is a bug in `positionInfoBubble` or the
+  CSS, never a reason to special-case that bubble's placement.
+- **The gauge's bottom axis row is numbers only — full 0/5/10/…/35 MHz,
+  matching NOAA's own 5 MHz interval on the D-RAP colorbar, not just the top
+  of the scale.** No caption (`"(Marine SSB Bands)"` was tried and dropped)
+  shares that row: the band names already have their own row, above the
+  track, over the ticks they name, and any text sharing the axis row runs
+  into the tick numbers at tile width.
+- **The HF tile's own info bubble stays in sync with what the gauge
+  actually measures.** It described the MUF mark as unmeasured until the
+  derived-estimate feature above made that stale; it now says the mark is a
+  model estimate from F10.7, position, time of day and Kp unless NOAA ever
+  publishes a measured MUF, and separately notes the solar flux gauge's
+  Poor/Fair/Good wording is operator convention, not a NOAA scale.
+- **The HF gauge's bottom axis carries its unit, on the last tick only.**
+  0/5/10/…/35 with no "MHz" anywhere read as unlabelled digits. Same fix as
+  the map's D-RAP legend already uses for the same axis: the unit on the
+  last number only, so it reads as the whole axis's unit instead of
+  repeating at every tick and crowding the ladder the way the dropped
+  caption did.
+- **The SFI gauge leads the tile, ahead of the LUF/MUF window.** Solar flux
+  is the day's headline number and gates whether the window below is even
+  worth reading — low SFI and the ceiling is down wherever the gauge draws
+  it — so it reads first, not second.
+- **A known MUF with no D-RAP reading gets its own hatch and legend line,
+  distinct from "ceiling unmeasured."** D-RAP can be silent (not yet fetched,
+  or errored) while F10.7 and position are still present, so `hfCard` can
+  derive a MUF with no cutoff to pair it against. `gauge.floorUnmeasured`
+  hatches the span below the MUF instead of leaving it undrawn, and the
+  legend says "Floor unmeasured" rather than implying an open window that
+  nothing was actually drawn for.
 
 ## Ideas raised, not decided
 
