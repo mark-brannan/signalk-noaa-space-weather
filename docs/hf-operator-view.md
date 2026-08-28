@@ -298,6 +298,39 @@ mockups at 1180 / 900 / 760 px in both themes, on
 - **The solar flux gauge is drawn from `meta.zones` on the path.** The
   published ladder is the setting; `F107_BANDS` in `public/hf.js` is only the
   fallback for a server that sends no metadata.
+- **Every readout row's name can carry an inline info bubble**, not just the
+  tile-level one next to the `<h2>`. Sunspot number reads "Sunspot number
+  (SSN)" with a bubble explaining that it tracks loosely with F10.7 and MUF,
+  and that F10.7 is the more direct measure — because a reader who already
+  knows what SSN means will still ask why the tile carries both.
+- **A quality word (Fair / Good / …) never runs into the number it
+  qualifies.** `10.7 cm Solar Flux Index (SFI)` reads name, then quality,
+  then `96 sfu` — three parts, not two run together as `Fair96`. The
+  quality word sits in a dedicated middle flex cell (`.sfi-row .q`) that
+  takes up the slack between the label and the number, so it lands roughly
+  centered in that gap rather than merely prefixed to the value.
+- **An info bubble may render past its own tile's edge, but never past the
+  page's.** Every bubble on the page (`.info .bubble`) is positioned in JS
+  from the icon's own `getBoundingClientRect` (`positionInfoBubble` in
+  `public/index.html`) and clamped to the viewport, not the tile — CSS alone
+  can't do this, because the tile clips with `overflow: hidden` for its
+  gauges and rings, and an `absolute`-positioned bubble is clipped by that
+  ancestor the moment it's wider than the icon-to-tile-edge gap. This is the
+  bubble mechanism for the whole page, not a fix scoped to one tile: a
+  second bubble that starts clipping is a bug in `positionInfoBubble` or the
+  CSS, never a reason to special-case that bubble's placement.
+- **The gauge's bottom axis row is numbers only — full 0/5/10/…/35 MHz,
+  matching NOAA's own 5 MHz interval on the D-RAP colorbar, not just the top
+  of the scale.** No caption (`"(Marine SSB Bands)"` was tried and dropped)
+  shares that row: the band names already have their own row, above the
+  track, over the ticks they name, and any text sharing the axis row runs
+  into the tick numbers at tile width.
+- **The HF tile's own info bubble stays in sync with what the gauge
+  actually measures.** It described the MUF mark as unmeasured until the
+  derived-estimate feature above made that stale; it now says the mark is a
+  model estimate from F10.7, position, time of day and Kp unless NOAA ever
+  publishes a measured MUF, and separately notes the solar flux gauge's
+  Poor/Fair/Good wording is operator convention, not a NOAA scale.
 
 ## Ideas raised, not decided
 
