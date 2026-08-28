@@ -13,7 +13,6 @@ import {
   FLARE_ENDPOINT,
   FLARE_WEEK_ENDPOINT,
   FLARE_WEEK_FIXTURES,
-  OUTLOOK27_CORRUPT_FIXTURE,
   fixture,
   fixtureJson
 } from './fixtures'
@@ -317,11 +316,13 @@ describe('outlook27 product', () => {
   })
 
   it('logs the columns it dropped rather than losing them silently', async () => {
-    // The 1151 sfu NOAA withdrew by reissuing. The series still publishes,
-    // with that one cell null -- but a hole nobody is told about reads like a
-    // column NOAA never sent.
+    // A negative A index has no route to being real, unlike a large F10.7
+    // reading (a flare can put that in the hundreds of thousands of sfu).
+    // The series still publishes, with that one cell null -- but a hole
+    // nobody is told about reads like a column NOAA never sent.
     const h = harness({
-      [OUTLOOK27_ENDPOINT]: fixture(OUTLOOK27_CORRUPT_FIXTURE)
+      [OUTLOOK27_ENDPOINT]:
+        ':Issued: 2026 Aug 10 0153 UTC\n2026 Aug 10   90   -5   4\n'
     })
     await outlook27.refresh(h.ctx)
 
@@ -330,10 +331,8 @@ describe('outlook27 product', () => {
     const series: any = h.valueAt(
       'environment.noaa.swpc.kp.forecast.outlook27.series'
     )
-    expect(series).toHaveLength(27)
-    expect(
-      series.find((d: any) => d.time === '2026-09-01T00:00:00.000Z').f107
-    ).toBeNull()
+    expect(series).toHaveLength(1)
+    expect(series[0].aIndex).toBeNull()
   })
 
   it('raises no notification for any of it', async () => {
