@@ -5,6 +5,26 @@ That file keeps the imperative and the issue number; the defence for each one
 — why the alternative was rejected, what it cost when it was tried — lives
 here instead, so it isn't reloaded into every session's context.
 
+## The sun mark is labelled "Subsolar point", not "Sun"
+
+`drawSun` in `public/spaceMap.js` plots the point on the globe directly
+under the sun — that's what D-region absorption is keyed to, not the sun
+itself. "Sun" as a label was wrong on the merits, not just naive-looking:
+the mark isn't the sun, it's a projection of it onto the earth's surface.
+"Subsolar point" with "(Sun's zenith)" as smaller subtext under it says
+what the mark actually is and reads clearly to anyone who doesn't know the
+term.
+
+Deferred, not decided: an info bubble on the mark, and drawing the
+computed solar zenith angle at the vessel alongside it. Both are additive —
+neither changes the label — and need their own scope call (bubble
+placement/trigger on a canvas with no existing hover-bubble pattern; where
+the zenith-angle number would live in `parse.ts`/`paths.ts` if it's ever
+published as a Signal K value versus computed client-side only for the
+map). Revisit when there's a concrete want driving one of them, same as
+[The D-RAP map is the deliverable; a station list is not](#the-d-rap-map-is-the-deliverable-a-station-list-is-not)
+argues for not building ahead of demand.
+
 ## Alerts are keyed by message code, not serial number
 
 `/products/alerts.json` is a rolling 30-day archive, not a list of current
