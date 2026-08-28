@@ -6,11 +6,16 @@ import {
   S1_PFU,
   bandStrip,
   f107Band,
+  f107Gauge,
+  f107Zones,
+  hfGauge,
+  HF_SCALE_MAX_MHZ,
   hfCard,
   solarCard,
   trendWord
 } from '../public/hf.js'
-import { ENDPOINTS } from '../public/signalk.js'
+import { ENDPOINTS, leafMeta } from '../public/signalk.js'
+import { LEGEND_MAX_MHZ } from '../public/drapMap.js'
 import {
   MARINE_SSB_BAND_EDGES_HZ,
   zonesForF107,
@@ -234,5 +239,154 @@ describe('the Solar Activity card', () => {
 
   it('is all nulls with nothing published', () => {
     expect(Object.values(solarCard({})).every((v) => v === null)).toBe(true)
+  })
+})
+
+describe('the HF gauge', () => {
+  // The band chips became a linear frequency axis. What is pinned is that it
+  // is the *same* axis the map legend and NOAA's colorbar use -- a reader
+  // moving between the two surfaces must not have to re-learn the scale --
+  // and that the ceiling is never claimed.
+  it('is drawn against the same 0-35 MHz scale as the map legend', () => {
+    expect(HF_SCALE_MAX_MHZ).toBe(35)
+    expect(LEGEND_MAX_MHZ).toBe(HF_SCALE_MAX_MHZ)
+  })
+
+  it('places a cutoff at its true fraction of the axis, not at a band ordinal', () => {
+    expect(hfGauge(17_500_000).absorbedFraction).toBeCloseTo(0.5, 6)
+    expect(hfGauge(0).absorbedFraction).toBe(0)
+  })
+
+  it('clamps a cutoff past the top of the scale rather than overflowing it', () => {
+    expect(hfGauge(60_000_000).absorbedFraction).toBe(1)
+  })
+
+  it('keeps the marine SSB edges as ticks, in the same list as the zone ladder', () => {
+    const edges = hfGauge(null).bandEdges
+    expect(edges.map((e) => e.hz)).toEqual(MARINE_SSB_BAND_EDGES_HZ)
+    // At their real positions now: 2 MHz sits near the bottom of the axis,
+    // where a chip put it a ninth of the way along.
+    expect(edges[0].fraction).toBeCloseTo(2.045 / 35, 6)
+  })
+
+  it('never draws an open window without a measured ceiling', () => {
+    const gauge = hfGauge(8_100_000)
+    expect(gauge.ceilingUnmeasured).toBe(true)
+    expect(gauge.openFrom).toBeNull()
+    expect(gauge.openTo).toBeNull()
+    // Everything above the cutoff is unknown, all the way to the top.
+    expect(gauge.unknownFrom).toBeCloseTo(8.1 / 35, 6)
+    expect(gauge.unknownTo).toBe(1)
+  })
+
+  it('opens the window between the two ends once a MUF exists', () => {
+    const gauge = hfGauge(8_100_000, 24_000_000)
+    expect(gauge.ceilingUnmeasured).toBe(false)
+    expect(gauge.openFrom).toBeCloseTo(8.1 / 35, 6)
+    expect(gauge.openTo).toBeCloseTo(24 / 35, 6)
+    expect(gauge.unknownFrom).toBeNull()
+  })
+
+  it('paints above a known MUF as closed, not as unknown', () => {
+    const gauge = hfGauge(8_100_000, 24_000_000)
+    expect(gauge.aboveFrom).toBeCloseTo(24 / 35, 6)
+    expect(gauge.aboveTo).toBe(1)
+    expect(gauge.windowClosed).toBe(false)
+  })
+
+  it('has no open window when the cutoff has passed the MUF', () => {
+    // Not an error: absorption climbing past the ceiling is the blackout
+    // case, and both closed regions are still true.
+    const gauge = hfGauge(23_000_000, 17_000_000)
+    expect(gauge.windowClosed).toBe(true)
+    expect(gauge.openTo).toBe(gauge.openFrom)
+  })
+
+  it('is unknown end to end with no reading at either end', () => {
+    const gauge = hfGauge(null)
+    expect(gauge.absorbedFraction).toBeNull()
+    expect(gauge.unknownFrom).toBe(0)
+    expect(gauge.unknownTo).toBe(1)
+  })
+})
+
+describe('the solar flux gauge', () => {
+  const meta = { zones: zonesForF107() }
+
+  it('takes its bands from the published meta.zones when the server sends them', () => {
+    const bands = f107Zones(meta)
+    expect(bands.map((b) => b.from)).toEqual(zonesForF107().map((z) => z.lower))
+    // The zone message is a notification sentence; the gauge tick is not.
+    expect(bands.map((b) => b.label)).toEqual([
+      'High bands closed',
+      'Poor',
+      'Fair',
+      'Good',
+      'Excellent'
+    ])
+  })
+
+  it('falls back to the webapp copy when there is no metadata', () => {
+    expect(f107Zones(null).map((b) => b.from)).toEqual(
+      F107_BANDS.map((b) => b.from)
+    )
+    expect(f107Zones({}).map((b) => b.key)).toEqual(
+      F107_BANDS.map((b) => b.key)
+    )
+  })
+
+  it('gives the top band a finite top so it can be drawn', () => {
+    const top = f107Zones(meta).at(-1)!
+    expect(top.to).toBe(250)
+    expect(top.width).toBeGreaterThan(0)
+  })
+
+  it('puts the needle where the reading is, and names the same band', () => {
+    const gauge = f107Gauge(125, meta)
+    expect(gauge.fraction).toBeCloseTo(125 / 250, 6)
+    expect(gauge.band?.key).toBe('good')
+    expect(gauge.overflow).toBe(false)
+  })
+
+  it('clamps rather than drops a reading past the top of the scale', () => {
+    const gauge = f107Gauge(400, meta)
+    expect(gauge.fraction).toBe(1)
+    expect(gauge.overflow).toBe(true)
+    expect(gauge.band?.key).toBe('excellent')
+  })
+
+  it('has no needle and no band without a reading', () => {
+    const gauge = f107Gauge(null, meta)
+    expect(gauge.fraction).toBeNull()
+    expect(gauge.band).toBeNull()
+  })
+})
+
+describe('the HF card carries both gauges and the MUF stub', () => {
+  it('reads meta off the f107 node, so the gauge follows the published ladder', () => {
+    const node = { ...leaf(125), meta: { zones: zonesForF107() } }
+    expect(leafMeta(node)).not.toBeNull()
+    expect(hfCard({ f107: node }).sfuGauge.band?.label).toBe('Good')
+  })
+
+  it('has no MUF until something publishes one, and says so in the gauge', () => {
+    const card = hfCard({
+      drap: { highest_affected_frequency: leaf(8_100_000) }
+    })
+    expect(card.mufHz).toBeNull()
+    expect(card.gauge.ceilingUnmeasured).toBe(true)
+  })
+
+  it('draws the ceiling the moment the path appears', () => {
+    const card = hfCard({
+      drap: { highest_affected_frequency: leaf(8_100_000) },
+      muf: leaf(24_000_000)
+    })
+    expect(card.mufHz).toBe(24_000_000)
+    expect(card.gauge.ceilingUnmeasured).toBe(false)
+  })
+
+  it('reads the MUF off the path the webapp asks for', () => {
+    expect(ENDPOINTS.muf).toContain('environment/noaa/swpc/muf')
   })
 })
