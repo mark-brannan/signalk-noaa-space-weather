@@ -8,6 +8,7 @@ import {
 } from '../src/parse'
 import { alerts } from '../src/products/alerts'
 import { ALERT_FIXTURES, fixtureJson } from './fixtures'
+import { parseAlert, parseWatchDays } from '../src/parse'
 
 const HOUR_MS = 60 * 60 * 1000
 
@@ -536,5 +537,64 @@ describe('alerts product', () => {
     const h = harness({ error: 'nope' })
     await alerts.refresh(h.ctx as any)
     expect(h.published).toEqual([])
+  })
+})
+
+describe("a watch's per-day forecast table", () => {
+  /** The one message in a fixture that carries the table. */
+  function watchIn(name: string) {
+    const payload = fixtureJson(name)
+    const entry = payload.find((a: any) =>
+      /Highest Storm Level Predicted by Day/.test(a.message)
+    )
+    expect(entry, `${name} carries no watch`).toBeTruthy()
+    return parseAlert(entry)!
+  }
+
+  it('reads the three days NOAA names, with the year off the issue date', () => {
+    const watch = watchIn('alerts.2026_08_01.json')
+    expect(watch.alertLevel).toBe('WATCH')
+    expect(watch.predictedByDay).toEqual([
+      { date: '2026-07-31T00:00:00.000Z', letter: 'G', level: 0 },
+      { date: '2026-08-01T00:00:00.000Z', letter: 'G', level: 0 },
+      { date: '2026-08-02T00:00:00.000Z', letter: 'G', level: 2 }
+    ])
+  })
+
+  it('reads a table whose storm is on the first day', () => {
+    expect(watchIn('alerts.2025_04_17.json').predictedByDay).toEqual([
+      { date: '2025-04-16T00:00:00.000Z', letter: 'G', level: 3 },
+      { date: '2025-04-17T00:00:00.000Z', letter: 'G', level: 1 },
+      { date: '2025-04-18T00:00:00.000Z', letter: 'G', level: 0 }
+    ])
+  })
+
+  it('carries the table onto the notification the webapp reads', () => {
+    const watch = select('alerts.2026_08_01.json').inForce.find(
+      (a) => a.alertLevel === 'WATCH'
+    )
+    expect(watch?.predictedByDay?.some((d) => d.level > 0)).toBe(true)
+  })
+
+  it('is empty for every message that is not a watch', () => {
+    for (const name of ALERT_FIXTURES) {
+      for (const alert of select(name).inForce) {
+        if (alert.alertLevel === 'WATCH') continue
+        expect(alert.predictedByDay, alert.code).toEqual([])
+      }
+    }
+  })
+
+  it('rolls the year back for a table that spans New Year', () => {
+    // NOAA writes `Jan 01` with no year, so a watch issued on Dec 31 names
+    // days in two different ones.
+    const days = parseWatchDays(
+      'Highest Storm Level Predicted by Day:\nDec 31:  G1 (Minor)   Jan 01:  G2 (Moderate)\n',
+      new Date('2026-12-31T23:00:00Z')
+    )
+    expect(days.map((d) => d.date)).toEqual([
+      '2026-12-31T00:00:00.000Z',
+      '2027-01-01T00:00:00.000Z'
+    ])
   })
 })
