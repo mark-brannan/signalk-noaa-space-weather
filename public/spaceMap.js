@@ -439,7 +439,13 @@ function labelContour(ctx, view, segments, level, ink, placed) {
   // marks, so moving it doesn't cost the reader the "which line is this"
   // link that centring used to give for free.
   const offset = size * 0.95
-  const ly = Math.max(size / 2 + 4, best.y - offset)
+  // Above the line when there's room; otherwise below it. best.y near the
+  // top edge (inside margin..minCenterY, e.g. 10-19px) used to clamp ly to
+  // minCenterY regardless -- close enough to best.y that the contour sat
+  // inside the label's own box and the leader never left it either.
+  const minCenterY = size / 2 + 4
+  const above = best.y - offset >= minCenterY
+  const ly = above ? best.y - offset : Math.min(view.height - minCenterY, best.y + offset)
   const box = {
     x0: cx - half,
     y0: ly - size / 2 - 2,
@@ -460,7 +466,7 @@ function labelContour(ctx, view, segments, level, ink, placed) {
   ctx.lineWidth = 1.4
   ctx.beginPath()
   ctx.moveTo(best.x, best.y)
-  ctx.lineTo(cx, ly + size / 2)
+  ctx.lineTo(cx, ly + (above ? size / 2 : -size / 2))
   ctx.stroke()
   ctx.restore()
   // A halo instead of a solid chip: the box was one more opaque rectangle
