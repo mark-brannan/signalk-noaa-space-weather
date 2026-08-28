@@ -165,6 +165,10 @@
     .statusbar { padding: 6px 10px; gap: 4px 14px; margin-bottom: 8px; }
     .statusbar h1 { font-size: 0.82rem; }
     .statusbar .val { font-size: 0.82rem; }
+    /* Issue #129: at phone width the tile's own margin was eating 36px of
+       360 before any content got a say. The floor is set by the Kp chart's
+       axis labels, which live in this gutter. */
+    .tile { --tile-pad-x: 14px; --tile-pad-y: 12px; }
     .tile.hero { padding: 12px 14px; gap: 12px; }
   }
 
