@@ -331,6 +331,16 @@ mockups at 1180 / 900 / 760 px in both themes, on
   model estimate from F10.7, position, time of day and Kp unless NOAA ever
   publishes a measured MUF, and separately notes the solar flux gauge's
   Poor/Fair/Good wording is operator convention, not a NOAA scale.
+- **The HF gauge's bottom axis carries its unit, on the last tick only.**
+  0/5/10/…/35 with no "MHz" anywhere read as unlabelled digits. Same fix as
+  the map's D-RAP legend already uses for the same axis: the unit on the
+  last number only, so it reads as the whole axis's unit instead of
+  repeating at every tick and crowding the ladder the way the dropped
+  caption did.
+- **The SFI gauge leads the tile, ahead of the LUF/MUF window.** Solar flux
+  is the day's headline number and gates whether the window below is even
+  worth reading — low SFI and the ceiling is down wherever the gauge draws
+  it — so it reads first, not second.
 
 ## Ideas raised, not decided
 
