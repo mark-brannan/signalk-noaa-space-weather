@@ -5,6 +5,29 @@ That file keeps the imperative and the issue number; the defence for each one
 — why the alternative was rejected, what it cost when it was tried — lives
 here instead, so it isn't reloaded into every session's context.
 
+## The "Learn more" links are ordered for our reader, not NOAA's menu
+
+The strip runs scales explained, impacts, phenomena, then the general
+overview. That is close to the reverse of the order spaceweather.gov uses in
+its own "About Space Weather" menu, and the disagreement is deliberate.
+
+NOAA's menu is ordered for someone arriving at spaceweather.gov with no
+particular question, so it opens with the overview and files the scales
+explanation last under Additional Info. Our reader arrives with the opposite
+problem: they are already looking at a G/S/R badge, a Kp chart and an
+absorption map, and the thing they most likely want explained is the number
+in front of them. So the order runs most specific to what is on screen first
+and general background last — the scales they are reading, then what those
+conditions do to a vessel, then the phenomena behind them, then the overview
+for anyone still curious.
+
+This was reordered once to match NOAA's menu (#114) on the argument that a
+reader who follows a link should not meet a different order on the other
+side. That is true and it is not worth the cost: the ordering the reader
+benefits from is the one in the app they are using, and the menu they land in
+is NOAA's to arrange. Keep the existing order; the markup carries a comment
+saying so.
+
 ## The sun mark is labelled "Subsolar point", not "Sun"
 
 `drawSun` in `public/spaceMap.js` plots the point on the globe directly
