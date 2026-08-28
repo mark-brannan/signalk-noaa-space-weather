@@ -84,6 +84,12 @@ that mattered, which is part of how the totals below went stale unnoticed.
 | `/text/advisory-outlook.txt` | `advisory` | adaptive | 768 B | 1.5 KB |
 | `/text/27-day-outlook.txt` | `outlook27` | 24 h | 442 B | 1.6 KB |
 
+**This table is what `src/endpoints.ts` declares**, at the precision recorded
+here; `test/endpoints.test.ts` renders each declaration back into these units
+and fails if a cell disagrees. So a re-measurement is two edits rather than
+one, and the config form quotes whatever the code declares instead of a
+sentence somebody wrote once.
+
 **The seven rows still marked `updateInterval` come to about 9.7 KB a poll** —
 roughly 230 KB a day at the hourly default. The alerts archive is over half of
 it.
