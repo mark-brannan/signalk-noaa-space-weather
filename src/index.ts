@@ -36,7 +36,10 @@ import {
   renderTile
 } from './tiles.js'
 
-const PRODUCTS: Product[] = [
+// Exported for test/endpoints.test.ts, which walks it to check that every
+// endpoint a product can fetch is declared in src/endpoints.ts and priced by
+// the config form. Nothing else reads it from outside this module.
+export const PRODUCTS: Product[] = [
   scales,
   kp,
   outlook27,
