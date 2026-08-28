@@ -6,12 +6,13 @@
  * not fetch a path that is not in it, `src/config.ts` and
  * `public/config-panel.js` price the user's settings out of it, and
  * `test/endpoints.test.ts` holds it against `docs/noaa-products.md`. What this
- * replaces was a sentence in a form description, which went on saying
- * "together about 5 KB per poll" while a product quietly grew a second and
- * then a third endpoint; #223 re-measured and found 42 KB. That fix corrected
- * the numbers, which is a thing that has to be done again every time. This is
- * the other half: there is now one place for them, and adding an endpoint
- * without one is a build failure rather than a sentence going quietly stale.
+ * replaces was a sentence in a form description, which kept its original
+ * total while a product quietly grew a second and then a third endpoint;
+ * #223 had to re-measure to find out how wrong it had gone. That fix
+ * corrected the numbers, which is a thing that has to be done again every
+ * time. This is the other half: there is now one place for them, and adding
+ * an endpoint without one is a build failure rather than a sentence going
+ * quietly stale.
  *
  * It imports nothing. `config.ts` reads it to build its descriptions and the
  * products reference it to declare themselves, so anything it imported would
