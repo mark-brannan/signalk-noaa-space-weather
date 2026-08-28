@@ -10,6 +10,12 @@ import {
   f107Zones,
   hfGauge,
   HF_SCALE_MAX_MHZ,
+  cosSolarZenith,
+  estimateFoF2,
+  estimateMufHz,
+  FOF2_NIGHT_RATIO,
+  FOF2_NOON_MHZ,
+  MUF_M_FACTOR,
   hfCard,
   solarCard,
   trendWord
@@ -388,5 +394,158 @@ describe('the HF card carries both gauges and the MUF stub', () => {
 
   it('reads the MUF off the path the webapp asks for', () => {
     expect(ENDPOINTS.muf).toContain('environment/noaa/swpc/muf')
+  })
+})
+
+describe('the derived MUF', () => {
+  // A model, not a measurement, so what is pinned is the shape and the two
+  // anchors it is built on -- not a number nobody can check.
+  const seattle = { latitude: 47.6, longitude: -122.4 }
+
+  it('puts the sun overhead at local noon on the equator at an equinox', () => {
+    const cos = cosSolarZenith(0, 0, new Date('2026-03-20T12:00:00Z'))!
+    expect(cos).toBeGreaterThan(0.99)
+  })
+
+  it('puts it under the horizon at local midnight', () => {
+    expect(
+      cosSolarZenith(0, 0, new Date('2026-03-20T00:00:00Z'))!
+    ).toBeLessThan(-0.9)
+  })
+
+  it('hits its stated noon anchor: 10 MHz at F10.7 150, sun overhead', () => {
+    const foF2 = estimateFoF2({
+      sfu: 150,
+      latitude: 0,
+      longitude: 0,
+      at: new Date('2026-03-20T12:00:00Z'),
+      kp: 0
+    })!
+    expect(foF2).toBeCloseTo(FOF2_NOON_MHZ, 1)
+  })
+
+  it('falls to its stated night floor rather than to zero', () => {
+    // The whole reason a bare cos term will not do: the F2 layer survives the
+    // night, and the low bands open in the evening.
+    const night = estimateFoF2({
+      sfu: 150,
+      latitude: 0,
+      longitude: 0,
+      at: new Date('2026-03-20T00:00:00Z'),
+      kp: 0
+    })!
+    expect(night).toBeCloseTo(FOF2_NOON_MHZ * FOF2_NIGHT_RATIO, 1)
+    expect(night).toBeGreaterThan(0)
+  })
+
+  it('rises with solar flux, at the quarter power', () => {
+    const at = new Date('2026-03-20T12:00:00Z')
+    const low = estimateFoF2({ sfu: 70, latitude: 0, longitude: 0, at, kp: 0 })!
+    const high = estimateFoF2({
+      sfu: 200,
+      latitude: 0,
+      longitude: 0,
+      at,
+      kp: 0
+    })!
+    expect(high).toBeGreaterThan(low)
+    expect(high / low).toBeCloseTo((200 / 70) ** 0.25, 3)
+  })
+
+  it('is depressed by a storm, and more so at high latitude', () => {
+    const at = new Date('2026-03-20T20:00:00Z')
+    const quiet = estimateFoF2({ sfu: 120, ...seattle, at, kp: 0 })!
+    const stormy = estimateFoF2({ sfu: 120, ...seattle, at, kp: 8 })!
+    expect(stormy).toBeLessThan(quiet)
+    const tropicalQuiet = estimateFoF2({
+      sfu: 120,
+      latitude: 5,
+      longitude: -122.4,
+      at,
+      kp: 0
+    })!
+    const tropicalStormy = estimateFoF2({
+      sfu: 120,
+      latitude: 5,
+      longitude: -122.4,
+      at,
+      kp: 8
+    })!
+    expect(tropicalStormy / tropicalQuiet).toBeGreaterThan(stormy / quiet)
+  })
+
+  it('never annihilates the layer, however bad the storm', () => {
+    const at = new Date('2026-03-20T20:00:00Z')
+    const quiet = estimateFoF2({
+      sfu: 120,
+      latitude: 80,
+      longitude: 0,
+      at,
+      kp: 0
+    })!
+    const wrecked = estimateFoF2({
+      sfu: 120,
+      latitude: 80,
+      longitude: 0,
+      at,
+      kp: 9
+    })!
+    expect(wrecked / quiet).toBeGreaterThanOrEqual(0.5)
+  })
+
+  it('is M x foF2, in the Hz the measured path would carry', () => {
+    const inputs = {
+      sfu: 150,
+      latitude: 0,
+      longitude: 0,
+      at: new Date('2026-03-20T12:00:00Z'),
+      kp: 0
+    }
+    expect(estimateMufHz(inputs)!).toBeCloseTo(
+      estimateFoF2(inputs)! * MUF_M_FACTOR * 1e6,
+      -3
+    )
+  })
+
+  it('has no estimate without a flux or without a position', () => {
+    const at = new Date('2026-03-20T12:00:00Z')
+    expect(estimateMufHz({ sfu: null, ...seattle, at, kp: 0 })).toBeNull()
+    expect(
+      estimateMufHz({
+        sfu: 120,
+        latitude: undefined,
+        longitude: undefined,
+        at,
+        kp: 0
+      })
+    ).toBeNull()
+  })
+})
+
+describe('the HF card takes the measured MUF over the modelled one', () => {
+  const at = new Date('2026-03-20T20:00:00Z')
+  const data = {
+    f107: leaf(120),
+    position: leaf({ latitude: 47.6, longitude: -122.4 }),
+    kp: { observed: leaf(2) }
+  }
+
+  it('estimates when nothing publishes a MUF, and says it estimated', () => {
+    const card = hfCard(data, at)
+    expect(card.mufHz).toBeGreaterThan(0)
+    expect(card.mufEstimated).toBe(true)
+    expect(card.gauge.ceilingUnmeasured).toBe(false)
+  })
+
+  it('drops the estimate the moment a real one is published', () => {
+    const card = hfCard({ ...data, muf: leaf(21_000_000) }, at)
+    expect(card.mufHz).toBe(21_000_000)
+    expect(card.mufEstimated).toBe(false)
+  })
+
+  it('has no ceiling at all with no position to put the sun over', () => {
+    const card = hfCard({ f107: leaf(120) }, at)
+    expect(card.mufHz).toBeNull()
+    expect(card.gauge.ceilingUnmeasured).toBe(true)
   })
 })

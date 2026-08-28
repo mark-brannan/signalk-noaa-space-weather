@@ -371,11 +371,7 @@ const STATES = {
     observed: { G: 0, S: 0, R: 0 },
     peak24h: { G: 0, S: 0, R: 0 },
     kpObserved: 2.33,
-    series: series({ peakKp: 3.67, peakInMin: 1800 }),
-    // No MUF, which is what every live server answers today (issue #82): the
-    // HF gauge draws its ceiling as unmeasured, and that state has to be
-    // reachable in the mock too, not only the fabricated one.
-    mufHz: null
+    series: series({ peakKp: 3.67, peakInMin: 1800 })
   },
   recent: {
     // Live on 2026-08-25, and the case that showed the banner was wrong: the
@@ -422,7 +418,6 @@ const STATES = {
     peak24h: { G: 1, S: 0, R: 0 },
     kpObserved: 2.0,
     series: series({ peakKp: 3.0, peakInMin: 1200 }),
-    mufHz: null,
     ageMin: -400 // older than the webapp's STALE_MS
   },
   nodata: {
@@ -593,19 +588,6 @@ function payload(name, s) {
             ...leaf([96, 118, 187, 68, 152, 143][s.observed.R], -300),
             meta: { zones: F107_ZONES }
           }
-    case 'muf':
-      // Fabricated, and only here: no product publishes a MUF (issue #82).
-      // The gauge has to be readable with its ceiling both known and unknown,
-      // and only a mock can show the first -- so a state opting out with
-      // `mufHz: null` is what draws the second. `storm` deliberately puts the
-      // MUF *under* the absorption cutoff: the two ends crossing is the
-      // blackout case, not a bad reading, and the gauge has to survive it.
-      return s.observed === null || s.mufHz === null
-        ? null
-        : leaf(
-            s.mufHz ?? [26e6, 24e6, 17e6, 29e6, 22e6, 21e6][s.observed.R],
-            -300
-          )
     case 'aIndex':
       return s.observed === null ? null : leaf(s.peak24h.G >= 3 ? 48 : 6, -300)
     case 'sunspotNumber':
@@ -644,7 +626,6 @@ const ROUTES = [
   [/swpc\/proton_flux$/, 'protonFlux'],
   [/swpc\/drap$/, 'drap'],
   [/swpc\/f107$/, 'f107'],
-  [/swpc\/muf$/, 'muf'],
   [/swpc\/a_index$/, 'aIndex'],
   [/swpc\/sunspot_number$/, 'sunspotNumber'],
   [/navigation\/position$/, 'position'],

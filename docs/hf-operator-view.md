@@ -162,7 +162,25 @@ call, 2026-08-26 — on the reasoning that a defensible derivation is a scoping
 decision we are choosing to descope, not a correctness problem. Ship it,
 label it.
 
-### foF2 and MUF — not yet, and deliberately not guessed here
+### foF2 and MUF — a derived estimate ships, 2026-08-27
+
+**Built and drawn on the HF gauge**, from inputs the plugin already has:
+`estimateFoF2`/`estimateMufHz` in `public/hf.js`. Webapp only — a modelled
+number on a Signal K path is read as measured by every consumer that is not
+this tile — and every surface labels it `est`. A measured MUF on
+`environment.noaa.swpc.muf` replaces it outright the day one exists.
+
+Two stated anchors instead of a fitted coefficient, so a reader can argue
+with the assumptions rather than a regression: mid-latitude local noon at
+F10.7 = 150 gives foF2 ≈ 10 MHz, and night falls to ≈ 0.35 of that. The
+night ratio is applied as a floor on cos χ (`0.35⁴`), which is how the
+extrapolation-to-zero problem below is answered — the curve into night is
+continuous and never claims the low bands are dead. Storm depression is
+`0.04` per unit Kp, weighted by latitude to full effect past 60°, floored at
+half. Real coefficients, when someone calibrates against GIRO, replace these
+three numbers and nothing else.
+
+The reasoning the estimate is built on:
 
 Every input is already on hand and free:
 
@@ -189,12 +207,13 @@ calibration pass must include night-time samples on purpose, or the
 estimate must decline to render past some zenith angle rather than
 extrapolate. Either is defensible; silent extrapolation is not.
 
-**Coefficients are deliberately absent from this file.** A regression quoted
-from memory is precisely the kind of plausible-and-wrong number that survives
-review undetected. A first cut needs one calibration pass against GIRO
-ionosonde spot values (free) or a published foF2/F10.7 regression — day and
-night both, per the paragraph above. That is bounded work, and it is carded —
-not a research project, and not a blocker for anything else here.
+**The shipped coefficients are anchors, not a regression**, for the reason
+this section used to give for having none at all: a regression quoted from
+memory is precisely the kind of plausible-and-wrong number that survives
+review undetected. An anchor is at least arguable on its face. The
+calibration pass against GIRO ionosonde spot values — day and night both, per
+the paragraph above — is still the work that turns this into a real estimate,
+and it is still carded.
 
 ## Thresholds as Signal K zones
 
