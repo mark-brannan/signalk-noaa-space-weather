@@ -26,6 +26,53 @@ re-raises the current bulletin rather than waiting a week.
 The general rule: a setting named for an output must not also gate the input
 feeding it, unless something else can fetch that input on demand.
 
+## The advisory outlook is also published as plain data
+
+The fix above landed narrow on purpose, to get the actual production bug (a
+notification frozen for a fortnight) shipped without waiting on a further
+question. That got settled in review and lands here.
+
+**A plain-data path, not only a notification.** The notification setting is
+titled "Send notifications for...", so a client that wants the bulletin
+without opting into the alert had no path to read -- `sendAdvisoryOutlook`
+off meant no data at all, not just no notification. Every new bulletin now
+publishes plain data to `environment.noaa.swpc.advisory_outlook` regardless
+of the setting, deduped against the cache the same way the notification is,
+except once: an install upgrading straight into this feature already has
+today's bulletin cached from before this path existed, so the plain dedupe
+would leave it empty until next Monday without a one-time forced publish
+when the path itself is still empty.
+
+An earlier version of this also archived each bulletin at
+`environment.noaa.swpc.advisory_outlook.<n>`, one per-week path, written
+once and never touched again. Dropped before merge: minting a new path
+every week, forever, is the same shape issue #104 removed for the
+notification, and the plugin's own HTTP route already serves the full
+bulletin text for a client that wants history.
+
+**`EXPIRY_MS` carries slack, and gates re-raising too.** The narrow fix above
+stands the notification down when the flag goes off, but nothing stood it
+down if a fetch kept silently failing (NOAA changing the payload shape under
+the parser, a dead network) while the flag stayed on — the same kind of
+invisible staleness the flag bug was, one layer down. `expireIfStale` checks
+the raised notification's age on every tick, ahead of that tick's own fetch,
+so a broken parse or a dead network can't keep it from firing. The first
+version of this check used a flat `WEEK_MS`, on the argument that expiry and
+the next bulletin are due at the same moment so a healthy week never trips
+it — our own fixtures say otherwise: consecutive issue dates as much as
+7d3h25m apart, so a flat week stood the notification down and re-raised it a
+few hours later, every week, on a perfectly healthy install. Two days of
+slack (`WEEK_MS + 2 * DAY_MS`) covers every gap measured so far; the argument
+is "NOAA is late", not "the week is up".
+
+The same age check gates re-raising, not just expiry. Without it, a fetch
+that keeps turning up the same bulletin past its expiry would see
+`expireIfStale`'s stand-down (state now `normal`) as *not* already current,
+and re-raise the identical stale bulletin on the very next tick — undoing the
+expiry it had just enforced. Belt and suspenders: the fetch is what's
+supposed to keep the notification current, the expiry (and the same check at
+publish time) is what stops a broken fetch from lying about it.
+
 ## The sun mark is labelled "Subsolar point", not "Sun"
 
 `drawSun` in `public/spaceMap.js` plots the point on the globe directly
