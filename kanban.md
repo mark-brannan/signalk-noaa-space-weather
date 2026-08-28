@@ -121,6 +121,10 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Decide whether the weekly live check should also run the product parsers
+      over what it fetched — it has the payloads in hand and today only asserts
+      wire size
+      ([check-noaa-live.mjs](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/scripts/check-noaa-live.mjs))
 - [ ] Check whether the D-RAP legend's own labels collide in the plugin's
       tile the way they did on the demo page — at NOAA's 5 MHz interval and a
       190px bar, "35 MHz" runs back over the 30 next to it; the demo moved the
