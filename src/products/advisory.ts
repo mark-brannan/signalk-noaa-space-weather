@@ -44,20 +44,6 @@ const EXPIRY_MS = WEEK_MS + 2 * DAY_MS
 // refresh()'s own nextDelayMinutes governs every other tick.
 const FALLBACK_MINUTES = 60
 
-// Signal K path segments can't safely carry NOAA's own punctuation: `#`
-// opens a URL fragment (the REST API never sees anything after it), and a
-// `.` or a space would be read as another path level or break addressing
-// outright. Every fixture we have is `#26-30`-shaped, but shortId is
-// unvalidated NOAA text, so this strips anything that isn't safe rather
-// than special-casing `#` alone.
-export function sanitizeShortId(shortId: string): string {
-  const cleaned = shortId
-    .replace(/^#+/, '')
-    .replace(/[^A-Za-z0-9_-]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-  return cleaned || 'unknown'
-}
-
 export function nextAdvisoryDelayMinutes(
   now: Date,
   lastIssued: Date | null
@@ -103,9 +89,7 @@ export const advisory: Product = {
             ` notification at ${ADVISORY_BASE} -- but always, regardless of` +
             ' whether that notification is turned on. The full bulletin' +
             ' text is served over this plugin’s own HTTP route, not in' +
-            ' this value. Each bulletin is also archived under its own' +
-            ' child path, named for the bulletin number NOAA published' +
-            ' (e.g. `.26-31`).',
+            ' this value.',
           timeout: 60 * 60 * 24 * 7
         }
       }
@@ -171,21 +155,6 @@ export const advisory: Product = {
       publisher.selfPath(`${ADVISORY_VALUE_BASE}.value`) === undefined
     if (valueIsNew || valuePathEmpty) {
       publisher.value(ADVISORY_VALUE_BASE, summary, issued.toISOString())
-      // Also archived under its own bulletin number, written once and never
-      // touched again -- unlike the notification path's history, a value has
-      // no state to go stale in front of a user, so there is nothing wrong
-      // with these piling up. At one small object a week the whole archive
-      // costs a Pi on the order of 10-15 KB a year; see the argument in
-      // docs/design-decisions.md for why this is the one place in the
-      // plugin that's allowed to grow without a retention cap. The path
-      // segment is sanitized -- `sanitizeShortId` -- even though the value
-      // above still carries the raw `shortId`: `#` opens a URL fragment, so
-      // the REST API can never address a path built from it verbatim.
-      publisher.value(
-        `${ADVISORY_VALUE_BASE}.${sanitizeShortId(shortId)}`,
-        summary,
-        issued.toISOString()
-      )
     }
 
     // Age-gated independently of `sendAdvisoryOutlook`: a bulletin already

@@ -31,11 +31,11 @@ The general rule this is an instance of: a setting named for an output must
 not also gate the input that feeds it, unless something else can still fetch
 that input on demand.
 
-## The advisory outlook is also published as plain data, and archived
+## The advisory outlook is also published as plain data
 
 The fix above landed narrow on purpose, to get the actual production bug (a
-notification frozen for a fortnight) shipped without waiting on two further
-questions. Both got settled in review and land here.
+notification frozen for a fortnight) shipped without waiting on a further
+question. That got settled in review and lands here.
 
 **A plain-data path, not only a notification.** The notification setting is
 titled "Send notifications for...", so a client that wants the bulletin
@@ -48,31 +48,12 @@ today's bulletin cached from before this path existed, so the plain dedupe
 would leave it empty until next Monday without a one-time forced publish
 when the path itself is still empty.
 
-Each bulletin is also archived at `environment.noaa.swpc.advisory_outlook.<n>`
-(e.g. `.26-31`) — one per-week path, written once and never touched again.
-This is the same shape issue #104 burned us on for the notification, and it
-is deliberately unguarded by any retention cap, which needs saying plainly:
-those are not the same problem. #104's burn was that a *notification* is
-sticky, user-facing state — a client watching one week's alert path never saw
-it clear when the plugin moved to the next week's path instead of updating
-it, so a stale `alert` sat in front of the user forever with nothing above
-ever driving it back to `normal`. That is a correctness bug born of what a
-notification *is*, not of the path minting that carried it. A plain value has
-none of that machinery: nothing pops up, nothing needs acknowledging, and a
-client with no reason to read `.26-30` this month simply never asks for it.
-The only real cost of minting one of these every week is memory — on the
-order of 10-15 KB a year, against the 145 KB the aurora grid alone spends on
-a single fetch.
-
-The path segment *is* sanitized, though the value underneath still carries
-the raw `shortId` as an identifier. An earlier version of this argument
-treated the raw shortId (`#` and all) as safe because this path lives under
-`environment.*`, not `notifications.*`, so #104's stickiness doesn't apply —
-true, but beside the point: `#` opens a URL fragment, so
-`/signalk/v2/api/.../advisory_outlook/#26-30` never reaches the server at
-all, sticky or not. `shortId` is also unvalidated NOAA text; a `.` or a space
-in it would split or break the path the same way. `sanitizeShortId` in
-`src/products/advisory.ts` strips everything outside `[A-Za-z0-9_-]`.
+An earlier version of this also archived each bulletin at
+`environment.noaa.swpc.advisory_outlook.<n>`, one per-week path, written
+once and never touched again. Dropped before merge: minting a new path
+every week, forever, is the same shape issue #104 removed for the
+notification, and the plugin's own HTTP route already serves the full
+bulletin text for a client that wants history.
 
 **`EXPIRY_MS` carries slack, and gates re-raising too.** The narrow fix above
 stands the notification down when the flag goes off, but nothing stood it

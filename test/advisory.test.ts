@@ -3,11 +3,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { settingsFrom } from '../src/config'
-import {
-  advisory,
-  nextAdvisoryDelayMinutes,
-  sanitizeShortId
-} from '../src/products/advisory'
+import { advisory, nextAdvisoryDelayMinutes } from '../src/products/advisory'
 import { ADVISORY_BASE, ADVISORY_VALUE_BASE } from '../src/paths'
 import { writeAdvisoryCache } from '../src/cache/advisoryCache'
 import { NotificationStates } from '../src/parse'
@@ -163,22 +159,6 @@ describe('advisory product', () => {
     expect(values[0].value.shortId).toMatch(/\S/)
     // Plain data, not a notification -- no `state`/`method` to interpret.
     expect(values[0].value).not.toHaveProperty('state')
-  })
-
-  it('archives the bulletin under its own path, named for the bulletin number', async () => {
-    const h = harness(fixture(REAL))
-    await advisory.refresh(h.ctx as any)
-
-    // The path segment is sanitized -- `#` opens a URL fragment, so the raw
-    // shortId can't address over the REST API -- but the value underneath
-    // still carries the raw shortId as an identifier.
-    expect(sanitizeShortId('#26-30')).toBe('26-30')
-    const archived = h.published.find(
-      (p) => p.path === `${ADVISORY_VALUE_BASE}.26-30`
-    )
-    expect(archived).toBeDefined()
-    expect(archived.value.shortId).toBe('#26-30')
-    expect(archived.value).not.toHaveProperty('state')
   })
 
   it('does not republish a bulletin the path already holds', async () => {
