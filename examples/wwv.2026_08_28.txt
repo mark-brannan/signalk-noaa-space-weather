@@ -1,0 +1,14 @@
+:Product: Geophysical Alert Message wwv.txt
+:Issued: 2026 Aug 28 1805 UTC
+# Prepared by the US Dept. of Commerce, NOAA, Space Weather Prediction Center
+#
+#          Geophysical Alert Message
+#
+Solar-terrestrial indices for 27 August follow.
+Solar flux 122 and estimated planetary A-index 4.
+The estimated planetary K-index at 1800 UTC on 28 August was 3.33.
+
+No space weather storms were observed for the past 24 hours.
+
+Space weather for the next 24 hours is predicted to be moderate.
+Geomagnetic storms reaching the G2 level are likely.
