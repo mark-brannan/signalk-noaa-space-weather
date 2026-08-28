@@ -36,8 +36,13 @@ states the consequence exactly:
 
 **Today the plugin measures the floor and cannot see the ceiling.** That
 asymmetry is the single most important fact in this document. It is why the
-webapp's band strip fills absorbed bands and merely outlines the rest rather
-than colouring them "good" — a claim above the cutoff would be unbacked.
+webapp's HF gauge fills the absorbed floor and hatches everything above it as
+_ceiling unmeasured_ rather than colouring it "good" — a claim above the
+cutoff would be unbacked. The gauge is built to take a ceiling the day one
+exists: `hfGauge` in `public/hf.js` reads
+`environment.noaa.swpc.muf`, and a value on that path turns the hatch into an
+open window and a closed region above the MUF with no further change to the
+tile.
 
 ### The X-ray flux does not help with the ceiling
 
@@ -260,10 +265,20 @@ mockups at 1180 / 900 / 760 px in both themes, on
 - **The tile renamed to Solar Activity is forced, not cosmetic.** A flare is
   not solar wind, so the tile cannot take the flare and proton rows and keep
   the old title honestly.
-- **The band strip fills the floor and claims nothing above it.** When a
-  ceiling estimate exists it must render _differently_ from the measurement —
-  three zones (absorbed / likely usable / above the estimated ceiling), so the
-  uncertainty lives in the drawing rather than in a paragraph of legend.
+- **The gauge fills the floor and claims nothing above it.** When a ceiling
+  estimate exists it must render _differently_ from the measurement — three
+  zones (absorbed / likely usable / above the estimated ceiling), so the
+  uncertainty lives in the drawing rather than in a paragraph of legend. Built
+  as of 2026-08-27: the tile draws all three, and the middle one only appears
+  once both ends are measured.
+- **The gauge is a frequency axis, not a ladder of band names.** Nine
+  equal-width chips put the 2→4 MHz gap as far apart as 18→22 and shared no
+  scale with the map. It now runs 0–35 MHz, NOAA's own colorbar span, and
+  `MARINE_SSB_BAND_EDGES_HZ` survives as ticks at their true positions rather
+  than as the scale itself.
+- **The solar flux gauge is drawn from `meta.zones` on the path.** The
+  published ladder is the setting; `F107_BANDS` in `public/hf.js` is only the
+  fallback for a server that sends no metadata.
 
 ## Ideas raised, not decided
 

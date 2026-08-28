@@ -2,7 +2,7 @@
 // same split as hero.js and scales.js, and for the same reason: every choice
 // below is a judgement about what the plugin is entitled to claim, and a
 // judgement belongs somewhere a test can reach it.
-import { leafTime, leafValue } from './signalk.js'
+import { leafMeta, leafTime, leafValue } from './signalk.js'
 
 /**
  * Marine SSB band lower edges, in Hz. The same list as
@@ -100,15 +100,171 @@ export function bandStrip(cutoffHz) {
   }))
 }
 
+/**
+ * The frequency axis every D-RAP surface is drawn against, in MHz. NOAA's own
+ * colorbar runs 0-35, `public/drapMap.js` re-exports this as `LEGEND_MAX_MHZ`
+ * for the map legend, and the HF tile's gauge uses the same span -- a reader
+ * who has just looked at the map must not have to re-learn the scale to read
+ * the tile.
+ */
+export const HF_SCALE_MAX_MHZ = 35
+
+/** NOAA's own label interval on that axis. */
+const HF_SCALE_STEP_MHZ = 5
+
+const clamp01 = (n) => Math.min(1, Math.max(0, n))
+
+/**
+ * The HF window as one linear gauge, 0-35 MHz.
+ *
+ * Replaces the nine equal-width band chips. The chips were a ladder of
+ * *names*, so 2 and 4 MHz sat as far apart as 18 and 22, and nothing on them
+ * could be compared with the map's own frequency axis. The marine SSB edges
+ * survive as tick marks at their true positions -- `MARINE_SSB_BAND_EDGES_HZ`
+ * is still the list, and still the same list the D-RAP zone ladder is built
+ * from -- but the scale is now frequency, not band ordinal.
+ *
+ * Two ends, and only one of them is measured. The floor is D-RAP absorption
+ * (the LUF): everything below `cutoffHz` is blocked from underneath. The
+ * ceiling is the MUF, and issue #82 still stands -- nothing in this plugin
+ * measures the F2 layer. So `mufHz` is null until a source lands, and the
+ * gauge says so with a hatched "ceiling unmeasured" region rather than
+ * painting the space above the cutoff as open. The open window is only ever
+ * drawn between two measured ends.
+ */
+export function hfGauge(cutoffHz, mufHz = null) {
+  const fraction = (hz) =>
+    hz === null ? null : clamp01(hz / 1e6 / HF_SCALE_MAX_MHZ)
+  const ticks = []
+  for (let mhz = 0; mhz <= HF_SCALE_MAX_MHZ; mhz += HF_SCALE_STEP_MHZ)
+    ticks.push({ mhz, fraction: mhz / HF_SCALE_MAX_MHZ })
+
+  const absorbedFraction = fraction(cutoffHz)
+  const mufFraction = fraction(mufHz)
+  const openFrom = absorbedFraction ?? 0
+  return {
+    maxMhz: HF_SCALE_MAX_MHZ,
+    ticks,
+    // Same claim the chips made, at the frequency it is actually true at.
+    bandEdges: MARINE_SSB_BAND_EDGES_HZ.map((hz) => ({
+      hz,
+      mhz: hz / 1e6,
+      fraction: fraction(hz),
+      absorbed: cutoffHz !== null && cutoffHz >= hz
+    })),
+    cutoffHz,
+    mufHz,
+    absorbedFraction,
+    mufFraction,
+    // A null cutoff absorbs nothing, but it also clears nothing: with no
+    // reading at either end the whole axis is unknown, not open.
+    unknownFrom: cutoffHz === null ? 0 : mufHz === null ? openFrom : null,
+    unknownTo: mufHz === null ? 1 : null,
+    openFrom: cutoffHz !== null && mufHz !== null ? openFrom : null,
+    openTo:
+      cutoffHz !== null && mufHz !== null
+        ? Math.max(openFrom, mufFraction)
+        : null,
+    // Above a known MUF is closed from above, which is a measurement and not
+    // an absence -- so it is painted, not hatched. A cutoff *above* the MUF
+    // is the blackout case rather than an error: the two ends cross, the open
+    // window is empty, and both closed regions still say something true.
+    aboveFrom: mufFraction,
+    aboveTo: mufHz === null ? null : 1,
+    windowClosed:
+      cutoffHz !== null && mufHz !== null && mufFraction <= openFrom,
+    ceilingUnmeasured: mufHz === null
+  }
+}
+
+/**
+ * The solar flux gauge, built from the Signal K path's own `meta.zones` where
+ * the server hands them over, and from `F107_BANDS` where it does not.
+ *
+ * The zones are the same ladder either way -- `zonesForF107` in src/parse.ts
+ * is what publishes them and `hf-render.test.ts` pins the two identical -- but
+ * preferring the metadata means the gauge follows the plugin's published
+ * thresholds rather than a second copy of them, which is the whole point of
+ * publishing a zone ladder at all.
+ */
+export const F107_SCALE_MAX_SFU = 250
+
+/** "Poor HF conditions" is a notification message; a gauge tick is not the
+ * place for the noun it already sits under. */
+function zoneLabel(message, index) {
+  if (typeof message !== 'string' || message === '') {
+    return F107_BANDS[index]?.label ?? ''
+  }
+  return message.replace(/\s*HF conditions$/, '').replace(/essentially /, '')
+}
+
+export function f107Zones(meta) {
+  const zones = Array.isArray(meta?.zones) ? meta.zones : null
+  const source =
+    zones && zones.length
+      ? zones.map((zone, i) => ({
+          from: Number.isFinite(Number(zone.lower)) ? Number(zone.lower) : 0,
+          key: F107_BANDS[i]?.key ?? F107_BANDS[F107_BANDS.length - 1].key,
+          label: zoneLabel(zone.message, i)
+        }))
+      : F107_BANDS.map((band) => ({ ...band }))
+  return source
+    .slice()
+    .sort((a, b) => a.from - b.from)
+    .map((band, i, all) => {
+      const to = i === all.length - 1 ? F107_SCALE_MAX_SFU : all[i + 1].from
+      return {
+        ...band,
+        to,
+        fraction: clamp01(band.from / F107_SCALE_MAX_SFU),
+        width:
+          clamp01(to / F107_SCALE_MAX_SFU) -
+          clamp01(band.from / F107_SCALE_MAX_SFU)
+      }
+    })
+}
+
+/**
+ * Where a reading sits on that ladder, and which band it is in. The band is
+ * looked up in the same list the gauge draws, so the coloured word and the
+ * needle can never name different bands.
+ */
+export function f107Gauge(sfu, meta) {
+  const bands = f107Zones(meta)
+  let band = null
+  if (sfu !== null) {
+    band = bands[0]
+    for (const candidate of bands) if (sfu >= candidate.from) band = candidate
+  }
+  return {
+    maxSfu: F107_SCALE_MAX_SFU,
+    bands,
+    value: sfu,
+    // Clamped, not dropped: a reading past the top of the scale still has to
+    // put the needle somewhere, and the number is printed beside it anyway.
+    fraction: sfu === null ? null : clamp01(sfu / F107_SCALE_MAX_SFU),
+    overflow: sfu !== null && sfu > F107_SCALE_MAX_SFU,
+    band
+  }
+}
+
 export function hfCard(data) {
   const cutoffHz = numberOrNull(data?.drap?.highest_affected_frequency)
   const sfu = numberOrNull(data?.f107)
   const protonPfu = toPfu(numberOrNull(data?.protonFlux))
   const ratio = numberOrNull(data?.xrayFlux?.trend)
+  // Stub, and honestly so: no product publishes this path yet (issue #82).
+  // Reading it here rather than hard-coding null means the gauge's ceiling
+  // lights up the day one does, with no further change to the tile.
+  const mufHz = numberOrNull(data?.muf)
 
   return {
     cutoffHz,
     cutoffAt: leafTime(data?.drap?.highest_affected_frequency),
+    mufHz,
+    mufAt: leafTime(data?.muf),
+    gauge: hfGauge(cutoffHz, mufHz),
+    sfuGauge: f107Gauge(sfu, leafMeta(data?.f107)),
     bands: bandStrip(cutoffHz),
     // Every band absorbed and no band absorbed are both real readings and
     // both draw a strip; `bandsAbsorbed` is only what the summary line counts.
