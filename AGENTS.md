@@ -217,7 +217,7 @@ carry `kanban.md` along on a feature branch, and don't leave the board PR for
 the maintainer to notice: open it, and merge it yourself.
 
 A pull request whose diff touches **only** `kanban.md` needs no review and no
-approval to ask for. Merge it as soon as the `version` check is green — the
+approval to ask for. Merge it as soon as the required checks are green — the
 repo already allows auto-merge, requires no approving review, and deletes the
 branch on merge, so one command does all of it:
 
@@ -226,9 +226,8 @@ gh pr merge --squash --auto --delete-branch
 ```
 
 **When that merge doesn't land, assume another session's board PR merged
-first.** `kanban.md` has no publish impact, so `version` goes green before the
-branch has finished pushing — the rule shortens the collision window to
-minutes, it does not close it. Rebase onto `main` and push again, and
+first.** The rule shortens the collision window to the length of a CI run; it
+does not close it. Rebase onto `main` and push again, and
 **resolve the conflict by keeping both sides.** A conflict here is two
 sessions having captured different loops, so taking `ours` deletes a card
 somebody else just wrote — the one failure the board exists to prevent. If two
@@ -237,10 +236,10 @@ board settles it in the same breath. A duplicate costs a line. A dropped card
 costs the loop.
 
 **The review bots don't race that merge, because they don't start.** Left to
-themselves they would: `version` is the only required check, so it goes green
-in seconds while a reviewer is still booting, and whatever it eventually found
-would be posted into a pull request that closed minutes earlier — a comment on
-a merged PR is not a finding, it is a message nobody is going to read. So both
+themselves they would: auto-merge fires the moment the required checks pass,
+and whatever a reviewer eventually found would be posted into a pull request
+that closed minutes earlier — a comment on a merged PR is not a finding, it is
+a message nobody is going to read. So both
 reviewers are filtered on the same diff test the merge rule uses, in
 `.github/workflows/claude-review.yml` (`paths-ignore`) and `.coderabbit.yaml`
 (`path_filters`). Both filters skip a run only when `kanban.md` is the entire
