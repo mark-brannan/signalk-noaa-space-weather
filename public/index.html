@@ -399,6 +399,18 @@
   /* The two measured ends, drawn as marks over the fills. */
   .hf-gauge-track .mark { width: 2px; background: var(--text); }
   .hf-gauge-track .mark.muf { background: var(--aurora-a); }
+  /* The MUF's own number, on the gauge rather than on a row below it. Sits
+     inside the track beside its mark, and flips to the mark's left once the
+     mark is far enough right that it would overrun the end. */
+  .hf-gauge-track .muf-label {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    margin-left: 5px; padding: 0 2px;
+    font-family: var(--font-num); font-variant-numeric: tabular-nums;
+    font-size: 0.58rem; line-height: 1; white-space: nowrap;
+    color: var(--text); background: color-mix(in srgb, var(--panel) 72%, transparent);
+    border-radius: 2px;
+  }
+  .hf-gauge-track .muf-label.before { transform: translate(-100%, -50%); margin-left: -5px; }
   /* The marine band numbers, over the ticks they name. Above the track, not
      below it: the axis under it carries the scale, and the two rows say
      different things -- these are a sailor's bands, that is frequency. */
@@ -1157,7 +1169,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
 
   function renderHf(card) {
     const body = document.getElementById('hfBody');
-    const { cutoffHz, mufHz, gauge, sfuGauge, sfu, f107Band,
+    const { cutoffHz, mufHz, mufEstimated, gauge, sfuGauge, sfu, f107Band,
       protonPfu, protonElevated, trendRatio, trendWord } = card;
     if (cutoffHz === null && sfu === null && protonPfu === null && trendRatio === null) {
       body.innerHTML = '<div class="empty-state">No HF propagation reading yet.</div>';
@@ -1201,8 +1213,16 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         ? `<i class="mark" style="left:${pct(gauge.absorbedFraction)}" title="Absorption cutoff (LUF)"></i>`
         : '') +
       (gauge.mufFraction !== null
-        ? `<i class="mark muf" style="left:${pct(gauge.mufFraction)}" title="Maximum usable frequency"></i>`
+        ? `<i class="mark muf" style="left:${pct(gauge.mufFraction)}" title="${mufEstimated ? 'Estimated maximum usable frequency' : 'Maximum usable frequency'}"></i>`
         : '');
+
+    // The MUF reads on the gauge, not as a row of its own: it is one end of
+    // the window the gauge draws, and a number on a separate line made the
+    // reader join them up by hand. Flipped to the inside once the mark is far
+    // enough right that the label would run off the end.
+    const mufLabel = gauge.mufFraction === null
+      ? ''
+      : `<span class="muf-label${gauge.mufFraction > 0.62 ? ' before' : ''}" style="left:${pct(gauge.mufFraction)}">MUF ${(mufHz / 1e6).toFixed(1)}${mufEstimated ? '&nbsp;est' : ''}</span>`;
 
     // Only the top of the scale is labelled. Every 5 MHz was NOAA's own
     // interval on the colorbar, but the band numbers now sit above the track
@@ -1226,7 +1246,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
 
     const strip = `<div class="hf-gauge">
         <div class="hf-gauge-bands">${bandLabels}</div>
-        <div class="hf-gauge-track">${segments}${edges}${marks}</div>
+        <div class="hf-gauge-track">${segments}${edges}${marks}${mufLabel}</div>
         <div class="hf-gauge-axis">${axis}</div>
       </div>
       <div class="hf-gauge-legend">
@@ -1234,8 +1254,8 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         ${gauge.ceilingUnmeasured
           ? '<span><i class="hf-seg-unknown"></i>Ceiling unmeasured</span>'
           : gauge.windowClosed
-            ? '<span><i class="hf-seg-above"></i>Above the MUF &mdash; no open window</span>'
-            : '<span><i class="hf-seg-open"></i>Open</span><span><i class="hf-seg-above"></i>Above the MUF</span>'}
+            ? `<span><i class="hf-seg-above"></i>Above the MUF &mdash; no open window</span>`
+            : `<span><i class="hf-seg-open"></i>Open</span><span><i class="hf-seg-above"></i>Above the MUF</span>`}
       </div>`;
 
     // The zone ladder the plugin publishes on the path itself, drawn as the
@@ -1263,16 +1283,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       'sfu'
     ) + sfiGauge;
 
-    // The other end of the gauge, as a number. A stub until issue #82 lands a
-    // source -- said in words rather than left blank, because a blank row
-    // reads as a fetch that failed.
-    const mufRow = row(
-      'Max usable freq. (MUF)',
-      mufHz !== null
-        ? (mufHz / 1e6).toFixed(1)
-        : `${DASH}<span class="q">not measured</span>`,
-      mufHz !== null ? 'MHz' : ''
-    );
     const protonRow = row(
       'Proton flux (&ge;10&nbsp;MeV)',
       protonPfu !== null ? protonPfu.toFixed(protonPfu < 10 ? 1 : 0) : DASH,
@@ -1285,7 +1295,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       ''
     );
 
-    body.innerHTML = strip + mufRow + sfiRow + protonRow + trendRow;
+    body.innerHTML = strip + sfiRow + protonRow + trendRow;
     fitBandCaption(body);
   }
 
