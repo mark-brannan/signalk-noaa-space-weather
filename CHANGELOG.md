@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.29.11](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.29.10...v0.29.11) (2026-08-28)
+
+
+### Fixed
+
+* **config:** tell the user what a poll actually costs ([#223](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/223)) ([ab07ca1](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/ab07ca1eaa6323cf91a4af89843741825ce9fe62))
+* **release:** give release-please a GitHub App token ([#246](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/246)) ([d0c4a2c](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/d0c4a2c4545923f45a25c8964eb65bb090ba3c2c))
+
 ## [0.29.10](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.29.9...v0.29.10) (2026-08-28)
 
 
