@@ -9,27 +9,22 @@ here instead, so it isn't reloaded into every session's context.
 
 The setting is titled "Send notifications for weekly Advisory Outlook", and
 until 0.29.9 it was also the product's `enabled`, so turning it off stopped the
-whole schedule. Nothing then ran to fetch a new bulletin, and nothing ran to
-notice that. On one instance the flag went off on 2026-08-15 and the published
-outlook stayed at the 2026-08-10 issue for a fortnight while NOAA moved on.
+schedule. On one instance the flag went off on 2026-08-15 and the published
+outlook sat at the 2026-08-10 issue for a fortnight.
 
 What made it invisible rather than merely wrong is that `advisory` has no
-manual-refresh route. `aurora` and `drap` carry the same kind of switch, but a
-press of the webapp's refresh button fetches regardless of it, so a user who
-wonders why a number looks old has a way to find out. Here there was none: the
-only path to a fresh bulletin was the schedule the flag had turned off.
+manual-refresh route. `aurora` and `drap` carry the same kind of switch, but
+their refresh button fetches regardless of it, so a stale number there is one
+press from being disproved. Here the schedule was the only path to a fresh
+bulletin.
 
-So the flag is applied where the notification is published and nowhere else,
-and the product is scheduled unconditionally, like `alerts`. The fetch is
-under a kilobyte a day, which is not a bandwidth argument against it. Turning
-the flag off also stands down whatever is currently raised, and turning it
-back on re-raises the current bulletin rather than waiting for next week's --
-the publish dedupe checks whether the notification is raised, not only whether
-the bulletin number changed.
+So the flag is applied where the notification is published and nowhere else.
+The fetch is under a kilobyte a day, which is no bandwidth argument against it.
+Turning the flag off stands down whatever is raised, and turning it back on
+re-raises the current bulletin rather than waiting a week.
 
-The general rule this is an instance of: a setting named for an output must
-not also gate the input that feeds it, unless something else can still fetch
-that input on demand.
+The general rule: a setting named for an output must not also gate the input
+feeding it, unless something else can fetch that input on demand.
 
 ## The sun mark is labelled "Subsolar point", not "Sun"
 

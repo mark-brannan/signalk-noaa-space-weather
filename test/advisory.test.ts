@@ -90,9 +90,8 @@ describe('advisory product', () => {
   }
 
   it('is scheduled whether or not sendAdvisoryOutlook is on', () => {
-    // The setting is titled "Send notifications for..."; it governs the
-    // notification and nothing else. Gating the schedule on it too froze the
-    // published bulletin for as long as the flag stayed off.
+    // Gating the schedule on the flag froze the published bulletin for as
+    // long as it stayed off.
     expect(advisory.enabled).toBeUndefined()
   })
 
@@ -127,8 +126,8 @@ describe('advisory product', () => {
   })
 
   it('re-raises the same bulletin once sendAdvisoryOutlook comes back on', async () => {
-    // Same shortId as the fixture, already stood down -- confirms the dedupe
-    // checks whether the notification is raised and not only its shortId.
+    // Same shortId as the fixture, already stood down: the dedupe has to
+    // check whether it is raised, not only the shortId.
     const h = harness(fixture(REAL), {
       [`${ADVISORY_BASE}.value`]: {
         id: 'space_weather_advisory_outlook',
@@ -259,9 +258,8 @@ describe('advisory product', () => {
   })
 
   it('raises the notification by default', async () => {
-    // What `advisory.enabled` used to assert. The default is still on, but it
-    // is now a fact about the notification rather than about the schedule --
-    // see the test at the top of this file for why those had to come apart.
+    // What `advisory.enabled` used to assert -- now a fact about the
+    // notification rather than the schedule.
     const h = harness(fixture(REAL), {}, { sendAdvisoryOutlook: undefined })
     await advisory.refresh(h.ctx as any)
 

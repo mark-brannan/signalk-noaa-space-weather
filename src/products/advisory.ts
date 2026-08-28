@@ -48,13 +48,9 @@ export function nextAdvisoryDelayMinutes(
 export const advisory: Product = {
   name: 'Advisory Outlook',
   intervalMinutes: () => FALLBACK_MINUTES,
-  // No `enabled`. `sendAdvisoryOutlook` is titled "Send notifications for..."
-  // and that is all it governs; gating the schedule on it too meant turning
-  // the notification off also stopped the fetch, so the bulletin froze at
-  // whatever it last held and nothing ever ran again to notice. Unlike
-  // `aurora` and `drap`, this product has no manual-refresh route to reveal
-  // that, so it went unseen for weeks. Always scheduled, like `alerts`; the
-  // flag is applied below, where the notification is published.
+  // No `enabled`: `sendAdvisoryOutlook` governs the notification, not the
+  // fetch, and this product has no manual-refresh route to reveal a frozen
+  // bulletin. Argument in docs/design-decisions.md.
 
   metadata(): Meta[] {
     return [
@@ -124,17 +120,13 @@ export const advisory: Product = {
       // The tight poll runs every 15 minutes through the pre-issuance window
       // and re-reads the same bulletin each time; republishing it would put a
       // delta out to every connected client for a value that has not moved.
-      // `isRaised` is checked too, not just `shortId`, so turning the flag
-      // back on re-raises the bulletin the stand-down below cleared rather
-      // than leaving it at `normal` until next week's issue.
+      // `isRaised` too, so the flag coming back on re-raises the same
+      // bulletin rather than waiting a week.
       if (!existing || existing.shortId !== shortId || !isRaised(existing)) {
         publisher.value(ADVISORY_BASE, current, issued.toISOString())
         publisher.debug('Sending %s: %s', ID, current.message)
       }
     } else if (existing && isRaised(existing)) {
-      // The flag went off while a bulletin was raised. Leaving it standing
-      // would be the same failure in miniature: a notification the operator
-      // has asked not to receive, with nothing left running to retract it.
       publisher.debug('Standing down %s: sendAdvisoryOutlook is off', ID)
       publisher.value(
         ADVISORY_BASE,
