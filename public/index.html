@@ -411,6 +411,11 @@
   /* Only the top of the scale is labelled -- one number, right-aligned, so it
      never collides with the band numbers above the track. */
   .hf-gauge-axis { position: relative; height: 13px; margin-top: 2px; }
+  .hf-gauge-axis .caption {
+    position: absolute; top: 0; left: 0; right: auto;
+    font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-dim);
+    white-space: nowrap;
+  }
   .hf-gauge-axis span {
     position: absolute; top: 0; right: 0;
     font-family: var(--font-num); font-variant-numeric: tabular-nums;
@@ -1202,7 +1207,16 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // Only the top of the scale is labelled. Every 5 MHz was NOAA's own
     // interval on the colorbar, but the band numbers now sit above the track
     // and two rows of numbers on one axis read as one crowded row.
-    const axis = `<span>${gauge.maxMhz}&nbsp;MHz</span>`;
+    // The caption shares the axis row rather than the band row: the space to
+    // the right of the top band number is only ~90px at tile width, narrower
+    // than either wording, and a caption overlapping the number it explains is
+    // worse than no caption. Here it sits under them with the whole left of
+    // the row free. `fitBandCaption` still measures -- longest wording, then
+    // shorter, then gone -- because the tile is a grid column and no media
+    // query on this element would know how wide the page made it.
+    const axis =
+      '<span class="caption">(Marine SSB Bands)</span>' +
+      `<span>${gauge.maxMhz}&nbsp;MHz</span>`;
 
     // The marine band numbers, over the tick each one belongs to. Truncated,
     // not rounded: the band at 18.78 MHz is the one everyone calls 18.
@@ -1222,7 +1236,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
           : gauge.windowClosed
             ? '<span><i class="hf-seg-above"></i>Above the MUF &mdash; no open window</span>'
             : '<span><i class="hf-seg-open"></i>Open</span><span><i class="hf-seg-above"></i>Above the MUF</span>'}
-        <span>Numbers are marine SSB bands</span>
       </div>`;
 
     // The zone ladder the plugin publishes on the path itself, drawn as the
@@ -1273,6 +1286,29 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     );
 
     body.innerHTML = strip + mufRow + sfiRow + protonRow + trendRow;
+    fitBandCaption(body);
+  }
+
+  /**
+   * The caption over the band numbers, at whatever length clears them.
+   *
+   * Measured rather than guessed: the tile is a grid column, so its width is
+   * the page's business and no media query on this element would know. Tried
+   * longest first, then shorter, then removed -- a caption overlapping the
+   * number it explains is worse than no caption.
+   */
+  const BAND_CAPTIONS = ['(Marine SSB Bands)', '(Marine Bands)'];
+  function fitBandCaption(body) {
+    const caption = body.querySelector('.hf-gauge-axis .caption');
+    const scale = body.querySelector('.hf-gauge-axis span:last-child');
+    if (!caption || !scale) return;
+    for (const text of BAND_CAPTIONS) {
+      caption.textContent = text;
+      // 8px of air, so the caption never runs into the scale's own label.
+      if (caption.getBoundingClientRect().right + 8 <
+          scale.getBoundingClientRect().left) return;
+    }
+    caption.remove();
   }
 
   function drawKpTimeline(canvas, series) {
