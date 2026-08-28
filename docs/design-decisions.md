@@ -428,35 +428,62 @@ as a _copy_ of the packed files instead. Don't "fix" that with `npm link`: it
 writes a `link:` spec that npm 9 refuses to install at all with
 `EUNSUPPORTEDPROTOCOL`, which is what broke `~/.signalk-dev`.
 
-## A merge does not publish; `release.yml` does, on a debounce
+## release-please owns the version; no pull request does
 
-The version number is decided **before** the merge and the release happens
-**after** it, and those are deliberately not the same moment.
-`.husky/pre-commit` is the convenience and
-`.github/workflows/version-gate.yml` is the guarantee — and only while the
-ruleset requires the `version` check, since a red gate nothing requires can be
-merged past.
+Four mechanisms used to keep a version number in front of every merge: a husky
+hook that patch-bumped at commit time, a `version` status check that failed a
+pull request shipping without one, a guard on `main` that caught what the check
+missed, and an hourly `release.yml` that waited for six quiet hours before
+tagging. They shared one file, `scripts/publish-impact.sh`, holding a regex of
+paths presumed not to reach the tarball.
 
-`release.yml` runs hourly and tags `main` only once nothing has merged for
-`RELEASE_WINDOW_HOURS`, so a busy afternoon ships one release when the
-afternoon ends instead of one per pull request — 59 releases in the first 24
-days is what the merge-publishes design cost. A `workflow_dispatch` run skips
-the wait and flushes whatever is pending immediately; it skips nothing else,
-since the tag is still what says what has already been published.
+All four existed to work around one constraint: `main`'s ruleset requires a
+pull request and a signed commit, so nothing in CI could write `package.json`.
+Every bump therefore had to ride inside somebody's pull request, and three of
+the four mechanisms were there to make sure one did.
 
-A version has to be ahead of the latest tag, never merely different from it: a
-stale branch differs from it too, which is how
-[#123](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/123)
-squash-merged at a version already on npm and never published.
+The cost was paid on every pull request. A version diff in a two-line docs
+change, a red gate on a stale branch that merely _differed_ from the tag
+([#123](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/123)),
+a gate that blamed one branch for everything merged since it opened
+([#141](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/141)),
+a path regex whose own comment conceded that `docs/` sat in it as a judgement
+call. The debounce had no upper bound either: merges every thirty minutes never
+close a six-hour window, and a deliberate manual release meant choreographing a
+bump commit by hand.
 
-So the gate requires a version past the latest tag and pointedly not past
-`main`'s own. Between a merge and the window closing, `main` sits at a version
-that has not shipped, and a second pull request is meant to _join_ it there.
-That shared number is the batching, and it is why released versions stay
-contiguous instead of skipping the ones a second concurrent branch would
-otherwise have minted. Only a tagged version is spent. Do not reintroduce a
-check that a pull request be ahead of the base — it was there when every merge
-published, and under the window it is exactly what puts the gaps back.
+`release-please` inverts it. The batch is a standing pull request that
+accumulates as work merges, and merging it is the release. The constraint that
+produced the workarounds never comes up, because the bump arrives the way every
+other change does — through a pull request. Nothing polls, nothing waits, and
+no clock decides: work piles into the open release pull request until a human
+merges it. Holding a release is leaving it open; cutting one now is merging it
+now.
+
+Three consequences worth naming.
+
+**The release pull request must be squash-merged.** release-please's commits
+are unsigned and the ruleset requires signatures; a squash replaces them with
+one commit signed by GitHub's own key, which the rule accepts. A merge commit
+carries the unsigned originals through and is refused.
+
+**The version policy is configuration, not prose.**
+`bump-patch-for-minor-pre-major` keeps `feat` a patch and
+`bump-minor-pre-major` makes a breaking change a minor while this is pre-1.0.
+The standing bias against minting minors — 59 releases in the first 24 days, 27
+of them minors — is now enforced rather than argued per pull request.
+
+**The publish still has to be dispatched by hand from the workflow.**
+release-please tags with the default `GITHUB_TOKEN`, and GitHub does not fire
+workflows for refs created that way. `publish.yml`'s `push: tags` listener
+never sees it, so `release-please.yml` calls `gh workflow run publish.yml --ref
+<tag>` — the same path a human uses, and the one npm's trusted publisher is
+configured for. `workflow_call` was tried and npm rejects the token it mints.
+
+What is given up: nothing enforces that a publish-impacting change gets
+released. That was the point of the path regex, and it is now a judgement call
+made once, when the release pull request is merged, instead of a guess encoded
+in a list of directories.
 
 ## Every webapp map draws its own coastline; the chart overlay draws none
 

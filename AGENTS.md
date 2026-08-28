@@ -180,29 +180,28 @@ If that is what the log says, note it in one line and move on.
 **Anything else in that check is real.** A different error, or a run with
 output attached, is the scanner working. Read it.
 
-### Versions: this repo is the exception
+### Versions: never touch them
 
-Upstream says never to touch version numbers, because a maintainer sets them at
-publish time. Here the version on `main` is what a release carries.
+Upstream says never to touch version numbers. That holds here without an
+exception now: `release-please` owns the version, the CHANGELOG and the tag.
 
-**Bias hard towards no bump at all.** `.husky/pre-commit` writes the patch and
-`.github/workflows/version-gate.yml` blocks a pull request that shipped without
-one, so an agent that touches the version at all is overriding a decision the
-tooling already made correctly. If the hook stood down because `main` is already
-past the latest tag, that is the batching working: your change joins the pending
-version rather than minting another. Leave it alone. Never create a tag locally
-— CI does that, and a local tag makes it skip the publish.
+**Never put a version bump in a pull request.** Never edit `package.json`'s
+version, `.release-please-manifest.json` or `CHANGELOG.md` by hand, and never
+create a tag locally. A merge to `main` updates a standing `chore: release`
+pull request; Mark merges that when he wants a release.
 
-**A minor bump is the maintainer's call, not yours.** Not "ask and then do it":
-the number stays a patch unless Mark types `npm version minor` himself. This is
-a standing bias, not a judgement to re-litigate per change — the plugin cut 59
-releases in its first 24 days and 27 of them were minors, which is not semver
-working, it is every author finding their own change significant. Reviewers,
-including review bots, will argue the strict reading where any new non-breaking
-functionality is minor. That reading counts routes nobody outside this package
-calls and burns a version on each one. Decline it and say why.
+**Your commit subject is the only input.** `feat` and `fix` produce a release;
+everything else is invisible to it. Write the type honestly and the changelog
+writes itself — a `fix` labelled `chore` silently ships with no note.
 
-Revisit this once release cadence has settled; the card is on `kanban.md`.
+**A minor bump is not yours to mint, and now you cannot.**
+`bump-patch-for-minor-pre-major` in `release-please-config.json` makes `feat` a
+patch while this is pre-1.0, so the standing bias is enforced rather than
+argued. The plugin cut 59 releases in its first 24 days and 27 of them were
+minors, which is not semver working, it is every author finding their own
+change significant. Reviewers, including review bots, will argue the strict
+reading where any new non-breaking functionality is minor. Decline it and point
+at the config.
 
 ## Open loops live in `kanban.md`
 

@@ -121,6 +121,15 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Roll release-please out to the other packages that need release
+      automation — `ampacity`, `wire-wright`, `coastlines`, `coast-wright`,
+      `portolani`. This repo is the template: `release-please-config.json`,
+      `.release-please-manifest.json` and
+      [release-please.yml](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/.github/workflows/release-please.yml).
+      Check each one's ruleset for a required status check that no longer
+      exists, and whether it signs commits (if so the release PR must be
+      squash-merged)
+
 - [ ] Decide whether the weekly live check should also run the product parsers
       over what it fetched — it has the payloads in hand and today only asserts
       wire size
@@ -141,10 +150,6 @@ what it is blocked by. Delete it when it is done.
       190px bar, "35 MHz" runs back over the 30 next to it; the demo moved the
       unit to the row label instead
       ([drapLegendHtml](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/public/index.html))
-- [ ] Decide whether `demo/` belongs in `NO_PUBLISH_IMPACT` — nothing under it
-      reaches the tarball (it is not in package.json's `files`), yet a
-      demo-only change today forces a version bump
-      ([publish-impact.sh](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/scripts/publish-impact.sh))
 
 - [ ] Nothing guards the map tile's Expand geometry: `applyExpandedWidth` in
       `public/index.html` is layout behaviour, so it only fails in a real
@@ -154,21 +159,7 @@ what it is blocked by. Delete it when it is done.
       browser-level check earns a home in the repo — it cannot join `npm test`,
       which the registry runs offline under a 60s cap, so it would have to be a
       separate package like `scripts/screenshots/`
-- [ ] Fix the release process — today's manual batching (2026-08-27) didn't
-      match Mark's expectations and needed a hand-tagged commit off `main` to
-      unstick it (bad, since fixed via
-      [#207](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/207)).
-      Two real problems to solve, not just the mistake: (1) `RELEASE_WINDOW_HOURS=6`
-      debounce has no upper bound — a busy day with merges every 30-60min never
-      closes the window and nothing ships for 15+ hours; add a cap that forces a
-      publish once pending changes have waited long enough, independent of how
-      recently `main` last moved. (2) the tag-vs-`main` coupling in
-      `release.yml`/`publish-impact.sh` is fragile in practice — manually
-      flushing a specific batch means either waiting on the hook to bump
-      `package.json` via a real merge, or building a version-bump PR by hand;
-      there's no clean "release main as of right now" primitive. Rework
-      `scripts/publish-impact.sh` and `release.yml` so a deliberate manual
-      release doesn't require choreographing commits
+
 - [ ] Tidy `mapView`'s return shape in `public/projection.js` once
       [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191)
       lands — it returns `center` as the *settled* value but `radiusDeg` as the
@@ -273,17 +264,12 @@ what it is blocked by. Delete it when it is done.
       once `capture.mjs fast` catches one — the invented wording is a guess and
       nothing should parse against it
       ([#134](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/134))
-- [ ] **2026-09-02**: revisit `RELEASE_WINDOW_HOURS` in
-      [scripts/publish-impact.sh](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/scripts/publish-impact.sh)
-      — started at 6h in [#136](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/136),
-      drop to 3 if a week of `git tag --list` shows releases still batching
-      well at that cadence. Revisit AGENTS.md's "bias hard towards no bump"
-      in the same pass
+
 - [ ] Make a failed publish recoverable in
-      [release.yml](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/.github/workflows/release.yml)
-      — the tag is pushed before `publish.yml` runs, so if the publish fails
-      the tag exists, `version_is_ahead` goes false and neither `release.yml`
-      nor the version guard ever mentions it again. The red release run is the
+      [release-please.yml](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/.github/workflows/release-please.yml)
+      — release-please tags and creates the Release before `publish.yml` runs,
+      so if the publish fails the tag exists, release-please considers the
+      version shipped and never mentions it again. The red release run is the
       only signal; a re-dispatch of `publish.yml` at the tag is the manual fix
       ([#136](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/136))
 - [ ] Fix the three defects the review sweep found on merged PRs: the banner
