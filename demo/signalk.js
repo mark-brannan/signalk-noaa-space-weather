@@ -12,8 +12,7 @@
 // always read null.
 export const ENDPOINTS = {
   scalesNow: 'environment/noaa/swpc/scales/observations/latest',
-  scalesObserved:
-    'environment/noaa/swpc/scales/observations/24_hours_maximums',
+  scalesObserved: 'environment/noaa/swpc/scales/observations/24_hours_maximums',
   scalesForecast: 'environment/noaa/swpc/scales/forecast',
   kp: 'environment/noaa/swpc/kp',
   solarWind: 'environment/noaa/swpc/solar_wind',
@@ -26,6 +25,9 @@ export const ENDPOINTS = {
   aIndex: 'environment/noaa/swpc/a_index',
   sunspotNumber: 'environment/noaa/swpc/sunspot_number',
   position: 'navigation/position',
+  // No snapshot carries this yet -- the MUF is issue #82 -- and nodeAt
+  // answers null, which is the same "not measured" the live webapp gets.
+  muf: 'environment/noaa/swpc/muf',
   advisory: null,
   status: null
 }
@@ -86,5 +88,10 @@ export const leafValue = (node) =>
       ? node.value
       : null
     : (node ?? null)
+
+export const leafMeta = (node) =>
+  node && typeof node === 'object' && node.meta && typeof node.meta === 'object'
+    ? node.meta
+    : null
 
 export const leafTime = (node) => (node && node.timestamp) || null

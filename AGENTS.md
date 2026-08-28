@@ -70,6 +70,23 @@ CPU cycles cost watts, and a plugin does not get to stall the event loop.
   [#45](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/45)
   was made of.
 
+## Screenshots and Playwright
+
+Every browser launch — the checked-in scripts in `scripts/screenshots/` and
+any throwaway script alike — must set `colorScheme: 'dark'` explicitly
+(`newContext({ colorScheme: 'dark' })`, or `page.emulateMedia({ colorScheme:
+'dark' })` on a reused context) before `goto`. Playwright defaults to light,
+and that default doesn't carry over from one script to the next, so it has
+to be set every time, not corrected after the fact. The webapp is
+[dark by default](CLAUDE.md); a light screenshot of it is wrong on sight.
+
+The one exception is a page with no dark mode of its own — the Signal K
+admin UI, a vendor page. Light is correct there; say so in a comment so it
+reads as deliberate. If you're adding a new capture script, thread a
+`--theme`/`theme:` option through it rather than hardcoding, the way
+[scripts/screenshots/capture.mjs](scripts/screenshots/capture.mjs) and
+[scripts/screenshots/states.mjs](scripts/screenshots/states.mjs) already do.
+
 ## Configuration
 
 A setting has to earn its place. The bar is a decision only the boat owner can
