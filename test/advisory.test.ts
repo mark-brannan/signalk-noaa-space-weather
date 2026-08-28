@@ -365,7 +365,8 @@ describe('advisory product', () => {
   it('raises the notification by default', async () => {
     // What `advisory.enabled` used to assert -- now a fact about the
     // notification rather than the schedule.
-    const h = harness(fixture(REAL), {}, { sendAdvisoryOutlook: undefined })
+    vi.useFakeTimers({ now: REAL_ISSUED, toFake: ['Date'] })
+    const h = harness(fixture(REAL))
     await advisory.refresh(h.ctx as any)
 
     const [raised] = h.published.filter((p) => p.path === ADVISORY_BASE)
