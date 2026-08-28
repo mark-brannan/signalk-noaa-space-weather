@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.30.0](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/signalk-noaa-space-weather-v0.29.9...signalk-noaa-space-weather-v0.30.0) (2026-08-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **paths:** environment.noaa.swpc.outlook_27day.* is gone rather than deprecated, with no alias. Anything reading it -- a KIP gauge, a Grafana query, a Node-RED flow -- reads nothing until it is repointed at environment.noaa.swpc.kp.forecast.outlook27.*. Those paths were published from 0.14.0 to 0.21.1 and were flagged as pre-release in the README for that whole window, so the move was pre-authorised rather than a liberty taken here.
+
+### Added
+
+* **config:** name the alarm level, and present it as a select ([55da190](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/55da190c88c112593d96062cf7bb73d18abdb999))
+* **drap:** publish D-RAP highest affected frequency at the vessel ([#101](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/101)) ([b27e489](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/b27e489e3e946e6f490741ec50a52812aa6a34ef))
+* **goesFlux:** publish GOES X-ray and proton flux ([#100](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/100)) ([8626263](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/862626353383b77a399931053e00cd6b9951e6fd))
+* **outlook27:** publish the 27-day space weather outlook ([dd94488](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/dd94488bc472f6bb65ef6305e097ee2d63af6370)), closes [#53](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/53)
+* **paths:** move the 27-day outlook under the Kp forecast ([#80](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/80)) ([bf7852e](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/bf7852ebdb1011008d88b4c6d1d9200ccfd056e1)), closes [#57](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/57)
+* publish the A index and sunspot number, completing the HF phrase ([#91](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/91)) ([b2b5651](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/b2b5651c1bba40277705679b3084e0c8584e1556))
+* report the plugin's start time on its own route ([ba1492c](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/ba1492c90c7473348e0b9daefa902de25e369e09))
+* **webapp:** mark where the Kp chart stops measuring and starts guessing ([f0f29d2](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/f0f29d2231f52f64084c957ce46c7988d56c3728))
+* **webapp:** take 60px off the top row ([824a1e2](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/824a1e2e797efcd7ce36226a95a7d5769c3fa06d))
+* **webapp:** tell the hero's states apart, and always count something ([5d26673](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/5d26673d9b207cba72bb721c1e40dbd68504efb5))
+
+
+### Fixed
+
+* **advisory:** the flag gates the notification, not the fetch ([#231](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/231)) ([cf31da8](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/cf31da8a544163950cd323d673e25eebc143e3b1))
+* **config:** quote measured storm rates, not per-cycle averages ([#62](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/62)) ([adbd8d3](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/adbd8d3ba47b105a433386362a43fe50da45e458))
+* **config:** save the whole configuration, not a patch over it ([#78](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/78)) ([89c25b3](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/89c25b332882fb65c0c2bf291dc4c0de360e8ae2))
+* **config:** stop quoting one scale's rate as if it covered three ([d411649](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/d41164964bc508a28d39e5d194ea8bb4ee6df505))
+* **outlook27:** the outlook is weekly, so poll once a day ([8f7c03b](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/8f7c03b3e9a129af33098556fc88f5f446c27edf))
+* ship the Webapps page icon in the tarball ([#65](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/65)) ([c23348d](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/c23348d323899ed6a52f5f74d5451c075397aa19))
+* stop claiming a 304 covers the repeat polls ([d451522](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/d4515228557d1629337b20ebf22db7591b39f6b9))
+* **webapp:** compact hero/statusbar on mobile ([ddbed4c](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/ddbed4cc4b8bbd5fcbae5060b16ff77c684fd8c7))
+* **webapp:** cut the advisory teaser at a word boundary ([a509ed1](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/a509ed180bb8c4be5abc13d33617ab2173e273eb))
+* **webapp:** draw the G/S/R badges from the 24-hour observed maximum ([#123](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/123)) ([d6304f6](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/d6304f62220c9dd4b90a643316e6193ce3cdd336))
+* **webapp:** keep header to chip and countdown only ([#107](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/107)) ([89743a6](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/89743a692cdc7349acca7e74b8c80bbfbd0aa633))
+* **webapp:** keep the hero clock on the scale it can see ([339c3d7](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/339c3d777d5641edccbe7345cba2c077c04a4e27))
+* **webapp:** render a meta-only path as missing, not [object Object] ([9f8c7fc](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/9f8c7fc95d0d36ac982dd4c313b6b278328db054))
+* **webapp:** say what NOAA says, not how loud the plugin is ([#127](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/127)) ([964ee25](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/964ee250c956f930163d0980d09cd502b5d649d9))
+* **webapp:** subset Oswald and Space Mono to Latin ([#141](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/141)) ([d4b2f58](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/d4b2f589baa713440144f90431b049433e0d4030))
+* **webapp:** tidy the dashboard's layout and copy ([#119](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/119)) ([be505dc](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/be505dc5b2fc1e15946472edb69a165887ace5c4))
+
+
+### Changed
+
+* **outlook27:** poll every eight hours, not four ([f89c386](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/f89c386fdf12a51f949eb59a6b851c47fba580d9))
+
 ## [0.29.3] - 2026-08-26
 
 ### Added
