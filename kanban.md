@@ -121,6 +121,16 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Check whether the D-RAP legend's own labels collide in the plugin's
+      tile the way they did on the demo page — at NOAA's 5 MHz interval and a
+      190px bar, "35 MHz" runs back over the 30 next to it; the demo moved the
+      unit to the row label instead
+      ([drapLegendHtml](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/public/index.html))
+- [ ] Decide whether `demo/` belongs in `NO_PUBLISH_IMPACT` — nothing under it
+      reaches the tarball (it is not in package.json's `files`), yet a
+      demo-only change today forces a version bump
+      ([publish-impact.sh](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/scripts/publish-impact.sh))
+
 - [ ] Nothing guards the map tile's Expand geometry: `applyExpandedWidth` in
       `public/index.html` is layout behaviour, so it only fails in a real
       browser, and the two attempts at it
