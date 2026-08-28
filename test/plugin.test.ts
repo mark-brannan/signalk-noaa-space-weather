@@ -4,7 +4,12 @@ import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import createPlugin, { retryDelayMs } from '../src/index'
 import { settingsFrom } from '../src/config'
-import { AURORA_BASE, DRAP_BASE } from '../src/paths'
+import {
+  AURORA_BASE,
+  DRAP_BASE,
+  PROTON_FLUX_BASE,
+  XRAY_FLUX_BASE
+} from '../src/paths'
 import { ValueUpdate, parseDrapGrid } from '../src/parse'
 import { Meta } from '../src/publisher'
 import { readAuroraCache, writeAuroraCache } from '../src/cache/auroraCache'
@@ -930,6 +935,185 @@ describe('plugin module', () => {
     })
   })
 
+  describe('goesFluxEnabled', () => {
+    const ROUTE = '/signalk-noaa-space-weather/goesflux-refresh'
+    const XRAY = fixtureJson('xrays-6-hour.2026_08_20.json')
+    const PROTONS = fixtureJson('integral-protons-6-hour.2026_08_20.json')
+    const goesUrl = (url: unknown) =>
+      String(url).includes('xrays-6-hour') ||
+      String(url).includes('integral-protons-6-hour')
+
+    function stubSuccessfulFetch() {
+      fetchMock = vi.fn(async (url: unknown) => {
+        if (String(url).includes('xrays-6-hour'))
+          return new Response(JSON.stringify(XRAY), { status: 200 })
+        if (String(url).includes('integral-protons-6-hour'))
+          return new Response(JSON.stringify(PROTONS), { status: 200 })
+        return new Response('[]', { status: 200 })
+      })
+      vi.stubGlobal('fetch', fetchMock)
+    }
+
+    const goesFetches = () =>
+      fetchMock.mock.calls.filter((call) => goesUrl(call[0])).length
+
+    /**
+     * The real server answers `getSelfPath` out of the model the plugin's own
+     * deltas update, which is what both `goesFlux` (to skip an unchanged
+     * channel) and the refresh route (to tell a reading from nothing) rely on.
+     * The bare fake answers `undefined` for everything, so replay the deltas.
+     */
+    function selfPathFromDeltas(app: ReturnType<typeof fakeApp>) {
+      app.getSelfPath = vi.fn((path: string) => {
+        const wanted = path.replace(/\.value$/, '')
+        let found: any = undefined
+        for (const delta of app.deltas)
+          for (const update of delta.updates)
+            for (const value of update.values ?? [])
+              if (value.path === wanted) found = value.value
+        return found
+      })
+      return app
+    }
+
+    const published = (app: ReturnType<typeof fakeApp>, path: string) =>
+      app.deltas
+        .flatMap((d) => d.updates)
+        .flatMap((u: any) => u.values ?? [])
+        .filter((v: any) => v.path === path)
+
+    it('fetches nothing on a fresh install, and leaves the rest of the poll alone', () => {
+      // The default, not a choice: an install that has never opened the
+      // configuration screen must not be charged 775 KB a day for this.
+      stubSuccessfulFetch()
+      const plugin = createPlugin(fakeApp())
+      plugin.start({})
+
+      vi.advanceTimersByTime(10_000)
+      expect(goesFetches()).toBe(0)
+      // The toggle is the product's, not the poll's: everything else on
+      // `updateInterval` still went out.
+      expect(fetchMock.mock.calls.length).toBeGreaterThan(0)
+
+      plugin.stop()
+    })
+
+    it('publishes no flux metadata for a product it does not schedule', () => {
+      stubSuccessfulFetch()
+      const app = fakeApp()
+      const plugin = createPlugin(app)
+      plugin.start({})
+
+      expect(metaPaths(app.deltas)).not.toContain(XRAY_FLUX_BASE)
+      expect(metaPaths(app.deltas)).not.toContain(PROTON_FLUX_BASE)
+
+      plugin.stop()
+    })
+
+    it('follows goesFluxInterval rather than updateInterval', async () => {
+      stubSuccessfulFetch()
+      const plugin = createPlugin(fakeApp())
+      plugin.start({
+        goesFluxEnabled: true,
+        updateInterval: 60,
+        goesFluxInterval: 180
+      })
+
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(goesFetches()).toBe(2) // one window each, on the initial run
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+      expect(goesFetches()).toBe(2) // the hourly poll is not its poll
+      await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000)
+      expect(goesFetches()).toBe(4)
+
+      plugin.stop()
+    })
+
+    it('fetches on demand while the recurring fetch is switched off', async () => {
+      stubSuccessfulFetch()
+      const app = selfPathFromDeltas(fakeApp())
+      const plugin = createPlugin(app)
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({}) // the default, which is off
+
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(200)
+      expect(response.json.xrayFlux).toBeGreaterThan(0)
+      expect(response.json.protonFlux).toBeGreaterThan(0)
+      expect(goesFetches()).toBe(2)
+
+      plugin.stop()
+    })
+
+    it('publishes the metadata an unscheduled product never got', async () => {
+      stubSuccessfulFetch()
+      const app = selfPathFromDeltas(fakeApp())
+      const plugin = createPlugin(app)
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({})
+
+      expect(metaPaths(app.deltas)).not.toContain(XRAY_FLUX_BASE)
+      await router.invoke(ROUTE)
+      expect(metaFor(app.deltas, XRAY_FLUX_BASE).units).toBe('W/m2')
+      expect(metaFor(app.deltas, PROTON_FLUX_BASE).units).toBe('m-2.s-1.sr-1')
+
+      plugin.stop()
+    })
+
+    it('starts no schedule of its own', async () => {
+      stubSuccessfulFetch()
+      const app = selfPathFromDeltas(fakeApp())
+      const plugin = createPlugin(app)
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({})
+
+      expect((await router.invoke(ROUTE)).status).toBe(200)
+      expect(goesFetches()).toBe(2)
+      await vi.advanceTimersByTimeAsync(4 * 60 * 60 * 1000)
+      expect(goesFetches()).toBe(2)
+
+      plugin.stop()
+    })
+
+    it('answers 502 when neither channel came back', async () => {
+      fetchMock = vi.fn(async () => new Response('[]', { status: 200 }))
+      vi.stubGlobal('fetch', fetchMock)
+      const app = selfPathFromDeltas(fakeApp())
+      const plugin = createPlugin(app)
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({})
+
+      expect((await router.invoke(ROUTE)).status).toBe(502)
+
+      plugin.stop()
+    })
+
+    it('publishes no NaN on either path, scheduled or on demand', async () => {
+      stubSuccessfulFetch()
+      const app = selfPathFromDeltas(fakeApp())
+      const plugin = createPlugin(app)
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start({ goesFluxEnabled: true })
+
+      await vi.advanceTimersByTimeAsync(10_000)
+      await router.invoke(ROUTE)
+      const values = [
+        ...published(app, XRAY_FLUX_BASE),
+        ...published(app, PROTON_FLUX_BASE),
+        ...published(app, `${XRAY_FLUX_BASE}.trend`)
+      ]
+      expect(values.length).toBeGreaterThan(0)
+      for (const value of values) expect(Number.isNaN(value.value)).toBe(false)
+
+      plugin.stop()
+    })
+  })
+
   it('declares every configuration key the plugin reads', () => {
     const properties = createPlugin(fakeApp()).schema.properties
     for (const key of [
@@ -939,6 +1123,8 @@ describe('plugin module', () => {
       'auroraInterval',
       'drapEnabled',
       'drapInterval',
+      'goesFluxEnabled',
+      'goesFluxInterval',
       'updateInterval'
     ]) {
       expect(properties[key], key).toBeTruthy()
