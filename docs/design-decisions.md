@@ -5,6 +5,79 @@ That file keeps the imperative and the issue number; the defence for each one
 — why the alternative was rejected, what it cost when it was tried — lives
 here instead, so it isn't reloaded into every session's context.
 
+## `sendAdvisoryOutlook` gates the notification, not the fetch
+
+The setting is titled "Send notifications for weekly Advisory Outlook", and
+until 0.29.9 it was also the product's `enabled`, so turning it off stopped the
+whole schedule. Nothing then ran to fetch a new bulletin, and nothing ran to
+notice that. On one instance the flag went off on 2026-08-15 and the published
+outlook stayed at the 2026-08-10 issue for a fortnight while NOAA moved on.
+
+What made it invisible rather than merely wrong is that `advisory` has no
+manual-refresh route. `aurora` and `drap` carry the same kind of switch, but a
+press of the webapp's refresh button fetches regardless of it, so a user who
+wonders why a number looks old has a way to find out. Here there was none: the
+only path to a fresh bulletin was the schedule the flag had turned off.
+
+So the flag is applied where the notification is published and nowhere else,
+and the product is scheduled unconditionally, like `alerts`. The fetch is
+under a kilobyte a day, which is not a bandwidth argument against it. Turning
+the flag off also stands down whatever is currently raised, and turning it
+back on re-raises the current bulletin rather than waiting for next week's --
+the publish dedupe checks whether the notification is raised, not only whether
+the bulletin number changed.
+
+The general rule this is an instance of: a setting named for an output must
+not also gate the input that feeds it, unless something else can still fetch
+that input on demand.
+
+## The advisory outlook is also published as plain data
+
+The fix above landed narrow on purpose, to get the actual production bug (a
+notification frozen for a fortnight) shipped without waiting on a further
+question. That got settled in review and lands here.
+
+**A plain-data path, not only a notification.** The notification setting is
+titled "Send notifications for...", so a client that wants the bulletin
+without opting into the alert had no path to read -- `sendAdvisoryOutlook`
+off meant no data at all, not just no notification. Every new bulletin now
+publishes plain data to `environment.noaa.swpc.advisory_outlook` regardless
+of the setting, deduped against the cache the same way the notification is,
+except once: an install upgrading straight into this feature already has
+today's bulletin cached from before this path existed, so the plain dedupe
+would leave it empty until next Monday without a one-time forced publish
+when the path itself is still empty.
+
+An earlier version of this also archived each bulletin at
+`environment.noaa.swpc.advisory_outlook.<n>`, one per-week path, written
+once and never touched again. Dropped before merge: minting a new path
+every week, forever, is the same shape issue #104 removed for the
+notification, and the plugin's own HTTP route already serves the full
+bulletin text for a client that wants history.
+
+**`EXPIRY_MS` carries slack, and gates re-raising too.** The narrow fix above
+stands the notification down when the flag goes off, but nothing stood it
+down if a fetch kept silently failing (NOAA changing the payload shape under
+the parser, a dead network) while the flag stayed on — the same kind of
+invisible staleness the flag bug was, one layer down. `expireIfStale` checks
+the raised notification's age on every tick, ahead of that tick's own fetch,
+so a broken parse or a dead network can't keep it from firing. The first
+version of this check used a flat `WEEK_MS`, on the argument that expiry and
+the next bulletin are due at the same moment so a healthy week never trips
+it — our own fixtures say otherwise: consecutive issue dates as much as
+7d3h25m apart, so a flat week stood the notification down and re-raised it a
+few hours later, every week, on a perfectly healthy install. Two days of
+slack (`WEEK_MS + 2 * DAY_MS`) covers every gap measured so far; the argument
+is "NOAA is late", not "the week is up".
+
+The same age check gates re-raising, not just expiry. Without it, a fetch
+that keeps turning up the same bulletin past its expiry would see
+`expireIfStale`'s stand-down (state now `normal`) as *not* already current,
+and re-raise the identical stale bulletin on the very next tick — undoing the
+expiry it had just enforced. Belt and suspenders: the fetch is what's
+supposed to keep the notification current, the expiry (and the same check at
+publish time) is what stops a broken fetch from lying about it.
+
 ## The "Learn more" links are ordered for our reader, not NOAA's menu
 
 The strip runs scales explained, impacts, phenomena, then the general
@@ -425,35 +498,62 @@ as a _copy_ of the packed files instead. Don't "fix" that with `npm link`: it
 writes a `link:` spec that npm 9 refuses to install at all with
 `EUNSUPPORTEDPROTOCOL`, which is what broke `~/.signalk-dev`.
 
-## A merge does not publish; `release.yml` does, on a debounce
+## release-please owns the version; no pull request does
 
-The version number is decided **before** the merge and the release happens
-**after** it, and those are deliberately not the same moment.
-`.husky/pre-commit` is the convenience and
-`.github/workflows/version-gate.yml` is the guarantee — and only while the
-ruleset requires the `version` check, since a red gate nothing requires can be
-merged past.
+Four mechanisms used to keep a version number in front of every merge: a husky
+hook that patch-bumped at commit time, a `version` status check that failed a
+pull request shipping without one, a guard on `main` that caught what the check
+missed, and an hourly `release.yml` that waited for six quiet hours before
+tagging. They shared one file, `scripts/publish-impact.sh`, holding a regex of
+paths presumed not to reach the tarball.
 
-`release.yml` runs hourly and tags `main` only once nothing has merged for
-`RELEASE_WINDOW_HOURS`, so a busy afternoon ships one release when the
-afternoon ends instead of one per pull request — 59 releases in the first 24
-days is what the merge-publishes design cost. A `workflow_dispatch` run skips
-the wait and flushes whatever is pending immediately; it skips nothing else,
-since the tag is still what says what has already been published.
+All four existed to work around one constraint: `main`'s ruleset requires a
+pull request and a signed commit, so nothing in CI could write `package.json`.
+Every bump therefore had to ride inside somebody's pull request, and three of
+the four mechanisms were there to make sure one did.
 
-A version has to be ahead of the latest tag, never merely different from it: a
-stale branch differs from it too, which is how
-[#123](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/123)
-squash-merged at a version already on npm and never published.
+The cost was paid on every pull request. A version diff in a two-line docs
+change, a red gate on a stale branch that merely _differed_ from the tag
+([#123](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/123)),
+a gate that blamed one branch for everything merged since it opened
+([#141](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/141)),
+a path regex whose own comment conceded that `docs/` sat in it as a judgement
+call. The debounce had no upper bound either: merges every thirty minutes never
+close a six-hour window, and a deliberate manual release meant choreographing a
+bump commit by hand.
 
-So the gate requires a version past the latest tag and pointedly not past
-`main`'s own. Between a merge and the window closing, `main` sits at a version
-that has not shipped, and a second pull request is meant to _join_ it there.
-That shared number is the batching, and it is why released versions stay
-contiguous instead of skipping the ones a second concurrent branch would
-otherwise have minted. Only a tagged version is spent. Do not reintroduce a
-check that a pull request be ahead of the base — it was there when every merge
-published, and under the window it is exactly what puts the gaps back.
+`release-please` inverts it. The batch is a standing pull request that
+accumulates as work merges, and merging it is the release. The constraint that
+produced the workarounds never comes up, because the bump arrives the way every
+other change does — through a pull request. Nothing polls, nothing waits, and
+no clock decides: work piles into the open release pull request until a human
+merges it. Holding a release is leaving it open; cutting one now is merging it
+now.
+
+Three consequences worth naming.
+
+**The release pull request must be squash-merged.** release-please's commits
+are unsigned and the ruleset requires signatures; a squash replaces them with
+one commit signed by GitHub's own key, which the rule accepts. A merge commit
+carries the unsigned originals through and is refused.
+
+**The version policy is configuration, not prose.**
+`bump-patch-for-minor-pre-major` keeps `feat` a patch and
+`bump-minor-pre-major` makes a breaking change a minor while this is pre-1.0.
+The standing bias against minting minors — 59 releases in the first 24 days, 27
+of them minors — is now enforced rather than argued per pull request.
+
+**The publish still has to be dispatched by hand from the workflow.**
+release-please tags with the default `GITHUB_TOKEN`, and GitHub does not fire
+workflows for refs created that way. `publish.yml`'s `push: tags` listener
+never sees it, so `release-please.yml` calls `gh workflow run publish.yml --ref
+<tag>` — the same path a human uses, and the one npm's trusted publisher is
+configured for. `workflow_call` was tried and npm rejects the token it mints.
+
+What is given up: nothing enforces that a publish-impacting change gets
+released. That was the point of the path regex, and it is now a judgement call
+made once, when the release pull request is merged, instead of a guess encoded
+in a list of directories.
 
 ## Every webapp map draws its own coastline; the chart overlay draws none
 
