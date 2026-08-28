@@ -362,19 +362,6 @@
      instead so it opens leftward. */
   .info.bubble-left .bubble { left: auto; right: 0; }
 
-  /* HF Radio. The cutoff leads because it is the only number here measured
-     at the boat and in the present tense; everything under it is context. */
-  .hf-cutoff { display: flex; align-items: baseline; gap: 7px; margin: 2px 0 4px; }
-  .hf-cutoff .n {
-    /* Was 2.1rem. The headline is a one- or two-word status, not the tile's
-       subject -- the gauge under it is -- and at display size "Clear" shouted
-       louder than the measurement it was summarising. */
-    font-family: var(--font-num); font-weight: 700; font-size: 1.15rem; line-height: 1.15;
-    font-variant-numeric: tabular-nums;
-  }
-  .hf-cutoff .u { font-size: 0.7rem; color: var(--text-dim); }
-  .hf-cutoff-sub { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 10px; }
-
   /* The HF window, on the same 0-35 MHz axis NOAA's D-RAP colorbar and this
      webapp's map legend are drawn against. It replaced nine equal-width band
      chips: those were a ladder of names, so the gap from 2 to 4 MHz drew as
@@ -412,15 +399,23 @@
   /* The two measured ends, drawn as marks over the fills. */
   .hf-gauge-track .mark { width: 2px; background: var(--text); }
   .hf-gauge-track .mark.muf { background: var(--aurora-a); }
+  /* The marine band numbers, over the ticks they name. Above the track, not
+     below it: the axis under it carries the scale, and the two rows say
+     different things -- these are a sailor's bands, that is frequency. */
+  .hf-gauge-bands { position: relative; height: 12px; margin-bottom: 1px; }
+  .hf-gauge-bands span {
+    position: absolute; bottom: 0; transform: translateX(-50%);
+    font-family: var(--font-num); font-variant-numeric: tabular-nums;
+    font-size: 0.55rem; color: var(--text-dim); white-space: nowrap;
+  }
+  /* Only the top of the scale is labelled -- one number, right-aligned, so it
+     never collides with the band numbers above the track. */
   .hf-gauge-axis { position: relative; height: 13px; margin-top: 2px; }
   .hf-gauge-axis span {
-    position: absolute; top: 0; transform: translateX(-50%);
+    position: absolute; top: 0; right: 0;
     font-family: var(--font-num); font-variant-numeric: tabular-nums;
     font-size: 0.6rem; color: var(--text-dim);
   }
-  /* First and last labels would hang off the tile at kiosk width. */
-  .hf-gauge-axis span:first-child { transform: none; left: 0; }
-  .hf-gauge-axis span:last-child { transform: none; left: auto; right: 0; }
   .hf-gauge-legend { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 0.64rem; color: var(--text-dim); margin-bottom: 10px; }
   .hf-gauge-legend span { white-space: nowrap; }
   .hf-gauge-legend i { font-style: normal; display: inline-block; width: 9px; height: 9px; border: 1px solid var(--grid); border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
@@ -1157,27 +1152,15 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
 
   function renderHf(card) {
     const body = document.getElementById('hfBody');
-    const { cutoffHz, mufHz, gauge, sfuGauge, bands, bandsAbsorbed, sfu, f107Band,
+    const { cutoffHz, mufHz, gauge, sfuGauge, sfu, f107Band,
       protonPfu, protonElevated, trendRatio, trendWord } = card;
     if (cutoffHz === null && sfu === null && protonPfu === null && trendRatio === null) {
       body.innerHTML = '<div class="empty-state">No HF propagation reading yet.</div>';
       return;
     }
 
-    // A cutoff of 0 is a measurement ("nothing absorbed"), not a missing one,
-    // so it gets its own sentence rather than a 0.0 MHz headline.
-    const lead = cutoffHz === null
-      ? `<div class="hf-cutoff"><span class="n">${DASH}</span></div>
-         <div class="hf-cutoff-sub">No D-RAP reading yet &mdash; it needs a fetched grid and a vessel position.</div>`
-      : cutoffHz === 0
-        // "None" here reads as "no reading", the exact opposite of what a
-        // measured zero means -- so the headline stays a word only DASH
-        // (missing) and this (measured, clear) can't be confused for.
-        ? `<div class="hf-cutoff"><span class="n">Clear</span></div>
-           <div class="hf-cutoff-sub">No D-region absorption predicted here.</div>`
-        : `<div class="hf-cutoff"><span class="n">${(cutoffHz / 1e6).toFixed(1)}</span><span class="u">MHz and below</span></div>
-           <div class="hf-cutoff-sub">Absorbed by 1&nbsp;dB or more &mdash; ${bandsAbsorbed} of ${bands.length} marine SSB bands.</div>`;
-
+    // The cutoff headline and its sentence are gone: the gauge below carries
+    // both, and at display size the word repeated what the fill already said.
     // Marine SSB calling frequencies -- 2, 6, 12, 18 MHz. On a frequency axis
     // these can finally be drawn where they actually are, so the mark is a
     // line across the gauge rather than a chip's left edge.
@@ -1216,11 +1199,19 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         ? `<i class="mark muf" style="left:${pct(gauge.mufFraction)}" title="Maximum usable frequency"></i>`
         : '');
 
-    const axis = gauge.ticks
-      .map((tick) => `<span style="left:${pct(tick.fraction)}">${tick.mhz}</span>`)
+    // Only the top of the scale is labelled. Every 5 MHz was NOAA's own
+    // interval on the colorbar, but the band numbers now sit above the track
+    // and two rows of numbers on one axis read as one crowded row.
+    const axis = `<span>${gauge.maxMhz}&nbsp;MHz</span>`;
+
+    // The marine band numbers, over the tick each one belongs to. Truncated,
+    // not rounded: the band at 18.78 MHz is the one everyone calls 18.
+    const bandLabels = gauge.bandEdges
+      .map((edge) => `<span style="left:${pct(edge.fraction)}">${Math.floor(edge.mhz)}</span>`)
       .join('');
 
     const strip = `<div class="hf-gauge">
+        <div class="hf-gauge-bands">${bandLabels}</div>
         <div class="hf-gauge-track">${segments}${edges}${marks}</div>
         <div class="hf-gauge-axis">${axis}</div>
       </div>
@@ -1231,7 +1222,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
           : gauge.windowClosed
             ? '<span><i class="hf-seg-above"></i>Above the MUF &mdash; no open window</span>'
             : '<span><i class="hf-seg-open"></i>Open</span><span><i class="hf-seg-above"></i>Above the MUF</span>'}
-        <span>MHz &mdash; ticks are marine SSB band edges</span>
+        <span>Numbers are marine SSB bands</span>
       </div>`;
 
     // The zone ladder the plugin publishes on the path itself, drawn as the
@@ -1281,7 +1272,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       ''
     );
 
-    body.innerHTML = lead + strip + mufRow + sfiRow + protonRow + trendRow;
+    body.innerHTML = strip + mufRow + sfiRow + protonRow + trendRow;
   }
 
   function drawKpTimeline(canvas, series) {
