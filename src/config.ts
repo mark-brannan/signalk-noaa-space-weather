@@ -7,6 +7,8 @@ export interface Settings {
   auroraInterval: number
   drapEnabled: boolean
   drapInterval: number
+  goesFluxEnabled: boolean
+  goesFluxInterval: number
   alarmLevel: number
   popupLevel: number
   updateInterval: number
@@ -110,8 +112,8 @@ export const schema = {
         ' through, barring other factors. NOAA serves one grid covering the' +
         ' whole globe, so it costs the same everywhere: about 2.1 KB on each' +
         ' fetch of the interval below, hourly by default, against about' +
-        ' 42 KB for everything else. This only governs the recurring fetch' +
-        ' \u2014 with' +
+        ' 10 KB for the rest of that poll and 32 KB for the GOES flux pair.' +
+        ' This only governs the recurring fetch \u2014 with' +
         ' it off, the webapp can still fetch the grid once, when you ask it' +
         ' to.',
       default: true
@@ -124,6 +126,36 @@ export const schema = {
         ' one part of it a user can switch off: its own rate lets that choice' +
         ' also control what it costs, rather than only whether it runs at' +
         ' all.',
+      default: 60
+    },
+    goesFluxEnabled: {
+      type: 'boolean',
+      title: 'Publish GOES X-ray and proton flux',
+      // Same reasoning as auroraEnabled and drapEnabled: the user is being
+      // told what the setting costs, so the measured number lives here rather
+      // than in a comment. Per fetch; public/config-panel.js does the daily
+      // arithmetic.
+      description:
+        'The X-ray and proton measurements the R and S scales are bucketed' +
+        ' from, plus the X-ray trend that says whether a radio blackout is' +
+        ' deepening or clearing. Much the most expensive thing on the poll:' +
+        ' two six-hour time series, about 32 KB on each fetch of the interval' +
+        ' below, against about 10 KB for everything else on it. On by default' +
+        ' \u2014 an install that has these paths keeps them. This only governs' +
+        ' the recurring fetch \u2014 with it off, the webapp can still fetch' +
+        ' the series once, when you ask it to.',
+      default: true
+    },
+    goesFluxInterval: {
+      type: 'number',
+      title: 'GOES flux fetch interval',
+      description:
+        'in minutes. Separate from the interval below, because this is three' +
+        ' quarters of what that interval costs: its own rate lets a boat pay' +
+        ' less for it without giving up the reading altogether. NOAA' +
+        ' republishes both series every minute or so, so any rate here is' +
+        ' slower than the source; the paths declare a one-hour timeout, so a' +
+        ' rate above 60 publishes readings Signal K itself marks stale.',
       default: 60
     },
     auroraInterval: {
@@ -141,8 +173,9 @@ export const schema = {
       title: 'How often to fetch from NOAA',
       description:
         'in minutes. Covers observations, forecasts and alerts alike,' +
-        ' together about 42 KB per poll \u2014 three quarters of that is the' +
-        ' pair of GOES flux time series, which no other setting governs.',
+        ' together about 10 KB per poll. The two expensive parts of what used' +
+        ' to ride this interval \u2014 the GOES flux pair and D-RAP \u2014 have' +
+        ' their own rates above.',
       default: 60
     }
   }
@@ -214,6 +247,23 @@ export function settingsFrom(props: any): Settings {
       p.drapInterval === undefined
         ? updateInterval
         : minutes(p.drapInterval, 60),
+    // On by default for the same reason D-RAP is, and more sharply: an
+    // install saved before this setting existed was already publishing
+    // `xray_flux`, its trend and `proton_flux`, and the webapp's HF tile
+    // draws two of its rows from them. Defaulting off would empty those rows
+    // on upgrade for every existing user, which is not a bandwidth saving
+    // anyone asked for.
+    goesFluxEnabled: p.goesFluxEnabled !== false,
+    // Same migration as drapInterval: a config saved before this split was
+    // fetching the two series on `updateInterval`, so that is the cadence it
+    // keeps -- the resolved value, so a legacy observations/notifications
+    // config carries across too. An explicit but invalid `goesFluxInterval`
+    // falls back to 60 rather than borrowing `updateInterval`: it names its
+    // own setting, wrong value and all.
+    goesFluxInterval:
+      p.goesFluxInterval === undefined
+        ? updateInterval
+        : minutes(p.goesFluxInterval, 60),
     alarmLevel,
     popupLevel: popupBand(p.popupLevel, alarmLevel),
     updateInterval

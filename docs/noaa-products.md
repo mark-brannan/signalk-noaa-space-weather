@@ -65,8 +65,8 @@ that mattered, which is part of how the totals below went stale unnoticed.
 | `/products/noaa-planetary-k-index-forecast.json` | `kp` | `updateInterval` | 496 B | 6.7 KB |
 | `/products/summary/solar-wind-speed.json` | `solarWind` | `updateInterval` | 59 B | 59 B |
 | `/products/summary/solar-wind-mag-field.json` | `solarWind` | `updateInterval` | 60 B | 60 B |
-| `/json/goes/primary/xrays-6-hour.json` | `goesFlux` | `updateInterval` | 24.4 KB | 159.5 KB |
-| `/json/goes/primary/integral-protons-6-hour.json` | `goesFlux` | `updateInterval` | 7.9 KB | 58.5 KB |
+| `/json/goes/primary/xrays-6-hour.json` | `goesFlux` | `goesFluxInterval` | 24.4 KB | 159.5 KB |
+| `/json/goes/primary/integral-protons-6-hour.json` | `goesFlux` | `goesFluxInterval` | 7.9 KB | 58.5 KB |
 | `/products/alerts.json` | `alerts` | `updateInterval` | 5.3 KB | 50.3 KB |
 | `/json/ovation_aurora_latest.json` | `aurora` | `auroraInterval` | 143.7 KB | 898.9 KB |
 | `/text/drap_global_frequencies.txt` | `drap` | `drapInterval` | 2.1 KB | 41.5 KB |
@@ -76,17 +76,24 @@ that mattered, which is part of how the totals below went stale unnoticed.
 | `/text/advisory-outlook.txt` | `advisory` | adaptive | 768 B | 1.5 KB |
 | `/text/27-day-outlook.txt` | `outlook27` | 24 h | 442 B | 1.6 KB |
 
-**One `updateInterval` poll is about 42 KB on the wire** — the nine rows marked
-`updateInterval`, summed. At the hourly default that is roughly 1.0 MB a day.
+**The seven rows still marked `updateInterval` come to about 9.7 KB a poll** —
+roughly 230 KB a day at the hourly default. The alerts archive is over half of
+it.
 
-**`goesFlux` is three quarters of it.** Its two time-series windows are 32.3 KB
-of the 42, against 9.7 KB for the other seven endpoints put together. It is
-also the only product on that interval with no `enabled` toggle
+**`goesFlux` was three quarters of that poll before it was split off.** Its two
+time-series windows are 32.3 KB together, against 9.7 KB for the other seven
+endpoints put together, and it was the only product on the interval with no
+`enabled` toggle
 ([#112](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/112)).
+It now has `goesFluxEnabled` and `goesFluxInterval`, both defaulting to what it
+already did — on, hourly — so the default bill is unchanged and the saving is
+the user's to take.
 
-The rest of the bill, at the defaults: D-RAP 2.1 KB hourly, about 50 KB a day;
-the fixed-cadence bulletins and indices about 18 KB a day between them; aurora,
-if switched on, 143.7 KB every two hours — about 1.7 MB a day.
+The rest of the bill, at the defaults: the GOES flux pair 32.3 KB hourly, about
+775 KB a day; D-RAP 2.1 KB hourly, about 50 KB a day; the fixed-cadence
+bulletins and indices about 18 KB a day between them; aurora, if switched on,
+143.7 KB every two hours — about 1.7 MB a day. Everything but aurora, at the
+defaults, is roughly 1.0 MB a day, of which the GOES pair is three quarters.
 
 **Consequence.** None of the fixed-cadence rows gets a setting. `outlook27` is
 442 B a day, `aIndex` 2.7 KB, `sunspot` 5.0 KB, `f107` 7.2 KB and `advisory`
@@ -118,16 +125,25 @@ monthly *smoothed* number, which is the truer cycle-context figure, is only in
 the first of these and is not published on its own — so it is not published by
 this plugin either.
 
-**Consequence.** Two products have a setting, and the 2026-08-28 re-measure
-moved the ground under both arguments. Aurora (`auroraEnabled`,
+**Consequence.** Three products have a setting, and the 2026-08-28 re-measure
+moved the ground under all three arguments. Aurora (`auroraEnabled`,
 `auroraInterval`) is about 1.7 MB a day at the default two-hour interval; that
 is still the largest single line, but it is now about 1.6× everything else
 combined rather than the thirty times the older figures supported, because the
-non-aurora bill grew to roughly 1.1 MB a day. D-RAP (`drapEnabled`,
+non-aurora bill grew to roughly 1.0 MB a day. D-RAP (`drapEnabled`,
 `drapInterval`) measures 2.1 KB, about 50 KB a day at the hourly default —
 5% of the poll it used to ride, not the two thirds recorded here before. Its
 switch is not doing the bandwidth job it was given; it stays because it also
 governs whether the product runs at all, and because it shipped.
+
+The GOES flux pair (`goesFluxEnabled`, `goesFluxInterval`) is where that
+bandwidth job actually was: 775 KB a day, three quarters of the non-aurora
+bill and by far the largest thing a boat on a metered link pays for hourly.
+Both default to what it already did, because defaulting off would remove
+published paths from every existing install; the switch is for a boat that
+wants the traffic gone, and the interval is what a boat that wants the reading
+kept can open up. Neither is faster than the source: NOAA republishes both
+windows about once a minute.
 
 ## How often the content changes
 

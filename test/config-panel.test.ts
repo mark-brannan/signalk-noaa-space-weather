@@ -11,6 +11,7 @@ import {
   currentConditions,
   A_INDEX_WIRE_KB,
   F107_WIRE_KB,
+  GOES_FLUX_WIRE_KB,
   OUTLOOK27_WIRE_KB,
   SUNSPOT_WIRE_KB,
   dailyKb,
@@ -393,7 +394,10 @@ describe('dailyKb', () => {
   it('counts nothing for aurora while aurora is off', () => {
     expect(dailyKb(settings).aurora).toBe(0)
     expect(dailyKb(settings).total).toBe(
-      dailyKb(settings).other + dailyKb(settings).drap + dailyKb(settings).fixed
+      dailyKb(settings).other +
+        dailyKb(settings).drap +
+        dailyKb(settings).goesFlux +
+        dailyKb(settings).fixed
     )
   })
 
@@ -402,7 +406,10 @@ describe('dailyKb', () => {
     expect(day.other).toBeCloseTo((1440 / 60) * OTHER_WIRE_KB)
     expect(day.aurora).toBeCloseTo((1440 / 120) * AURORA_WIRE_KB)
     expect(day.drap).toBeCloseTo((1440 / 60) * DRAP_WIRE_KB)
-    expect(day.total).toBeCloseTo(day.aurora + day.other + day.drap + day.fixed)
+    expect(day.goesFlux).toBeCloseTo((1440 / 60) * GOES_FLUX_WIRE_KB)
+    expect(day.total).toBeCloseTo(
+      day.aurora + day.other + day.drap + day.goesFlux + day.fixed
+    )
   })
 
   it('drops D-RAP from the bill when it is switched off', () => {
@@ -413,6 +420,25 @@ describe('dailyKb', () => {
     expect(off.drap).toBe(0)
     expect(on.total - off.total).toBeCloseTo(on.drap)
     expect(off.other).toBe(on.other)
+  })
+
+  it('drops the GOES flux pair from the bill when it is switched off', () => {
+    // The reason it gets a switch at all: it is three quarters of what the
+    // hourly poll used to cost, so turning it off has to dominate the figure.
+    const on = dailyKb(settings)
+    const off = dailyKb({ ...settings, goesFluxEnabled: false })
+    expect(off.goesFlux).toBe(0)
+    expect(on.total - off.total).toBeCloseTo(on.goesFlux)
+    expect(off.other).toBe(on.other)
+    expect(on.goesFlux).toBeGreaterThan(on.other * 3)
+  })
+
+  it('scales the GOES flux pair with its own interval, not the poll', () => {
+    const base = dailyKb(settings)
+    const fasterOther = dailyKb({ ...settings, updateInterval: 30 })
+    expect(fasterOther.goesFlux).toBeCloseTo(base.goesFlux)
+    const slower = dailyKb({ ...settings, goesFluxInterval: 180 })
+    expect(slower.goesFlux).toBeCloseTo(base.goesFlux / 3)
   })
 
   it('scales D-RAP with its own interval, not the "everything else" one', () => {

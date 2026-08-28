@@ -153,7 +153,7 @@ restart, then enable it under *Server → Plugin Config* the same way.
 
 ## Configuration
 
-Seven settings, all optional, all with working defaults:
+Nine settings, all optional, all with working defaults:
 
 * `alarmLevel` (default 5, "Extreme") — which NOAA level is visible **and audible**. "Never" removes the sound without hiding the storm.
 * `popupLevel` (default 4, "Severe") — which NOAA level is visible and silent. Never louder than `alarmLevel`; moving one past the other takes it along, except a "Never" popup, which leaves the alarm where it is. Both apply to the G, S and R scales and to Kp. See [Alarm zones](#alarm-zones).
@@ -161,9 +161,12 @@ Seven settings, all optional, all with working defaults:
 In the plugin's own configuration screen these two are lines you drag across the ladder — the band is everything above the line, and pushing one above Extreme empties it, which is "Never". Arrow keys work too. On a server that renders the generated form instead, they are two dropdowns labelled with how often each level happens.
 * `sendAdvisoryOutlook` (default on) — NOAA's weekly outlook bulletin, as a single `alert`-state notification with no popup and no sound.
 * `auroraEnabled` (default off) — fetches the OVATION grid every `auroraInterval`, publishing `aurora.probability` and keeping the chart overlay tiles current. Off by default because the payload is 144 KB per fetch, about three and a half times what one poll of everything else costs — roughly 1.7 MB a day at the default interval, against about 1.1 MB for the whole of the rest of the plugin. It governs the recurring fetch and nothing else: with it off, the webapp can still fetch the grid once, when you ask it to.
-* `drapEnabled` (default on) — fetches NOAA's D-RAP grid every `drapInterval`, publishing the highest frequency D-region absorption is blocking at your position. One grid covers the whole globe, so it costs the same everywhere: about 2.1 KB per fetch, against about 42 KB for a poll of everything else. Same bargain as `auroraEnabled` — it governs the recurring fetch, and with it off the webapp can still fetch the grid once, when you ask it to.
-* `updateInterval` — how often to fetch from NOAA, in minutes, 60 by default. Covers observations, forecasts and alerts alike, about 42 KB per poll; three quarters of that is the pair of GOES flux time series, which no setting governs.
+* `drapEnabled` (default on) — fetches NOAA's D-RAP grid every `drapInterval`, publishing the highest frequency D-region absorption is blocking at your position. One grid covers the whole globe, so it costs the same everywhere: about 2.1 KB per fetch, against about 10 KB for a poll of everything else. Same bargain as `auroraEnabled` — it governs the recurring fetch, and with it off the webapp can still fetch the grid once, when you ask it to.
+* `goesFluxEnabled` (default on) — fetches the two GOES flux time series every `goesFluxInterval`, publishing `xray_flux`, its trend, and `proton_flux`. Much the most expensive thing on the poll: about 32 KB per fetch against about 10 KB for everything else on it, roughly 775 KB a day at the hourly default. On by default because an install that has these paths keeps them — turning it off empties the proton and X-ray-trend rows of the webapp's HF tile and takes about three quarters off the daily bill. Same bargain again: it governs the recurring fetch, and with it off the series can still be fetched once on demand.
+* `updateInterval` — how often to fetch from NOAA, in minutes, 60 by default. Covers observations, forecasts and alerts alike, about 10 KB per poll now that the two expensive products on it have their own rates.
 * `auroraInterval` — separate poll interval for the aurora payload, 120 minutes by default.
+* `drapInterval` — separate poll interval for the D-RAP grid, 60 minutes by default.
+* `goesFluxInterval` — separate poll interval for the GOES flux pair, 60 minutes by default. NOAA republishes both series about once a minute, so nothing here polls faster than the source; both paths declare a one-hour timeout, so a rate above 60 publishes readings Signal K itself marks stale.
 
 On a server new enough to load it, these are edited on the plugin's own configuration screen rather than the form Signal K generates from the JSON schema. Same settings, saving the same values, with a running total underneath the two interval fields of what they cost per day and per month — it moves as you type, so the price of a tighter aurora interval is visible before you commit to it. The generated form is still there and is what an older server, or a failed load, falls back to.
 
