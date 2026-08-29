@@ -6,22 +6,36 @@ keeps the handful of things that bite before you get this far — the shared
 servers and their lock files, the branch the dev server follows, the ports —
 and points here for the procedures.
 
-**Whenever Claude makes a local change likely to affect the UI, show it
-running — a bare, LAN- or Tailscale-reachable URL (never `127.0.0.1`, which
-only resolves on the machine running the server), for the mock rig or the
-test rig, whichever fits the change. Share it before re-running the test
-suite, not after — Mark can be looking at it while the tests run.** Start it
+Whenever Claude makes a local change likely to affect the UI, show it
+running with 4 links, each one a bare URL in a list:
+
+- mock rig on `localhost`
+- test rig on `localhost`
+- mock rig on a LAN- or Tailscale-reachable URL
+- test rig on a LAN- or Tailscale-reachable URL
+
+Windows and phone disagree on which URL resolves — `localhost` works from the
+server's own machine but not the phone, and the LAN/Tailscale URL is the
+reverse on Windows — so give both forms rather than picking one.
+
+This is the norm: show all 4 links. Skip some only in these two cases:
+
+- **UI-only change** (styling, layout, control wiring, most webapp changes)
+  — show just the mock rig.
+- **Backend-only change** (data handling, Signal K plugin code) — show just
+  the test rig.
+
+Anything else: show all 4.
+
+Share it before re-running the test suite, not after — Mark can be looking at
+it while the tests run. Start it
 the way this file documents, with the flags this file documents — a port or
 `--upstream` when the situation calls for one, never an ad hoc proxy, wrapper
-or one-off invented on the spot. Which rig fits is judgment: the mock rig for anything that doesn't need a real server round
-trip (styling, layout, control wiring, most webapp changes); the test rig
-when the change depends on real Signal K behavior (config-panel wiring
-through the actual server, a path only the plugin publishes, zone/notification
-behavior). Find this machine's addresses with `hostname -I` (LAN is usually
+or one-off invented on the spot. Find this machine's addresses with `hostname -I` (LAN is usually
 the `192.168.x.x` one; Tailscale is the `100.x.x.x` one) and substitute
 directly into the URL below — don't paste `127.0.0.1` and call it done.
 
-## Running against a real server
+## Running against a real server ("test rig", "dev rig")
 
 A Docker Signal K installed from the published npm package backs any
 "browse the live server" research — read-only checks against real, released
@@ -152,7 +166,7 @@ If the admin UI 500s on `/admin/`, npm has hoisted `@signalk/server-admin-ui`
 somewhere the server doesn't look; symlink it into
 `node_modules/signalk-server/node_modules/@signalk/`.
 
-## Working on the webapp without a server
+## Working on the webapp ("rig") without a server
 
 ```shell
 npm run dev:webapp        # http://127.0.0.1:8731, or pass a port
