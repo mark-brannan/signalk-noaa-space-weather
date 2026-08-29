@@ -1,10 +1,19 @@
-// The demo's stand-in for public/signalk.js (issues #199, #239). Same
-// exports, same shapes, but every read is answered from demo/snapshot.json --
-// one saved NOAA capture -- instead of a Signal K server.
+// The demo's stand-in for public/signalk.js (issues #199, #239). Same exports,
+// same shapes, and two things behind them instead of a Signal K server:
+//
+//   snapshot  one saved NOAA capture, demo/snapshot.json  (the default)
+//   live      the plugin's own product modules, fetching NOAA from this tab
+//
 // scripts/build-demo.mjs copies this file over signalk.js in the assembled
 // site, so public/index.html itself, and every module it imports, runs
-// unchanged against the snapshot. This file is the whole seam: if the page
-// can reach a server any other way, the demo silently draws nothing.
+// unchanged against either. This file is the whole seam: if the page can
+// reach a server any other way, the demo silently draws nothing.
+//
+// Live is opt-in, on ?live, and not the default -- a page anyone can open
+// must not spend a fresh ~900 KB aurora grid of somebody else's bandwidth on
+// every visit. The snapshot costs NOAA nothing and shows the same surfaces;
+// live is there for a reader who wants to see the plugin actually work, and
+// for checking the real parsers against what NOAA is serving today.
 
 // --- The demo's clock ------------------------------------------------------
 //
@@ -26,6 +35,16 @@
 // evaluated before the importing module's body -- so it is in place before
 // index.html runs its first line. demo/chrome.js is appended and runs last,
 // which is too late.
+/**
+ * Which data layer this page is running. Read once, from the URL, before
+ * anything else in the module body -- the clock install below depends on it.
+ * Live data is real and current, so it runs on the real clock; only the saved
+ * capture needs one moved.
+ */
+export const LIVE =
+  typeof location !== 'undefined' &&
+  new URLSearchParams(location.search).has('live')
+
 const RealDate = Date
 let clockShiftMs = 0
 let clockAdopted = false
@@ -138,6 +157,26 @@ export function nodeAt(tree, slashPath) {
   return node
 }
 
+// --- the live data layer --------------------------------------------------
+//
+// The plugin's own products, compiled to dist/ and copied into the site under
+// plugin/, running here against NOAA with no server and no bundler. Imported
+// dynamically rather than at the top: a snapshot visitor must not download the
+// product closure to look at a saved capture.
+let livePlugin = null
+function live() {
+  if (!livePlugin)
+    livePlugin = import('./plugin/browser/live.js')
+      .then(({ startLivePlugin }) => startLivePlugin())
+      .catch((err) => {
+        // Same reasoning as the snapshot's memoised rejection below: a failed
+        // load must not become permanent when the page polls on a timer.
+        livePlugin = null
+        throw err
+      })
+  return livePlugin
+}
+
 let loaded = null
 /** The parsed snapshot: {capturedAt, values, grids, routes}. Fetched once. */
 export function snapshot() {
@@ -162,13 +201,35 @@ export function snapshot() {
   return loaded
 }
 
+/**
+ * The document this page is reading, in one shape whichever layer produced it:
+ * `{values, grids, routes}`, which is exactly what demo/snapshot.json holds.
+ * That the live plugin can be asked for the same document as a saved file is
+ * the whole reason the page below needs no branch of its own.
+ */
+let firstPaint = null
+async function document_() {
+  if (!LIVE) return snapshot()
+  const plugin = await live()
+  // Every read on the page's first poll waits on the same promise -- `readAll`
+  // asks for seventeen paths at once, and each of them arriving separately is
+  // not a reason to wait seventeen times. After that there is nothing to wait
+  // for: the products publish as they land and the document is read live.
+  firstPaint ??= plugin.ready.catch(() => {})
+  await firstPaint
+  return plugin.document()
+}
+
 // Built once per snapshot, not per read: the page polls every path on a timer
 // and rebuilding the whole tree each time would walk the snapshot's values for
 // every one of them. Keyed on the parsed object rather than memoised on its
 // own, so a snapshot that had to be re-fetched gets a tree of its own values.
+// The live layer keeps its tree as it publishes and hands that one over, so
+// there is nothing to rebuild or memoise on that side.
 let built = null
 async function valueTree() {
-  const data = await snapshot()
+  const data = await document_()
+  if (data.tree) return data.tree
   if (built?.data !== data) built = { data, tree: treeFromValues(data.values) }
   return built.tree
 }
@@ -197,10 +258,10 @@ export async function getJson(path) {
   }
 }
 
-/** One saved route response out of the snapshot, or null. */
+/** One route response out of the document, saved or live, or null. */
 async function routeJson(route) {
   try {
-    const { routes } = await snapshot()
+    const { routes } = await document_()
     return (routes && routes[route]) ?? null
   } catch {
     return null
@@ -245,9 +306,9 @@ export function retryAfterSeconds(header) {
   return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : null
 }
 
-/** The grid the capture saved, in the shape the map's layer loader takes. */
+/** The grid this layer holds, in the shape the map's layer loader takes. */
 export async function fetchGridCache(which) {
-  const { grids } = await snapshot()
+  const { grids } = await document_()
   const entry = grids && grids[which]
   if (!entry) {
     // The same shape the plugin's 404 produces, so the map draws its own
@@ -274,7 +335,12 @@ export async function fetchGridCache(which) {
  * above reading null, so the aurora tile and the button tell the reader the
  * same story rather than two different ones.
  */
-export async function forceRefresh() {
+export async function forceRefresh(which) {
+  // Live, the button does exactly what it says: this page is the plugin, so
+  // it fetches. Its refusals are the plugin's own -- the cooldown and the
+  // "nothing new came back" 502 -- which is what `refreshFailure` in
+  // public/aurora.js already knows how to label.
+  if (LIVE) return (await live()).refresh(which)
   const err = new Error(
     'This is a saved NOAA snapshot on a static page — there is no plugin' +
       ' running behind it to fetch with. Install the plugin on your own' +
@@ -302,7 +368,15 @@ export async function distanceUnitPreference() {
 // Guarded on `document` so importing this module in the test suite does not
 // repoint the runner's own clock; the tests drive `DemoDate` and
 // `adoptCaptureClock` directly, and the built page is checked in a browser.
-if (typeof document !== 'undefined') {
-  globalThis.Date = DemoDate
-  await snapshot().catch(() => {})
+if (typeof window !== 'undefined') {
+  if (LIVE) {
+    // Nothing to install and nothing to wait for: the clock is real, and the
+    // page's own polling draws each product as it lands. Started here rather
+    // than on the first read so the fetching begins with the page, not with
+    // whatever the first surface happens to ask for.
+    live().catch(() => {})
+  } else {
+    globalThis.Date = DemoDate
+    await snapshot().catch(() => {})
+  }
 }
