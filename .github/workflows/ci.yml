@@ -18,7 +18,48 @@ permissions:
   contents: read
 
 jobs:
+  # A board-only PR (AGENTS.md, "Open loops") is a kanban.md edit and nothing
+  # else -- no source, no config, nothing the matrix below could catch. Three
+  # such PRs cost 128 CI jobs in one day because every update-branch retriggers
+  # the whole matrix, including the ~4 minute armv7 QEMU job. This job runs the
+  # same diff test the merge rule and the review-bot filters already use
+  # (exactly one changed path, and it is kanban.md) so plugin-ci and typecheck
+  # can skip instead of re-running for a file nothing here builds or tests.
+  #
+  # It must NOT become a paths-ignore on the jobs below: three of the five
+  # required contexts are reported by the reusable workflow this file calls,
+  # and a required context that never reports leaves the PR pending forever.
+  # Skipping via a job-level `if:` still reports (as "skipped"), which GitHub
+  # accepts as satisfying a required check -- unlike paths-ignore, which
+  # prevents the job (and its contexts) from running at all.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      board-only: ${{ steps.diff.outputs.board-only }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - id: diff
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")
+          else
+            # push to main / workflow_dispatch: always run the full matrix.
+            files="__not-board-only__"
+          fi
+
+          if [ "$files" = "kanban.md" ]; then
+            echo "board-only=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "board-only=false" >> "$GITHUB_OUTPUT"
+          fi
+
   plugin-ci:
+    needs: changes
+    if: needs.changes.outputs.board-only != 'true'
     uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@master
     with:
       build-command: npm run build
@@ -36,6 +77,8 @@ jobs:
   # not out of that budget -- and it is platform-independent, so once is enough.
   typecheck:
     name: Typecheck (src + test)
+    needs: changes
+    if: needs.changes.outputs.board-only != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -52,3 +95,22 @@ jobs:
       # branch could land unformatted and the next person's format run would
       # show up as noise in an unrelated diff.
       - run: npm run format:check
+
+  # The single required context, per docs/design-decisions.md's argument for
+  # why this exists. `always()` is what lets it evaluate when plugin-ci and
+  # typecheck were skipped rather than being skipped itself -- a required
+  # context that inherits a skip has the same "never reports" problem this
+  # whole job exists to avoid.
+  ci-gate:
+    name: CI gate
+    needs: [plugin-ci, typecheck]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [ "${{ needs.plugin-ci.result }}" = "failure" ] || [ "${{ needs.plugin-ci.result }}" = "cancelled" ] || \
+             [ "${{ needs.typecheck.result }}" = "failure" ] || [ "${{ needs.typecheck.result }}" = "cancelled" ]; then
+            echo "plugin-ci: ${{ needs.plugin-ci.result }}"
+            echo "typecheck: ${{ needs.typecheck.result }}"
+            exit 1
+          fi

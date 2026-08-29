@@ -16,6 +16,7 @@ import { readAuroraCache, writeAuroraCache } from '../src/cache/auroraCache'
 import { readDrapCache, writeDrapCache } from '../src/cache/drapCache'
 import { writeAdvisoryCache } from '../src/cache/advisoryCache'
 import { fixture, fixtureJson } from './fixtures'
+import { fileStore } from './harness.js'
 
 interface Delta {
   updates: any[]
@@ -175,7 +176,7 @@ describe('plugin module', () => {
     })
 
     it('serves back exactly what the aurora product cached', async () => {
-      writeAuroraCache(dataDir, { coordinates: [[1, 2, 3]] })
+      writeAuroraCache(fileStore(dataDir), { coordinates: [[1, 2, 3]] })
       const plugin = createPlugin(fakeApp(dataDir))
       const router = fakeRouter()
       plugin.signalKApiRoutes(router)
@@ -198,7 +199,7 @@ describe('plugin module', () => {
     })
 
     function serving(grid: any) {
-      writeAuroraCache(dataDir, grid)
+      writeAuroraCache(fileStore(dataDir), grid)
       const plugin = createPlugin(fakeApp(dataDir))
       const router = fakeRouter()
       plugin.signalKApiRoutes(router)
@@ -252,7 +253,7 @@ describe('plugin module', () => {
 
     it('dates the tile by the fetch behind it, not by the request', async () => {
       const { router } = serving(BAND)
-      const cachedAt = readAuroraCache(dataDir)!.fetchedAt
+      const cachedAt = readAuroraCache(fileStore(dataDir))!.fetchedAt
       const response = await router.invoke(ROUTE, { z: '2', x: '1', y: '0' })
 
       // A chart plotter has no equivalent of the webapp's "Cached 21:40", and
@@ -282,7 +283,7 @@ describe('plugin module', () => {
 
       // Same tile, a grid with nothing in it: a cache keyed only on {z}/{x}/{y}
       // would hand back the previous render forever.
-      writeAuroraCache(dataDir, {
+      writeAuroraCache(fileStore(dataDir), {
         coordinates: BAND.coordinates.map(([lon, lat]) => [lon, lat, 0])
       })
       const after = await router.invoke(ROUTE, { z: '2', x: '1', y: '0' })
@@ -331,7 +332,7 @@ describe('plugin module', () => {
     }
 
     function serving(cached: any = GRID) {
-      writeDrapCache(dataDir, cached)
+      writeDrapCache(fileStore(dataDir), cached)
       const plugin = createPlugin(fakeApp(dataDir))
       const router = fakeRouter()
       plugin.signalKApiRoutes(router)
@@ -360,14 +361,14 @@ describe('plugin module', () => {
     it('renders a PNG carrying the cache instant, not the aurora one', async () => {
       // Two independent captures on two intervals: a tile cache shared by
       // coordinate alone would serve one product's picture for the other's.
-      writeAuroraCache(dataDir, { coordinates: [[0, 0, 100]] })
+      writeAuroraCache(fileStore(dataDir), { coordinates: [[0, 0, 100]] })
       const { plugin, router } = serving()
       const response = await router.invoke(ROUTE, { z: '0', x: '0', y: '0' })
       expect(response.status).toBe(200)
       expect(response.headers['Content-Type']).toBe('image/png')
       expect(response.sent.subarray(1, 4).toString('ascii')).toBe('PNG')
       expect(response.headers['ETag']).toContain(
-        readDrapCache(dataDir)!.fetchedAt
+        readDrapCache(fileStore(dataDir))!.fetchedAt
       )
       plugin.stop()
     })
@@ -386,7 +387,7 @@ describe('plugin module', () => {
 
       // Fake timers again: the memo is keyed on the entry's `fetchedAt`.
       vi.advanceTimersByTime(1000)
-      writeDrapCache(dataDir, syntheticGrid(0))
+      writeDrapCache(fileStore(dataDir), syntheticGrid(0))
       const after = await router.invoke(ROUTE, { z: '1', x: '0', y: '0' })
 
       expect(after.sent.equals(before.sent)).toBe(false)
@@ -400,7 +401,7 @@ describe('plugin module', () => {
      * screenful of aurora tiles -- or, worse, answering with one.
      */
     it('does not serve aurora tiles from the D-RAP cache, or the reverse', async () => {
-      writeAuroraCache(dataDir, {
+      writeAuroraCache(fileStore(dataDir), {
         coordinates: Array.from({ length: 360 }, (_, lon) =>
           Array.from({ length: 181 }, (_, i) => [lon, i - 90, 40])
         ).flat()
@@ -448,7 +449,7 @@ describe('plugin module', () => {
     })
 
     it('serves back exactly what the advisory product cached', async () => {
-      writeAdvisoryCache(dataDir, {
+      writeAdvisoryCache(fileStore(dataDir), {
         issued: '2026-08-03T04:25:00.000Z',
         idLine: 'SPACE WEATHER ADVISORY OUTLOOK #26-30',
         teaser: 'G1 storms expected.',
@@ -770,7 +771,7 @@ describe('plugin module', () => {
     })
 
     it('does not report a refresh that produced nothing as a success', async () => {
-      writeAuroraCache(dataDir, { coordinates: [[1, 2, 3]] })
+      writeAuroraCache(fileStore(dataDir), { coordinates: [[1, 2, 3]] })
       const stale = readFileSync(join(dataDir, 'aurora-grid.json'), 'utf8')
       // Well-formed JSON carrying no usable grid: `refresh()` logs and returns,
       // without throwing and without writing anything.
