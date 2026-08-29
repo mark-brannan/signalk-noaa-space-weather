@@ -438,6 +438,11 @@ async function report() {
     process.exit(1)
   }
   const withGrid = rows.filter((r) => r.maxMHz)
+  // A 50-sample flare run and a 5-sample quiet burst answer different
+  // questions; pooling them into one median lets the rarer, larger run
+  // dominate a statistic that reads as "the ordinary hourly case".
+  const hourlyGrid = withGrid.filter((r) => r.mode !== 'flare')
+  const flareGrid = withGrid.filter((r) => r.mode === 'flare')
   const first = rows[0].startedAt
   const last = rows[rows.length - 1].startedAt
 
@@ -465,17 +470,10 @@ async function report() {
   //    steady over five minutes and still be wrong an hour later, so a small
   //    within-burst spread is not on its own a licence to keep publishing one
   //    frame.
-  const hours = consecutiveHours(withGrid)
+  const hours = consecutiveHours(hourlyGrid)
   const drift = hours
     .map(([a, b]) => Math.abs(b.maxMHz.trimmedMean - a.maxMHz.trimmedMean))
     .filter(Number.isFinite)
-  if (drift.length)
-    out.push(
-      line(
-        'Global max change from one hour to the next (MHz)',
-        `median ${round(median(drift))}, worst ${round(Math.max(...drift))} over ${drift.length} pairs`
-      )
-    )
 
   // 2. The probes before the global peak. The global max is one cell out of
   //    8,100 picked for being extreme, so it is the noisiest estimator in the
@@ -483,7 +481,7 @@ async function report() {
   //    the probe rows, which is why they lead now.
   const probeRanges = []
   for (const probe of PROBES) {
-    const ranges = withGrid
+    const ranges = hourlyGrid
       .map((r) => r.probes?.[probe.name]?.range)
       .filter(Number.isFinite)
     const hourly = hours
@@ -503,6 +501,13 @@ async function report() {
       )
     )
   }
+  if (drift.length)
+    out.push(
+      line(
+        'Global max change from one hour to the next (MHz)',
+        `median ${round(median(drift))}, worst ${round(Math.max(...drift))} over ${drift.length} pairs`
+      )
+    )
   if (probeRanges.length)
     out.push(
       line(
@@ -512,9 +517,9 @@ async function report() {
     )
 
   // 3. The global peak, kept but demoted.
-  const ranges = withGrid.map((r) => r.maxMHz.range).filter(Number.isFinite)
+  const ranges = hourlyGrid.map((r) => r.maxMHz.range).filter(Number.isFinite)
   const worstCase = Math.max(0, ...ranges)
-  const singleVsTrimmed = withGrid
+  const singleVsTrimmed = hourlyGrid
     .map((r) =>
       Math.abs(
         (r.series.find((s) => s.parsed)?.maxMHz ?? 0) - r.maxMHz.trimmedMean
@@ -523,7 +528,7 @@ async function report() {
     .filter(Number.isFinite)
   out.push(
     line(
-      'Global max spread inside one burst (MHz)',
+      'Global max spread inside one hourly burst (MHz)',
       `median ${round(median(ranges))}, worst ${round(worstCase)}`
     ),
     line(
@@ -531,6 +536,20 @@ async function report() {
       `median ${round(median(singleVsTrimmed))}, worst ${round(Math.max(0, ...singleVsTrimmed))}`
     )
   )
+  // A flare run samples continuously for as long as thirty minutes -- its
+  // internal spread is a different quantity from a five-minute quiet burst's,
+  // so it earns its own row rather than joining the hourly median above.
+  if (flareGrid.length) {
+    const flareRanges = flareGrid
+      .map((r) => r.maxMHz.range)
+      .filter(Number.isFinite)
+    out.push(
+      line(
+        'Global max spread inside one flare-triggered run (MHz)',
+        `median ${round(median(flareRanges))}, worst ${round(Math.max(0, ...flareRanges))} over ${flareGrid.length} runs`
+      )
+    )
+  }
 
   // 2. How often is anything absorbed?
   const maxima = withGrid.map((r) => r.maxMHz.max)
@@ -603,8 +622,10 @@ async function report() {
 /**
  * Rows that are one poll interval apart, as pairs. Anything from half an hour
  * to two hours counts as "the next poll" -- the cron is hourly, but a missed
- * run or a flare run that overran should not silently drop out of the sample,
- * and a pair four hours apart is not measuring the poll interval any more.
+ * run should not silently drop out of the sample, and a pair four hours apart
+ * is not measuring the poll interval any more. Callers pass a single-mode
+ * slice (hourly or flare); pairing across modes would measure a burst-length
+ * change, not a poll-interval one.
  */
 function consecutiveHours(rows) {
   const pairs = []
