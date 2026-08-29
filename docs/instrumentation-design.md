@@ -1,6 +1,6 @@
 # Design: measuring what the plugin actually fetches
 
-**Status: phases 1, 2, 3a and 3b shipped; 4 not started.** Recovered
+**Status: phases 1, 2, 3a, 3b and 4 all shipped.** Recovered
 2026-08-29 — this file was written 2026-08-28 on a design branch that was
 never merged and got deleted after phases 1–2 landed off cherry-picked
 commits rather than a PR from this branch; it survived only as an
@@ -9,8 +9,8 @@ phase 2 is [#244](https://github.com/mark-brannan/signalk-noaa-space-weather/pul
 Phase 3 split in two once work started: 3a (the Signal K paths) is the part
 where declarations from phase 2 get wired against live settings; 3b (the
 webapp diagnostics tab) is a separate, harder card that reads the same
-numbers back out in the UI. When 3b and 4 land, the arguments here move into
-`docs/design-decisions.md` and this file goes away.
+numbers back out in the UI. Now that all phases have shipped, the arguments
+here should move into `docs/design-decisions.md` and this file should go away.
 
 ## The problem this exists to solve
 
@@ -115,7 +115,10 @@ here is about not adding to it carelessly, not about being the dominant term.
 Not doing: persisting tier 1 or tier 2, a WAL, an append-only log that needs
 compaction, or any new dependency.
 
-**Not yet built — this is phase 4.**
+**Shipped in phase 4** (`src/meter.ts`'s `loadTotals`/`flushTotals`/
+`maybeFlushTotals`, the hourly gate on tier-2 rollover, stop()'s unconditional
+flush) — the totals now also ride along in the `/telemetry` route's
+`meterSnapshot`, at schema 2.
 
 ## Declared endpoints — the config-UI prong
 
@@ -174,9 +177,9 @@ alongside the existing routes in `signalKApiRoutes`. Full detail: the ring, the
 with a `schema` field, safe to scrape. This is the primary surface — the other
 three are views of it.
 
-**Shipped in phase 1**, though without the totals (phase 4). The predicted
-half landed in **phase 3b** as `src/telemetry.ts`: `predicted.endpoints` keyed
-by the same `subPath` as the measured half, and `predicted.total` straight from
+**Shipped in phase 1.** The totals joined in phase 4, and the predicted half
+landed in **phase 3b** as `src/telemetry.ts`: `predicted.endpoints` keyed by
+the same `subPath` as the measured half, and `predicted.total` straight from
 `predictedBytesPerDay`, at `schema: 2`. The route still compares nothing — see
 surface 3.
 
@@ -267,7 +270,7 @@ Four pull requests, each shippable alone, in this order:
    - **3b. Webapp diagnostics tab.** The same numbers, read back out in the
      UI. **Shipped.**
 4. **Persistence.** Tier 3, hourly flush, atomic rename, discard-on-corrupt.
-   **Not started.**
+   **Shipped.**
 
 Do not collapse 1 and 2 into one pull request: one changes behaviour, the other
 changes a type everything implements, and reviewing them together hides both.

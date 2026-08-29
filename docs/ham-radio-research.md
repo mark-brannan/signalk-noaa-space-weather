@@ -159,10 +159,14 @@ absorption and reflection as maps and numbers at the vessel's position.
   own e-mail subscription service
   (<https://www.swpc.noaa.gov/content/subscription-services>) can deliver
   alerts directly to a Winlink/Sailmail address.
-- The plugin-side feature is ingest: watch a mailbox directory (or IMAP),
-  recognise known product texts, reuse the existing pure parsers, and feed
-  the normal cache with an honest observation time. Received emails are the
-  test fixtures, so the no-network test rule holds by construction.
+- The plugin-side feature is ingest: watch a mailbox directory, recognise
+  known product texts, and run them through the existing products by
+  substituting a second `Client`. Received emails are the test fixtures, so
+  the no-network test rule holds by construction.
+- **The design work is done: [hf-email-transport.md](hf-email-transport.md).**
+  It carries the measured payload sizes, the session budget, the Saildocs
+  terms constraint that keeps the plugin from ever transmitting, the ingest
+  design and its config surface.
 
 ## What was deliberately left out
 

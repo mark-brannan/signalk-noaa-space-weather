@@ -8,7 +8,7 @@
  */
 import { Settings, schema, settingsFrom } from './config.js'
 import { createClient, Trigger } from './noaa/client.js'
-import { meterTotals } from './meter.js'
+import { flushTotals, loadTotals, meterTotals } from './meter.js'
 import { predictedBytesPerDay } from './endpoints.js'
 import { telemetryBody } from './telemetry.js'
 import { CacheStore } from './cache/entryCache.js'
@@ -188,6 +188,15 @@ export default function (app: any): Plugin {
   const metaPublished = new Set<string>()
   /** When this run of the plugin began; served by the status route below. */
   let startedAt: string | null = null
+  /**
+   * Tier 3's totals load once per process, not once per start(). Loading on
+   * every start() would clobber an in-memory total that has moved since the
+   * last hourly flush with whatever was last on disk, every time the plugin
+   * is stopped and restarted from the admin UI without the process
+   * restarting -- `client.meter` outlives that cycle, disk does not need to
+   * catch up to it.
+   */
+  let totalsLoaded = false
 
   /**
    * Tile rendering reads the same disk cache the webapp's map does, but
@@ -761,8 +770,8 @@ export default function (app: any): Plugin {
       // them what the declarations predicted a day at these settings would
       // cost. Both halves keyed by `subPath`, so comparing them is a join and
       // not a translation. `schema` is versioned so a scraper can tell one
-      // shape from the next -- 2 added `predicted`; the totals-since-install
-      // tier is phase 4.
+      // shape from the next -- 2 added `predicted` and the totals-since-install
+      // tier from phase 4.
       //
       // The comparison itself is deliberately not made here. This route serves
       // the two halves and the window they cover; what counts as a divergence
@@ -793,6 +802,13 @@ export default function (app: any): Plugin {
       startedAt = new Date().toISOString()
       metaPublished.clear()
       publisher.meta(TELEMETRY_META)
+      // getDataDirPath() -- which readCache/writeCache resolve through -- is
+      // only callable from start() onward per the server's own docs, so this
+      // can't happen in the constructor alongside createClient().
+      if (!totalsLoaded) {
+        loadTotals(client.meter, publisher)
+        totalsLoaded = true
+      }
 
       for (const product of PRODUCTS) {
         if (product.enabled && !product.enabled(settings)) continue
@@ -807,6 +823,9 @@ export default function (app: any): Plugin {
     },
 
     stop() {
+      // The one flush the design doc allows outside the hourly gate -- so a
+      // clean stop doesn't lose up to an hour of totals it didn't have to.
+      flushTotals(client.meter, publisher, Date.now())
       stopped = true
       currentSettings = null
       startedAt = null
