@@ -567,6 +567,27 @@ export interface AlertNotification {
  */
 export const ALERT_MAX_AGE_MS = 24 * 60 * 60 * 1000
 
+/**
+ * A watch's own fallback expiry: the end of the last day its forecast table
+ * names, never earlier than {@link ALERT_MAX_AGE_MS}.
+ *
+ * A `WATA` watch never carries "Now Valid Until" (checked against every
+ * captured fixture), so without this every one fell back to
+ * {@link ALERT_MAX_AGE_MS} — but the table it does carry runs 36 to 69 hours
+ * past issue in those same fixtures, so the flat 24-hour fallback dropped a
+ * CME watch as no-longer-in-force a day or more before the storm it predicted
+ * was due to arrive.
+ */
+function watchFallbackExpiry(alert: ParsedAlert, maxAgeMs: number): Date {
+  const floor = alert.issued.getTime() + maxAgeMs
+  const latestDay = alert.predictedByDay.reduce(
+    (latest, day) => Math.max(latest, Date.parse(day.date)),
+    -Infinity
+  )
+  if (!Number.isFinite(latestDay)) return new Date(floor)
+  return new Date(Math.max(floor, latestDay + 24 * 60 * 60 * 1000))
+}
+
 export interface AlertSelectionOptions {
   now: Date
   /** Overrides {@link ALERT_MAX_AGE_MS}; tests only. */
@@ -624,8 +645,7 @@ export function currentAlertNotifications(
       continue
     }
 
-    const expiresAt =
-      parsed.validUntil ?? new Date(parsed.issued.getTime() + maxAgeMs)
+    const expiresAt = parsed.validUntil ?? watchFallbackExpiry(parsed, maxAgeMs)
     if (expiresAt.getTime() <= now.getTime()) continue
 
     const candidate: AlertNotification = {
