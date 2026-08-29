@@ -19,6 +19,11 @@ observe, so internal plumbing lands in a patch even when it adds something.
 * **webapp:** keep an open message from folding itself up on the poll ([#258](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/258)) ([400a042](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/400a04206aa2f1eb82bfce141aeaca3730329f44))
 
 
+### Added
+
+* meter every NOAA fetch, and read the counts back at `/telemetry` ([#245](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/245)) ([7eff645](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/7eff645be19839e878d5790964a9bcfb413afa67)) — outcome and wire bytes per request, kept in memory. The server log gains one fixed line per fetch at debug level, and repeat failures now collapse instead of repeating: the plugin status changes only when the message does.
+
+
 ### Changed
 
 * publish under AGPL-3.0-or-later ([#268](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/268)) ([2aa84ad](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/2aa84ad86a0bde6a9f44966a47e27787996e239e))
