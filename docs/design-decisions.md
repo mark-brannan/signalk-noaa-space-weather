@@ -641,6 +641,116 @@ drawn _over_ the user's real charts, so geography is already there and ours
 would be a second, wronger coastline printed on top of it. `tiles.ts` renders
 data and nothing else.
 
+## The demo is the shipping page, not a copy of it
+
+The first browser demo (#199) was `demo/index.html`, 23 KB of hand-written
+markup that reimplemented the map toolbar, the legends and the HF band strip
+the webapp already drew. It worked, and it was already drifting: the hero
+status tile, the storm-scale tiles and the Kp chart were simply absent,
+because porting each one was a second piece of work nobody had done. A demo
+that is a subset of the product is a demo of something that does not ship.
+
+So `scripts/build-demo.mjs` copies `public/index.html` itself, and the demo
+is the page a boat owner gets. What makes that possible is that the page has
+exactly one seam: `public/signalk.js` is the only module it reaches the
+server through, so `demo/signalk.js` lands in its place and everything above
+it runs unchanged against a saved capture. Widening that seam — the grid
+routes, the refresh routes and the unit-preferences API were still raw
+`fetch` calls in the page — was the whole of the preparatory work, and
+`test/webapp-seam.test.ts` is what keeps it shut.
+
+Two consequences are deliberate. The demo's own framing is **appended** as
+one script tag rather than edited in, because an edit is a fork with a
+shorter half-life; `demo/chrome.js` may say what the page is and may not
+change what it draws. And the copied file set is the transitive import
+closure of the page, not a hand-kept list — a module added to `index.html`
+cannot go missing from the demo, and the admin UI's config screen stays out
+without being excluded, because nothing on the page imports it.
+
+The snapshot carries route bodies as well as vessel-tree values. The page
+reads the plugin's own routes for the two grids, the advisory bulletin and
+`/status`, and those shapes are not the published paths' shapes:
+`renderAdvisory` wants `{text, idLine}` and the published path carries
+`{message, id}`. Answering the route from the published path would have
+rendered "Waiting for data…" forever, in a way no test would have caught.
+
+`/status` is the one whose absence was a claim rather than a blank. The page
+reads `status.settings` to decide whether a product is scheduled, and with no
+`status` at all every switch reads `undefined`: the demo told the visitor
+"Automatic updates are off" about a plugin that ships with D-RAP on, while
+D-RAP's own data was on screen above the sentence. So the capture runs with
+explicit settings — aurora, D-RAP and the GOES flux tiles all on, because
+those are surfaces the demo shows and all three default off on bandwidth
+grounds — and saves *those* settings as the status body. The demo is then an
+honest picture of a configured install rather than a contradictory picture of
+a default one. The cost is that the refresh buttons read "Refresh" rather
+than "Fetch once", which is optimistic: pressing one answers "PLUGIN STOPPED"
+and explains itself in the same breath. A wrong label the visitor can resolve
+by clicking is a smaller lie than a wrong statement about the product.
+
+## The demo vessel is a viewpoint, not a boat
+
+The capture runs from a fixed position in the approaches to Bergen. Without
+one, `aurora.probability` and `drap.highest_affected_frequency` have nowhere
+to be computed, and the HF band strip — which #199 names as a success
+criterion — is permanently blank. A demo whose headline surface reads
+"awaiting position" forever is not a demo of the plugin.
+
+It costs no NOAA traffic to have one: both grids are global and are fetched
+before any position is looked at, so the number at the vessel is computed out
+of the cache either way. The honesty cost is real, though — a visitor sees a
+mark on a map that is nobody's boat — so the position lands in the snapshot
+as data at `navigation.position` rather than being implied by values nothing
+accounts for, and `demo/chrome.js` says plainly that it is a viewpoint chosen
+for the page.
+
+That the reading at that viewpoint is often "no degradation" is not a fault
+to tune away. The map shows the absorption footprint on the dayside while the
+vessel sits in darkness reading zero, which is the phenomenon. Wanting the
+demo to open on a storm is what the replay picker in #239 is for, and picking
+a flattering position or hour instead would be the same mistake as picking a
+flattering snapshot.
+
+## The demo owns the clock
+
+`public/index.html` decides for itself whether what it is showing is current:
+`STALE_MS` is three hours, measured against the data's own timestamps. That is
+right on a boat — a Signal K path sits at whatever it was last published as,
+so a quiet reading and a dead plugin look identical, and saying "this is not
+an all-clear" is the whole point of the state. Against a saved capture it is
+simply wrong. From three hours after the capture until the end of time, the
+demo's headline read **STALE DATA / No update since 02:52 UTC / This is not an
+all-clear. Check the server log**, with every timestamp on the page marked
+"(stale)". Nothing was broken. The moment was saved.
+
+So the demo runs on the capture's clock. `demo/signalk.js` shifts `Date.now()`
+and the zero-argument `new Date()` by `capturedAt - (the moment the snapshot
+loaded)`, and nothing else: `new Date(iso)` has to keep parsing exactly what
+it is handed, because the page parses every NOAA timestamp through it and
+shifting those would corrupt every reading on the page rather than fix the one
+number this is about. It is a `Proxy` over `Date` rather than a subclass, so
+`Date.prototype`, `Date.parse` and every `x instanceof Date` keep the identity
+they had.
+
+An offset, not a freeze. The hero's countdown and the "since" counters have to
+keep running, or the page reads as a screenshot. The consequence is that a tab
+left open long enough does eventually go stale — exactly as a live page whose
+plugin stopped would, and a reload resets it, so that is the honest behaviour
+rather than a leak.
+
+It is installed from `demo/signalk.js` at module scope, not from
+`demo/chrome.js`, because a module's imports are evaluated before the
+importing module's body: the page cannot read an unshifted `Date.now()` before
+it is in place. `chrome.js` is appended and runs last, which is too late. The
+offset comes from the snapshot, which is fetched, so the module holds the
+page's first line with a top-level `await` rather than letting it race. A
+snapshot that will not load leaves the page on the real clock and on its own
+no-data state, which is the true reading of "there is no capture here".
+
+Live data (#239 leg 2) is the real fix, and it removes this: a page fetching
+NOAA itself has a real clock and real timestamps. This is what makes a
+*saved* snapshot honest until then.
+
 ## The D-RAP map is the deliverable; a station list is not
 
 `environment.noaa.swpc.drap.highest_affected_frequency` has always been the
