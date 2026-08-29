@@ -168,7 +168,6 @@ export function recordFetch(meter: Meter, entry: FetchRecord): boolean {
       estimated: 0
     }
     buckets.push(bucket)
-    meter.onRollover?.()
   }
   bucket.fetches += 1
   bucket.wireBytes += entry.wireBytes ?? 0
