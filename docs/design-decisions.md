@@ -812,3 +812,98 @@ two-click detour costs more than a dimmed line costs by staying. The path now
 survives the checkbox in both directions; only turning the layer off dims its
 display, per the same rule the footer sections and the help line already
 follow.
+
+## The browser gets the product modules unbundled, and storage is a parameter
+
+Leg 2 of [#199](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/239)
+runs the plugin's own product modules in the browser against NOAA directly.
+The plan for it assumed a bundler, kept in a separate package the way
+`scripts/screenshots/` keeps Playwright, so it could never reach the plugin
+registry's offline `npm ci` and its 60-second cap.
+
+Measured instead of assumed, it turns out no bundler is needed. `tsc` already
+emits ES modules whose every relative import carries a `.js` extension, which
+is precisely what a browser resolves, and the plugin has no runtime
+dependencies at all — `dependencies` is empty, and has always been. Serving
+`dist/` over HTTP and importing each product in Chromium, nine of the twelve
+loaded untouched. The three that did not — aurora, D-RAP and advisory — all
+failed on one import: `src/cache/entryCache.ts` reaching for `fs` and `path`.
+
+So the fix is the seam, not the tooling. `entryCache` takes a `CacheStore`
+rather than a directory path, and `Publisher` extends it: `createPublisher`
+supplies the file-backed store, the demo supplies one over memory. That is the
+same rule publisher.ts already carried for the Signal K `app` object and
+`noaa/client.ts` for the network — one module owns the host, everything
+downstream takes it as a parameter — extended to the last host resource that
+was still being reached for directly. All twelve products then load in the
+browser.
+
+The size argument never applied: the closure is 20 modules, 155 KB raw and
+**45 KB gzipped**, against a single aurora grid that costs 926 KB on the wire.
+The code is about five percent of one data fetch, so bundling would be
+optimising the wrong thing.
+
+What a bundler *would* have bought is protection against a bare specifier
+appearing later — a runtime dependency, or another Node builtin — which breaks
+the page exactly the way `fs` did, and invisibly. `test/browser-closure.test.ts`
+buys that instead: it walks the closure from `src/products/` the way a browser
+would and fails on any import a browser cannot resolve, naming the module that
+did it. The type-only imports in that closure are written `import type` so the
+walk sees the graph `tsc` emits rather than the one the type-checker sees —
+publisher.ts does still touch the filesystem, and the products still name its
+types.
+
+The argument against ever adding a bundler is the one already made for the page
+itself: the demo is the shipping page, never a fork. Unbundled, it also runs the
+shipping *code* — the exact modules `tsc` emits for the plugin. A bundle is a
+transformation, and a transformation is where "works in the demo, broken on the
+boat" comes from.
+
+CORS was the other gate, and it is measured for all sixteen endpoints in
+[docs/noaa-products.md](noaa-products.md#every-endpoint-is-cors-open-but-only-to-a-request-with-no-extra-headers):
+open to a plain GET, closed to the conditional-GET headers, which costs nothing
+because no endpoint has ever answered 304 at a realistic poll interval.
+
+## A board-only PR skips the matrix through a gate job, not a `paths-ignore`
+
+Three board-only PRs (kanban.md edits, per AGENTS.md's "Open loops") cost 128
+CI jobs in one day, because every `gh pr merge --auto`'s update-branch push
+retriggers the whole reusable-workflow matrix, including a ~4 minute armv7
+QEMU job that a one-line markdown diff has no way of touching.
+
+The obvious fix — `paths-ignore: [kanban.md]` on `ci.yml` — is wrong for a
+reason specific to this repo's ruleset. Three of the five required contexts
+(`plugin-ci / Validate inputs`, `plugin-ci / Integration / signalk-server
+latest / Node 24`, `plugin-ci / Linux / Node 24`) are reported by the
+reusable `SignalK/signalk-server/.github/workflows/plugin-ci.yml@master`
+this file calls, not by a job defined here. `paths-ignore` prevents the
+calling job from running at all, which means those contexts never report —
+and a required context that never reports leaves the PR pending forever,
+not passing. This is a documented GitHub Actions failure mode, not
+speculation.
+
+A job-level `if:` skip behaves differently: the job still runs (briefly),
+still reports its conclusion to the Checks API, and reports it as
+`skipped` — which GitHub's required-status-checks evaluation accepts as
+satisfying the requirement, the same way it accepts `success`. So the fix
+is a `changes` job that runs the same diff test the merge rule and both
+review-bot filters already use (AGENTS.md, "Open loops": exactly one
+changed path, and it is `kanban.md`), and `plugin-ci` / `typecheck` gate on
+its output with `if:` rather than `paths-ignore`.
+
+That still leaves five required contexts, three of which now sometimes read
+`skipped` instead of `success` — a ruleset that requires all five still
+works, but a `ci-gate` job (`needs: [plugin-ci, typecheck]`, `if: always()`,
+failing only if a dependency failed or was cancelled) collapses them to one
+context the ruleset can require instead, so a future job added to the
+matrix doesn't also need a ruleset edit to become required.
+
+CodeQL's `Analyze (actions)` and `Analyze (javascript-typescript)` required
+contexts are GitHub default setup, not a job in this repo's workflows, and
+default setup has no `paths`/`paths-ignore` equivalent — only an advanced
+setup (a checked-in workflow replacing default setup entirely) can filter by
+path. CodeQL isn't the cost driver here — it runs in a couple of minutes,
+not the four the armv7 QEMU job costs — so taking on advanced setup's extra
+maintenance surface to filter a board-only PR out of it isn't worth what it
+would save. They're dropped from the ruleset's required contexts instead;
+they still run on every PR, just don't block merge.
