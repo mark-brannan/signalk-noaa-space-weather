@@ -32,6 +32,7 @@ const bucket = (
     wireBytes: number
     errors: number
     notModified: number
+    estimated: number
   }> = {}
 ) => ({
   hourStart: Math.floor((NOW - hoursAgo * HOUR) / HOUR) * HOUR,
