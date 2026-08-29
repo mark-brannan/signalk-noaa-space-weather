@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.30.2](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.30.1...v0.30.2) (2026-08-29)
+
+
+### Fixed
+
+* **ci:** allow release-please bot to trigger claude-review ([#273](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/273)) ([a848cc7](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/a848cc7ed56e81fe439d9dbdd162010f2d09b62b))
+
 ## [0.30.1](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.30.0...v0.30.1) (2026-08-29)
 
 
