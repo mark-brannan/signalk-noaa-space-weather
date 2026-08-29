@@ -2,11 +2,29 @@ import { describe, expect, it } from 'vitest'
 import {
   createMeter,
   FetchRecord,
+  flushTotals,
+  loadTotals,
+  maybeFlushTotals,
+  Meter,
   meterSnapshot,
+  meterTotals,
   recordFetch
 } from '../src/meter'
+import { CacheStore } from '../src/cache/entryCache'
 
 const HOUR_MS = 60 * 60 * 1000
+
+/** An in-memory CacheStore, so tier-3 persistence is tested with no filesystem. */
+function memoryStore(): CacheStore & { files: Map<string, string> } {
+  const files = new Map<string, string>()
+  return {
+    files,
+    readCache: (filename) => files.get(filename) ?? null,
+    writeCache: (filename, text) => {
+      files.set(filename, text)
+    }
+  }
+}
 
 function entry(overrides: Partial<FetchRecord> = {}): FetchRecord {
   return {
@@ -99,6 +117,119 @@ describe('recordFetch: tier 2, the rolling 24 hours', () => {
 
     expect(meter.hourly.size).toBe(2)
   })
+
+  it('calls onRollover when a fetch opens a new bucket, and not when it folds into the current one', () => {
+    let rollovers = 0
+    const meter = createMeter(() => rollovers++)
+
+    recordFetch(meter, entry({ startedAt: 0 })) // opens the first bucket
+    recordFetch(meter, entry({ startedAt: 1000 })) // same hour -- no rollover
+    recordFetch(meter, entry({ startedAt: HOUR_MS })) // next hour -- rolls over
+
+    expect(rollovers).toBe(2)
+  })
+
+  it('calls onRollover once per endpoint, not once per fetch that opens a bucket for any endpoint', () => {
+    let rollovers = 0
+    const meter = createMeter(() => rollovers++)
+
+    recordFetch(meter, entry({ subPath: '/a' }))
+    recordFetch(meter, entry({ subPath: '/b' }))
+    recordFetch(meter, entry({ subPath: '/a' }))
+
+    expect(rollovers).toBe(2)
+  })
+
+  it('has already folded the triggering fetch in by the time onRollover fires', () => {
+    // onRollover fires because *this* fetch opened a new bucket -- a
+    // listener reading meterTotals() from inside the callback must see
+    // that fetch counted, not just the buckets that existed before it.
+    let totalsAtRollover: ReturnType<typeof meterTotals> | undefined
+    const meter = createMeter(() => {
+      totalsAtRollover = meterTotals(meter, HOUR_MS)
+    })
+
+    recordFetch(meter, entry({ startedAt: 0, wireBytes: 100 })) // opens bucket 0, no rollover
+    recordFetch(
+      meter,
+      entry({ startedAt: HOUR_MS, wireBytes: 50 }) // opens bucket 1 -- rolls over
+    )
+
+    expect(totalsAtRollover).toEqual({
+      bytesPerDay: 150,
+      fetchesPerDay: 2,
+      errorsPerDay: 0
+    })
+  })
+})
+
+describe('meterTotals', () => {
+  it('sums fetches, wireBytes and errors across every endpoint within the last 24h of `now`', () => {
+    const meter = createMeter()
+    recordFetch(
+      meter,
+      entry({ subPath: '/a', startedAt: 0, wireBytes: 100, outcome: 'ok' })
+    )
+    recordFetch(
+      meter,
+      entry({
+        subPath: '/b',
+        startedAt: HOUR_MS,
+        wireBytes: 50,
+        outcome: 'httpError'
+      })
+    )
+
+    const totals = meterTotals(meter, 2 * HOUR_MS)
+    expect(totals).toEqual({
+      bytesPerDay: 150,
+      fetchesPerDay: 2,
+      errorsPerDay: 1
+    })
+  })
+
+  it('excludes a bucket older than 24h of `now`, even though recordFetch has not pruned it yet', () => {
+    // An endpoint fetched once and never again keeps its one bucket forever
+    // in `meter.hourly` -- recordFetch only prunes on that endpoint's own
+    // next fetch. meterTotals has to apply the window itself.
+    const meter = createMeter()
+    recordFetch(
+      meter,
+      entry({ subPath: '/stale', startedAt: 0, wireBytes: 999 })
+    )
+    recordFetch(
+      meter,
+      entry({ subPath: '/fresh', startedAt: 30 * HOUR_MS, wireBytes: 1 })
+    )
+
+    const totals = meterTotals(meter, 30 * HOUR_MS)
+    expect(totals.bytesPerDay).toBe(1)
+    expect(totals.fetchesPerDay).toBe(1)
+  })
+
+  it('includes a bucket whose hour overlaps the 24h window even though it started more than 23h ago', () => {
+    // now = 30.5h: a fetch in the bucket starting at 6h landed at 6.75h,
+    // which is 23.75h old and belongs in the last 24 hours -- a cutoff of
+    // "23 hours before now, floored" excludes the whole bucket that fetch
+    // is in.
+    const meter = createMeter()
+    recordFetch(
+      meter,
+      entry({ subPath: '/a', startedAt: 6.75 * HOUR_MS, wireBytes: 7 })
+    )
+
+    const totals = meterTotals(meter, 30.5 * HOUR_MS)
+    expect(totals.bytesPerDay).toBe(7)
+    expect(totals.fetchesPerDay).toBe(1)
+  })
+
+  it('includes a bucket exactly on the 24h boundary', () => {
+    const meter = createMeter()
+    recordFetch(meter, entry({ subPath: '/a', startedAt: 0, wireBytes: 3 }))
+
+    const totals = meterTotals(meter, 24 * HOUR_MS)
+    expect(totals.bytesPerDay).toBe(3)
+  })
 })
 
 describe('meterSnapshot', () => {
@@ -126,5 +257,182 @@ describe('meterSnapshot', () => {
     recordFetch(meter, entry())
     const snapshot = meterSnapshot(meter)
     expect(Object.keys(snapshot.hourly)).toEqual(['/products/noaa-scales.json'])
+  })
+})
+
+describe('recordFetch: tier 3, totals since install', () => {
+  it('keeps accumulating past the ring limit and the 24-hour window', () => {
+    const meter = createMeter()
+    for (let hour = 0; hour < 30; hour++) {
+      recordFetch(meter, entry({ startedAt: hour * HOUR_MS, wireBytes: 10 }))
+    }
+    const totals = meter.totals.get('/products/noaa-scales.json')!
+    expect(totals.fetches).toBe(30)
+    expect(totals.wireBytes).toBe(300)
+  })
+
+  it('counts notModified and errors the same way the hourly bucket does', () => {
+    const meter = createMeter()
+    recordFetch(meter, entry({ outcome: 'ok' }))
+    recordFetch(meter, entry({ outcome: 'notModified' }))
+    recordFetch(meter, entry({ outcome: 'httpError' }))
+
+    const totals = meter.totals.get('/products/noaa-scales.json')!
+    expect(totals.fetches).toBe(3)
+    expect(totals.notModified).toBe(1)
+    expect(totals.errors).toBe(1)
+  })
+
+  it('keeps endpoints separate, same as the hourly buckets', () => {
+    const meter = createMeter()
+    recordFetch(meter, entry({ subPath: '/a.json' }))
+    recordFetch(meter, entry({ subPath: '/b.json' }))
+    expect(meter.totals.size).toBe(2)
+  })
+
+  it('marks the meter dirty and returns whether the hourly bucket rolled over', () => {
+    const meter = createMeter()
+    expect(meter.totalsDirty).toBe(false)
+
+    const first = recordFetch(meter, entry({ startedAt: 0 }))
+    expect(first).toBe(true) // the very first bucket for this endpoint
+    expect(meter.totalsDirty).toBe(true)
+
+    meter.totalsDirty = false // simulate a flush having just happened
+    const sameHour = recordFetch(meter, entry({ startedAt: 1000 }))
+    expect(sameHour).toBe(false)
+    expect(meter.totalsDirty).toBe(true) // recordFetch always dirties, rollover or not
+
+    const nextHour = recordFetch(meter, entry({ startedAt: HOUR_MS }))
+    expect(nextHour).toBe(true)
+  })
+})
+
+describe('meterSnapshot: totals', () => {
+  it('includes totals, as a JSON-safe copy independent of the meter', () => {
+    const meter = createMeter()
+    recordFetch(meter, entry({ wireBytes: 100 }))
+    const snapshot = meterSnapshot(meter)
+
+    expect(snapshot.totals['/products/noaa-scales.json'].fetches).toBe(1)
+    snapshot.totals['/products/noaa-scales.json'].fetches = 999
+    expect(meter.totals.get('/products/noaa-scales.json')!.fetches).toBe(1)
+  })
+})
+
+describe('tier 3 persistence: flushTotals, maybeFlushTotals, loadTotals', () => {
+  it('flushTotals writes nothing when the meter is not dirty', () => {
+    const meter = createMeter()
+    const store = memoryStore()
+    flushTotals(meter, store, 0)
+    expect(store.files.size).toBe(0)
+  })
+
+  it('flushTotals writes when dirty, then clears dirty and stamps totalsFlushedAt', () => {
+    const meter = createMeter()
+    recordFetch(meter, entry())
+    const store = memoryStore()
+
+    flushTotals(meter, store, 5000)
+
+    expect(store.files.size).toBe(1)
+    expect(meter.totalsDirty).toBe(false)
+    expect(meter.totalsFlushedAt).toBe(5000)
+  })
+
+  it('maybeFlushTotals does nothing when nothing moved', () => {
+    const meter = createMeter()
+    const store = memoryStore()
+    maybeFlushTotals(meter, store, 0)
+    expect(store.files.size).toBe(0)
+  })
+
+  it('maybeFlushTotals flushes immediately the first time, even mid-hour', () => {
+    const meter = createMeter()
+    recordFetch(meter, entry())
+    const store = memoryStore()
+
+    maybeFlushTotals(meter, store, 1000)
+
+    expect(store.files.size).toBe(1)
+    expect(meter.totalsFlushedAt).toBe(1000)
+  })
+
+  it('maybeFlushTotals refuses a second flush inside the same hour', () => {
+    const meter = createMeter()
+    recordFetch(meter, entry())
+    const store = memoryStore()
+    maybeFlushTotals(meter, store, 0)
+
+    recordFetch(meter, entry({ startedAt: HOUR_MS - 1 }))
+    maybeFlushTotals(meter, store, HOUR_MS - 1)
+
+    // Still dirty -- the gate held it back, it wasn't dropped.
+    expect(meter.totalsDirty).toBe(true)
+    expect(meter.totalsFlushedAt).toBe(0)
+  })
+
+  it('maybeFlushTotals flushes again once an hour has passed', () => {
+    const meter = createMeter()
+    recordFetch(meter, entry())
+    const store = memoryStore()
+    maybeFlushTotals(meter, store, 0)
+
+    recordFetch(meter, entry({ startedAt: HOUR_MS }))
+    maybeFlushTotals(meter, store, HOUR_MS)
+
+    expect(meter.totalsDirty).toBe(false)
+    expect(meter.totalsFlushedAt).toBe(HOUR_MS)
+  })
+
+  it('round-trips through loadTotals into a fresh meter', () => {
+    const meter = createMeter()
+    recordFetch(meter, entry({ wireBytes: 42 }))
+    recordFetch(meter, entry({ subPath: '/b.json', wireBytes: 7 }))
+    const store = memoryStore()
+    flushTotals(meter, store, 0)
+
+    const reloaded = createMeter()
+    loadTotals(reloaded, store)
+
+    expect(reloaded.totals.get('/products/noaa-scales.json')!.wireBytes).toBe(
+      42
+    )
+    expect(reloaded.totals.get('/b.json')!.wireBytes).toBe(7)
+    // Loading does not itself dirty the meter or touch tiers 1/2.
+    expect(reloaded.totalsDirty).toBe(false)
+    expect(reloaded.ring).toHaveLength(0)
+  })
+
+  it('discards a file that fails to parse, rather than partially trusting it', () => {
+    const store = memoryStore()
+    store.files.set('meter-totals.json', '{not json')
+    const meter = createMeter()
+
+    loadTotals(meter, store)
+
+    expect(meter.totals.size).toBe(0)
+  })
+
+  it('discards a file whose totals do not match the expected shape', () => {
+    const store = memoryStore()
+    store.files.set(
+      'meter-totals.json',
+      JSON.stringify({
+        fetchedAt: new Date().toISOString(),
+        totals: { '/a.json': { fetches: 'not a number' } }
+      })
+    )
+    const meter = createMeter()
+
+    loadTotals(meter, store)
+
+    expect(meter.totals.size).toBe(0)
+  })
+
+  it('does nothing when there is no file cached yet', () => {
+    const meter: Meter = createMeter()
+    loadTotals(meter, memoryStore())
+    expect(meter.totals.size).toBe(0)
   })
 })

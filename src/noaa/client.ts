@@ -6,7 +6,14 @@ import { firstJsonValue } from '../parse.js'
 // has no edge to it at all -- test/browser-closure.test.ts walks for exactly
 // that.
 import type { Publisher } from '../publisher.js'
-import { createMeter, Meter, Outcome, recordFetch, Trigger } from '../meter.js'
+import {
+  createMeter,
+  maybeFlushTotals,
+  Meter,
+  Outcome,
+  recordFetch,
+  Trigger
+} from '../meter.js'
 
 export type { Trigger } from '../meter.js'
 
@@ -41,6 +48,8 @@ export interface ClientOptions {
   conditionalGet?: boolean
   /** Identify this client, or null to send no `User-Agent` at all. */
   userAgent?: string | null
+  /** Forwarded straight to `createMeter` -- see its doc for what fires this. */
+  onRollover?: () => void
 }
 
 export interface Client {
@@ -89,14 +98,14 @@ export function createClient(
   publisher: Publisher,
   options: ClientOptions = {}
 ): Client {
-  const { conditionalGet = true, userAgent = USER_AGENT } = options
+  const { conditionalGet = true, userAgent = USER_AGENT, onRollover } = options
   // Keyed by subPath, not the full URL: every product hits a fixed, distinct
   // path, so this is small and never needs eviction. Lives in this closure
   // rather than module scope so it doesn't leak across plugin instances in a
   // test process, and survives a stop()/start() cycle within one running
   // server the same way NOAA's own cache would want it to.
   const cache = new Map<string, CacheEntry>()
-  const meter = createMeter()
+  const meter = createMeter(onRollover)
   const errorLogStates = new Map<string, FetchLogState>()
   // A single plugin-wide status line (`app.setPluginStatus`), not one per
   // product -- so it is only re-set when what it says has actually changed,
@@ -223,7 +232,7 @@ export function createClient(
         wireBytesEstimated: boolean
       ) => {
         const durationMs = Date.now() - startedAt
-        recordFetch(meter, {
+        const rolledOver = recordFetch(meter, {
           subPath,
           productName,
           trigger,
@@ -235,6 +244,9 @@ export function createClient(
           decodedBytes,
           outcome
         })
+        // Tier 3's flash-wear budget: consider a flush only on a tier-2
+        // bucket rollover, never on every fetch. See docs/instrumentation-design.md.
+        if (rolledOver) maybeFlushTotals(meter, publisher, Date.now())
         publisher.debug(
           `noaa.fetch product=${productName} path=${subPath} trigger=${trigger} ` +
             `status=${status ?? 'none'} wire=${wireBytes ?? 'unknown'} ms=${durationMs} outcome=${outcome}`

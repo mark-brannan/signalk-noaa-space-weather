@@ -8,13 +8,14 @@
  */
 import { Settings, schema, settingsFrom } from './config.js'
 import { createClient, Trigger } from './noaa/client.js'
-import { meterSnapshot } from './meter.js'
+import { flushTotals, loadTotals, meterSnapshot, meterTotals } from './meter.js'
+import { predictedBytesPerDay } from './endpoints.js'
 import { CacheStore } from './cache/entryCache.js'
 import { readAuroraCache } from './cache/auroraCache.js'
 import { readDrapCache } from './cache/drapCache.js'
 import { readAdvisoryCache } from './cache/advisoryCache.js'
-import { createPublisher } from './publisher.js'
-import { PROTON_FLUX_BASE, XRAY_FLUX_BASE } from './paths.js'
+import { createPublisher, Meta } from './publisher.js'
+import { PROTON_FLUX_BASE, TELEMETRY_BASE, XRAY_FLUX_BASE } from './paths.js'
 import { FORCE_REFRESH_COOLDOWN_MS } from './refreshPolicy.js'
 import {
   Lattice,
@@ -35,6 +36,58 @@ import { goesFlux } from './products/goesFlux.js'
 import { PRODUCTS } from './products/registry.js'
 import type { Product } from './products/types.js'
 export { PRODUCTS }
+
+/**
+ * Metadata for the plugin's own fetch instrumentation (docs/instrumentation-
+ * design.md's "Four surfaces, one source", surface 2) -- not a product, so it
+ * has no `PRODUCTS` entry and no `enabled()`: it describes what the plugin
+ * itself has fetched, and is published on every start regardless of which
+ * NOAA products are switched on. Deliberately no `zones` on any of these:
+ * zones raise notifications, and a bandwidth wobble is not an alarm.
+ */
+const TELEMETRY_META: Meta[] = [
+  {
+    path: `${TELEMETRY_BASE}.bytesPerDay`,
+    value: {
+      displayName: 'NOAA bytes/day (measured)',
+      description:
+        'Wire bytes fetched from NOAA in the trailing 24 hours, summed' +
+        ' across every endpoint.',
+      units: 'bytes'
+    }
+  },
+  {
+    path: `${TELEMETRY_BASE}.bytesPerDayPredicted`,
+    value: {
+      displayName: 'NOAA bytes/day (predicted)',
+      description:
+        'What the current settings predict a day of NOAA fetches should' +
+        ' cost, from the declared wire size of every endpoint the plugin' +
+        ' would fetch at these settings. Compare against the measured' +
+        ' figure -- a sustained divergence means the prediction is wrong.',
+      units: 'bytes'
+    }
+  },
+  {
+    path: `${TELEMETRY_BASE}.fetchesPerDay`,
+    value: {
+      displayName: 'NOAA fetches/day',
+      description:
+        'Fetches made to NOAA in the trailing 24 hours, summed across' +
+        ' every endpoint.'
+    }
+  },
+  {
+    path: `${TELEMETRY_BASE}.errorsPerDay`,
+    value: {
+      displayName: 'NOAA fetch errors/day',
+      description:
+        'Fetches to NOAA in the trailing 24 hours that did not succeed --' +
+        ' a timeout, a network error, an HTTP error, a torn or unparseable' +
+        ' body.'
+    }
+  }
+]
 
 const PLUGIN_ID = 'signalk-noaa-space-weather'
 /** Let the server settle before the first fetch. */
@@ -76,7 +129,32 @@ interface Plugin {
 
 export default function (app: any): Plugin {
   const publisher = createPublisher(app, PLUGIN_ID)
-  const client = createClient(publisher)
+  /**
+   * Phase 3's Signal K paths: published once per tier-2 rollover (the
+   * `onRollover` passed to `createClient` below), not per fetch -- a bandwidth
+   * number does not need a vessel-data update every few seconds. Reads
+   * `currentSettings`, so it is a no-op before the first `start()` and after
+   * `stop()`; the rollover that fires it can only happen in between anyway,
+   * since fetching stops with the product timers.
+   */
+  function publishTelemetry() {
+    if (!currentSettings) return
+    const measured = meterTotals(client.meter, Date.now())
+    const predicted = predictedBytesPerDay(currentSettings).total
+    publisher.values(
+      [
+        { path: `${TELEMETRY_BASE}.bytesPerDay`, value: measured.bytesPerDay },
+        { path: `${TELEMETRY_BASE}.bytesPerDayPredicted`, value: predicted },
+        {
+          path: `${TELEMETRY_BASE}.fetchesPerDay`,
+          value: measured.fetchesPerDay
+        },
+        { path: `${TELEMETRY_BASE}.errorsPerDay`, value: measured.errorsPerDay }
+      ],
+      new Date().toISOString()
+    )
+  }
+  const client = createClient(publisher, { onRollover: publishTelemetry })
 
   // One live timer handle per product, not a growing array: each product
   // reschedules itself after every run (see `run()` below), so a flat array
@@ -109,6 +187,15 @@ export default function (app: any): Plugin {
   const metaPublished = new Set<string>()
   /** When this run of the plugin began; served by the status route below. */
   let startedAt: string | null = null
+  /**
+   * Tier 3's totals load once per process, not once per start(). Loading on
+   * every start() would clobber an in-memory total that has moved since the
+   * last hourly flush with whatever was last on disk, every time the plugin
+   * is stopped and restarted from the admin UI without the process
+   * restarting -- `client.meter` outlives that cycle, disk does not need to
+   * catch up to it.
+   */
+  let totalsLoaded = false
 
   /**
    * Tile rendering reads the same disk cache the webapp's map does, but
@@ -678,10 +765,12 @@ export default function (app: any): Plugin {
       )
 
       // The primary surface for docs/instrumentation-design.md: the ring of
-      // recent fetches and each endpoint's rolling 24 hourly buckets, straight
-      // from the meter with nothing computed on top yet. `schema` is versioned
-      // so a scraper can tell one shape from the next; the totals-since-install
-      // tier and the predicted-vs-measured comparison are later phases.
+      // recent fetches, each endpoint's rolling 24 hourly buckets, and its
+      // totals since install, straight from the meter with nothing computed
+      // on top yet. `schema` is versioned so a scraper can tell one shape
+      // from the next -- bumped to 2 when `totals` was added; the
+      // predicted-vs-measured comparison is still a later phase, needing
+      // src/endpoints.ts's declarations wired in alongside this.
       router.get(
         '/signalk-noaa-space-weather/telemetry',
         (_req: any, res: any) => {
@@ -690,7 +779,7 @@ export default function (app: any): Plugin {
             return
           }
           res.json({
-            schema: 1,
+            schema: 2,
             startedAt,
             settings: currentSettings,
             ...meterSnapshot(client.meter)
@@ -710,6 +799,14 @@ export default function (app: any): Plugin {
       currentSettings = settings
       startedAt = new Date().toISOString()
       metaPublished.clear()
+      publisher.meta(TELEMETRY_META)
+      // getDataDirPath() -- which readCache/writeCache resolve through -- is
+      // only callable from start() onward per the server's own docs, so this
+      // can't happen in the constructor alongside createClient().
+      if (!totalsLoaded) {
+        loadTotals(client.meter, publisher)
+        totalsLoaded = true
+      }
 
       for (const product of PRODUCTS) {
         if (product.enabled && !product.enabled(settings)) continue
@@ -724,6 +821,9 @@ export default function (app: any): Plugin {
     },
 
     stop() {
+      // The one flush the design doc allows outside the hourly gate -- so a
+      // clean stop doesn't lose up to an hour of totals it didn't have to.
+      flushTotals(client.meter, publisher, Date.now())
       stopped = true
       currentSettings = null
       startedAt = null
