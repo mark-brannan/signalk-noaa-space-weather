@@ -1,12 +1,12 @@
 # Design: measuring what the plugin actually fetches
 
-**Status: phases 1 and 2 shipped, 3 and 4 not started.** Recovered
+**Status: phases 1, 2 and 4 shipped, 3 not started.** Recovered
 2026-08-29 — this file was written 2026-08-28 on a design branch that was
 never merged and got deleted after phases 1–2 landed off cherry-picked
 commits rather than a PR from this branch; it survived only as an
 unreachable git object. Phase 1 is [#245](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/245),
 phase 2 is [#244](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/244).
-When 3 and 4 land, the arguments here move into `docs/design-decisions.md`
+When 3 also lands, the arguments here move into `docs/design-decisions.md`
 and this file goes away.
 
 ## The problem this exists to solve
@@ -112,7 +112,10 @@ here is about not adding to it carelessly, not about being the dominant term.
 Not doing: persisting tier 1 or tier 2, a WAL, an append-only log that needs
 compaction, or any new dependency.
 
-**Not yet built — this is phase 4.**
+**Shipped in phase 4** (`src/meter.ts`'s `loadTotals`/`flushTotals`/
+`maybeFlushTotals`, the hourly gate on tier-2 rollover, stop()'s unconditional
+flush) — the totals now also ride along in the `/telemetry` route's
+`meterSnapshot`, at schema 2.
 
 ## Declared endpoints — the config-UI prong
 
@@ -249,7 +252,7 @@ Four pull requests, each shippable alone, in this order:
    visible and gets recorded by whatever is already scraping Signal K.
    **Not started.**
 4. **Persistence.** Tier 3, hourly flush, atomic rename, discard-on-corrupt.
-   **Not started.**
+   **Shipped.**
 
 Do not collapse 1 and 2 into one pull request: one changes behaviour, the other
 changes a type everything implements, and reviewing them together hides both.

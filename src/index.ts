@@ -8,7 +8,7 @@
  */
 import { Settings, schema, settingsFrom } from './config.js'
 import { createClient, Trigger } from './noaa/client.js'
-import { meterSnapshot } from './meter.js'
+import { flushTotals, loadTotals, meterSnapshot } from './meter.js'
 import { CacheStore } from './cache/entryCache.js'
 import { readAuroraCache } from './cache/auroraCache.js'
 import { readDrapCache } from './cache/drapCache.js'
@@ -142,6 +142,15 @@ export default function (app: any): Plugin {
   const metaPublished = new Set<string>()
   /** When this run of the plugin began; served by the status route below. */
   let startedAt: string | null = null
+  /**
+   * Tier 3's totals load once per process, not once per start(). Loading on
+   * every start() would clobber an in-memory total that has moved since the
+   * last hourly flush with whatever was last on disk, every time the plugin
+   * is stopped and restarted from the admin UI without the process
+   * restarting -- `client.meter` outlives that cycle, disk does not need to
+   * catch up to it.
+   */
+  let totalsLoaded = false
 
   /**
    * Tile rendering reads the same disk cache the webapp's map does, but
@@ -711,10 +720,12 @@ export default function (app: any): Plugin {
       )
 
       // The primary surface for docs/instrumentation-design.md: the ring of
-      // recent fetches and each endpoint's rolling 24 hourly buckets, straight
-      // from the meter with nothing computed on top yet. `schema` is versioned
-      // so a scraper can tell one shape from the next; the totals-since-install
-      // tier and the predicted-vs-measured comparison are later phases.
+      // recent fetches, each endpoint's rolling 24 hourly buckets, and its
+      // totals since install, straight from the meter with nothing computed
+      // on top yet. `schema` is versioned so a scraper can tell one shape
+      // from the next -- bumped to 2 when `totals` was added; the
+      // predicted-vs-measured comparison is still a later phase, needing
+      // src/endpoints.ts's declarations wired in alongside this.
       router.get(
         '/signalk-noaa-space-weather/telemetry',
         (_req: any, res: any) => {
@@ -723,7 +734,7 @@ export default function (app: any): Plugin {
             return
           }
           res.json({
-            schema: 1,
+            schema: 2,
             startedAt,
             settings: currentSettings,
             ...meterSnapshot(client.meter)
@@ -743,6 +754,13 @@ export default function (app: any): Plugin {
       currentSettings = settings
       startedAt = new Date().toISOString()
       metaPublished.clear()
+      // getDataDirPath() -- which readCache/writeCache resolve through -- is
+      // only callable from start() onward per the server's own docs, so this
+      // can't happen in the constructor alongside createClient().
+      if (!totalsLoaded) {
+        loadTotals(client.meter, publisher)
+        totalsLoaded = true
+      }
 
       for (const product of PRODUCTS) {
         if (product.enabled && !product.enabled(settings)) continue
@@ -757,6 +775,9 @@ export default function (app: any): Plugin {
     },
 
     stop() {
+      // The one flush the design doc allows outside the hourly gate -- so a
+      // clean stop doesn't lose up to an hour of totals it didn't have to.
+      flushTotals(client.meter, publisher, Date.now())
       stopped = true
       currentSettings = null
       startedAt = null
