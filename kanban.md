@@ -259,7 +259,10 @@ what it is blocked by. Delete it when it is done.
       (a compose file in this repo with overridable ports, or a command that
       builds and links into a dedicated plugin-dev Signal K), not one host's
       `~/.signalk`; purpose and both mechanisms are settled, the environment is
-      not
+      not. Live evidence this is overdue: a dedicated per-branch config dir +
+      port + plugin symlink (`~/.signalk-rig-<slug>`) has now been hand-rolled
+      ad hoc at least twice on this box with no name or writeup — worth
+      folding into whichever mechanism gets picked
       ([#125](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/125)),
       blocked: a one-on-one design pass, deliberately not blocking the rest of
       the #121 plan
