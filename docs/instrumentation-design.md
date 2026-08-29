@@ -1,13 +1,16 @@
 # Design: measuring what the plugin actually fetches
 
-**Status: phases 1, 2 and 4 shipped, 3 not started.** Recovered
+**Status: phases 1, 2, 3a and 4 shipped; 3b not started.** Recovered
 2026-08-29 — this file was written 2026-08-28 on a design branch that was
 never merged and got deleted after phases 1–2 landed off cherry-picked
 commits rather than a PR from this branch; it survived only as an
 unreachable git object. Phase 1 is [#245](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/245),
 phase 2 is [#244](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/244).
-When 3 also lands, the arguments here move into `docs/design-decisions.md`
-and this file goes away.
+Phase 3 split in two once work started: 3a (the Signal K paths) is the part
+where declarations from phase 2 get wired against live settings; 3b (the
+webapp diagnostics tab) is a separate, harder card that reads the same
+numbers back out in the UI. When 3b lands, the arguments here move into
+`docs/design-decisions.md` and this file goes away.
 
 ## The problem this exists to solve
 
@@ -189,15 +192,23 @@ history:
 
 Four paths, `meta` with `displayName`/`description`/`units`, **no `zones`** —
 zones raise notifications, and a boat does not want an alarm because a NOAA
-endpoint got fatter. Published once per tier-2 rollover, not per fetch.
+endpoint got fatter. Published once per tier-2 rollover, not per fetch: an
+optional `onRollover` callback on `Meter`, fired from `recordFetch` when it
+opens a new hourly bucket, is what phase 1's rollover detection already did
+internally — this reuses it rather than polling on a clock of its own.
+`bytesPerDayPredicted` is `endpoints.ts`'s `predictedBytesPerDay(settings)`
+from phase 2, unchanged; the measured three come from a new
+`meterTotals(meter, now)` in `meter.ts`, since tier 2's own buckets are only
+windowed per endpoint, not globally (see that function's doc).
 
-**Not yet built — this is phase 3.**
+**Shipped — phase 3a.**
 
 **3. Webapp diagnostics tab.** Reads the JSON route. A table of endpoints with
 bytes/day measured against predicted, the last few fetches, and the errors.
 Its job is to make the divergence obvious at a glance.
 
-**Not yet built — this is phase 3.**
+**Not yet built — this is phase 3b, split out from 3a because it is the
+harder card.**
 
 **4. Status line and log.** See below.
 
@@ -248,9 +259,12 @@ Four pull requests, each shippable alone, in this order:
    `public/config-panel.js`. Delivers: the original bug becomes a build failure.
    This is the prong that prevents recurrence; it is worth doing even if
    nothing else here ships. **Shipped — #244.**
-3. **Signal K paths and the webapp tab.** Predicted vs measured becomes
-   visible and gets recorded by whatever is already scraping Signal K.
-   **Not started.**
+3. **Signal K paths and the webapp tab**, split into two pull requests once
+   work started:
+   - **3a. Signal K paths.** Predicted vs measured becomes visible and gets
+     recorded by whatever is already scraping Signal K. **Shipped.**
+   - **3b. Webapp diagnostics tab.** The same numbers, read back out in the
+     UI. **Not started.**
 4. **Persistence.** Tier 3, hourly flush, atomic rename, discard-on-corrupt.
    **Shipped.**
 
