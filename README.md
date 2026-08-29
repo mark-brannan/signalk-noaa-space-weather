@@ -42,8 +42,8 @@ and publishes to Signal K paths under `environment.noaa.swpc` and
 **Is anything happening right now?**
 
 - NOAA's G/S/R storm scales — current level, the last 24 hours' maximums,
-  and a 3-day forecast. NOAA explains the scales
-  [here](https://www.spaceweather.gov/noaa-scales-explanation).
+  and a 3-day forecast. NOAA explains the scales in its
+  [scale explanation](https://www.spaceweather.gov/noaa-scales-explanation).
 - NOAA alerts, watches and warnings as Signal K notifications, one path per
   message code (for example `notifications.noaa.swpc.alerts.WARK05`),
   carrying only the conditions currently in force. A reissued warning
@@ -130,7 +130,7 @@ which is why it needs no chart server. There's a
 Both global grids are also served as Web Mercator map tiles, so the layers
 can be drawn over your actual charts:
 
-```
+```text
 http://<your-server>:3000/signalk/v1/api/signalk-noaa-space-weather/aurora-tile/{z}/{x}/{y}.png
 http://<your-server>:3000/signalk/v1/api/signalk-noaa-space-weather/drap-tile/{z}/{x}/{y}.png
 ```
@@ -176,7 +176,7 @@ Ten settings, all optional, all with working defaults:
   largest thing you can add to the poll, about 32 KB per fetch, so it's off
   by default on bandwidth too. Same bargain: off means on-demand only.
 - `updateInterval` (default 60 minutes) — the poll for everything above
-  except the three grids, about 10 KB per poll.
+  except the three products, about 10 KB per poll.
 - `auroraInterval` (default 120), `drapInterval` (default 60),
   `goesFluxInterval` (default 60) — separate poll rates for the three
   products that have their own switch.
