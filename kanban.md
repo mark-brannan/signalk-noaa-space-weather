@@ -19,11 +19,6 @@ what it is blocked by. Delete it when it is done.
       the design pass it was opened to hold, and say what "done" means for it —
       the controls exist but were arrived at ad-hoc, not designed
 
-- [ ] List your gripes with the demo page as it stands, for
-      [#199](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/199)'s
-      last boxes — most may be moot once phase 1 replaces `demo/index.html`
-      with the real webapp, so this is wanted at phase 4, not before, unless
-      one of them is structural
 - [ ] Decide the map's Expand/Shrink control's fate — it does nothing at a
       narrow viewport, only grows the tile past the page's other columns at
       a wide one, and defaults to shrunk for now (round-3 review on
