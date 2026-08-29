@@ -23,8 +23,19 @@ interface Delta {
   updates: any[]
 }
 
+/**
+ * A test that doesn't care about persistence used to pass no `dataDir` at
+ * all and get back the inert '/nonexistent' -- fine as long as nothing ever
+ * wrote to it. Tier 3's stop()-time flush (src/meter.ts) means stop() now
+ * writes for real whenever a fetch happened during the test, so a caller
+ * with no explicit `dataDir` gets a real, disposable one instead, created
+ * lazily and only if `getDataDirPath` is actually called.
+ */
+const fallbackDataDirs: string[] = []
+
 function fakeApp(dataDir?: string, position?: any) {
   const deltas: Delta[] = []
+  let resolvedDataDir: string | null = null
   return {
     deltas,
     error: vi.fn(),
@@ -34,7 +45,14 @@ function fakeApp(dataDir?: string, position?: any) {
     getSelfPath: vi.fn((path: string) =>
       path === 'navigation.position.value' ? position : undefined
     ),
-    getDataDirPath: vi.fn(() => dataDir ?? '/nonexistent'),
+    getDataDirPath: vi.fn(() => {
+      if (dataDir) return dataDir
+      if (!resolvedDataDir) {
+        resolvedDataDir = mkdtempSync(join(tmpdir(), 'plugin-fallback-'))
+        fallbackDataDirs.push(resolvedDataDir)
+      }
+      return resolvedDataDir
+    }),
     handleMessage: (_id: string, delta: Delta) => deltas.push(delta)
   }
 }
@@ -127,6 +145,8 @@ describe('plugin module', () => {
   afterEach(() => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
+    for (const dir of fallbackDataDirs.splice(0))
+      rmSync(dir, { recursive: true, force: true })
   })
 
   it('keeps `main` in package.json, pointing at the built entry point', () => {
@@ -573,7 +593,7 @@ describe('plugin module', () => {
 
       const response = await router.invoke(ROUTE)
       expect(response.status).toBe(200)
-      expect(response.json.schema).toBe(1)
+      expect(response.json.schema).toBe(2)
       expect(response.json.ring.length).toBeGreaterThan(0)
       const scales = response.json.ring.find(
         (r: any) => r.subPath === '/products/noaa-scales.json'
