@@ -236,13 +236,22 @@ npx http-server demo-dist              # any static server works
 ```
 
 The public demo ([issue #199](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/199))
-is `public/`'s map stack served as static files, with exactly one
+is the shipping webapp page itself, served as static files, with exactly one
 substitution: `demo/signalk.js` lands in the assembled site as `signalk.js`,
-so `hf.js` and everything above it resolves `./signalk.js` to a version that
-answers every read from `demo/snapshot.json` — one saved NOAA capture —
-instead of a Signal K server. `demo/index.html` is the entry page;
+so `public/index.html` and everything it imports resolve `./signalk.js` to a
+version that answers every read from `demo/snapshot.json` — one saved NOAA
+capture — instead of a Signal K server. `public/index.html` is the entry page,
+copied verbatim with one script tag for `demo/chrome.js` appended;
 `test/demo.test.ts` pins the swap contract and that every import among the
 copied modules stays inside the copied set.
+
+**Load the built site in a browser before you believe it.** The import walk
+follows `import` statements only, so a dynamic `import()`, a `new Worker(...)`,
+a `new URL('./x.js', import.meta.url)` or an asset referenced from markup or
+CSS is copied by neither the build nor the test — and the test cannot catch
+what the build cannot see. A browser is the only guard that does, and it
+cannot go in `npm test`: the registry runs that under `firejail --net=none`
+with a 60 second cap.
 
 `.github/workflows/pages.yml` deploys `demo-dist/` to GitHub Pages on every
 push to `main` that touches the demo or `public/`. To refresh the committed
@@ -254,7 +263,12 @@ npm run build && node scripts/capture-demo-snapshot.mjs
 
 It runs the real products out of `dist/` against a capturing publisher — the
 same pattern as the mock's `loadRealProducts` — so it needs the network and a
-build, and it is deliberately outside the test suite.
+build, and it is deliberately outside the test suite. It runs with the aurora,
+D-RAP and GOES flux products switched on, and saves those settings into the
+snapshot as the `/status` route's body, so the demo represents a configured
+install rather than claiming defaults it is not running. It refuses to write a
+snapshot with a hole in it: a product that throws, or that refreshes without
+publishing anything, fails the run and leaves the committed capture alone.
 
 ## Regenerating the README screenshots
 
