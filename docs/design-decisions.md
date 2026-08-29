@@ -538,12 +538,21 @@ carries the unsigned originals through and is refused.
 The standing bias against minting minors — 59 releases in the first 24 days, 27
 of them minors — is now enforced rather than argued per pull request.
 
-**The publish still has to be dispatched by hand from the workflow.**
-release-please tags with the default `GITHUB_TOKEN`, and GitHub does not fire
-workflows for refs created that way. `publish.yml`'s `push: tags` listener
-never sees it, so `release-please.yml` calls `gh workflow run publish.yml --ref
-<tag>` — the same path a human uses, and the one npm's trusted publisher is
-configured for. `workflow_call` was tried and npm rejects the token it mints.
+**release-please runs as a GitHub App, not the default `GITHUB_TOKEN`.** The
+default token doesn't fire other workflows for anything it creates — GitHub's
+own loop prevention — so a release pull request opened with it never got its
+required CI checks and sat permanently unmergeable (#243). An installation
+token for a repo-scoped GitHub App gives it a real actor identity instead, so
+the PR's own `pull_request` event fires CI normally.
+
+**The publish still has to be dispatched by hand from the workflow.** The App
+token means release-please's tag push *does* fire workflows now, which makes
+`publish.yml`'s old `push: tags` trigger a hazard rather than a convenience —
+it would start a second, racing publish alongside the explicit dispatch below.
+That trigger is deliberately gone; `release-please.yml` calls
+`gh workflow run publish.yml --ref <tag>` and waits on it, the same path a
+human uses by hand. It is also the one npm's trusted publisher is configured
+for: `workflow_call` was tried and npm rejects the token it mints.
 
 What is given up: nothing enforces that a publish-impacting change gets
 released. That was the point of the path regex, and it is now a judgement call
