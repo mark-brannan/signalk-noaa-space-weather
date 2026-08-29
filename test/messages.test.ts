@@ -9,9 +9,18 @@ import {
 const NOW = Date.parse('2026-08-29T12:00:00.000Z')
 const HOUR = 60 * 60 * 1000
 
-/** One leaf of the alerts subtree, shaped as products/alerts.ts publishes it. */
-function leaf(code: string, over: Record<string, unknown> = {}) {
+/**
+ * One leaf of the alerts subtree, shaped as products/alerts.ts publishes it
+ * -- including the delta `timestamp` a real Signal K leaf always carries
+ * alongside `value`, which is what a stand-down's age is measured against.
+ */
+function leaf(
+  code: string,
+  over: Record<string, unknown> = {},
+  timestamp = new Date(NOW - HOUR).toISOString()
+) {
   return {
+    timestamp,
     value: {
       id: `noaa_swpc_alert_${code}`,
       serialNumber: '1',
@@ -59,10 +68,15 @@ describe('messagesInForce', () => {
   })
 
   it('drops a stood-down message once it is old news', () => {
-    const stale = leaf('WATA30', {
-      state: 'normal',
-      issued: new Date(NOW - RECENT_MS - HOUR).toISOString()
-    })
+    // Aged by when the plugin stood it down (the leaf's own timestamp), not
+    // by when NOAA first issued it -- an old watch stood down five minutes
+    // ago is still fresh, and a watch stood down long ago is not, no matter
+    // when it was issued.
+    const stale = leaf(
+      'WATA30',
+      { state: 'normal' },
+      new Date(NOW - RECENT_MS - HOUR).toISOString()
+    )
     expect(messagesInForce({ WATA30: stale }, NOW)).toEqual([])
     // Still in force at the same age, it stays: NOAA saying so outranks the
     // window, which only ever bounds what is *not* in force.
@@ -70,6 +84,28 @@ describe('messagesInForce', () => {
       issued: new Date(NOW - RECENT_MS - HOUR).toISOString()
     })
     expect(messagesInForce({ WARK07: old }, NOW)[0]?.code).toBe('WARK07')
+  })
+
+  it('keeps a message stood down recently despite having been issued long ago', () => {
+    const row = leaf(
+      'WATA30',
+      { state: 'normal', issued: new Date(NOW - 10 * RECENT_MS).toISOString() },
+      new Date(NOW - HOUR).toISOString()
+    )
+    expect(messagesInForce({ WATA30: row }, NOW)[0]?.code).toBe('WATA30')
+  })
+
+  it('drops a stood-down message with no usable timestamp rather than keep it forever', () => {
+    const noTimestamp = leaf('WATA30', { state: 'normal' }, undefined as any)
+    delete (noTimestamp as any).timestamp
+    expect(messagesInForce({ WATA30: noTimestamp }, NOW)).toEqual([])
+
+    const badTimestamp = leaf(
+      'WARK07',
+      { state: 'normal' },
+      'not-a-date' as any
+    )
+    expect(messagesInForce({ WARK07: badTimestamp }, NOW)).toEqual([])
   })
 
   it('puts what is true now first, then NOAA’s strongest verb', () => {

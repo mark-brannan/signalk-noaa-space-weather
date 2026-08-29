@@ -53,8 +53,18 @@ export function messagesInForce(alerts, nowMs) {
 
     const issuedAt = Date.parse(value.issued)
     const inForce = !STOOD_DOWN.has(value.state)
-    if (!inForce && Number.isFinite(issuedAt) && nowMs - issuedAt > RECENT_MS) {
-      continue
+    if (!inForce) {
+      // The delta timestamp, not `value.issued`: `standDown` in
+      // products/alerts.ts republishes the same value with a fresh
+      // timestamp, so this is when the plugin observed the withdrawal, not
+      // when NOAA first issued the message. A message issued a week ago but
+      // stood down five minutes ago is still fresh news; using `issued`
+      // here would drop it on arrival. A missing or unparseable timestamp
+      // fails closed -- age Infinity, dropped -- rather than being kept
+      // forever.
+      const stoodDownAt = Date.parse(node?.timestamp)
+      const age = Number.isFinite(stoodDownAt) ? nowMs - stoodDownAt : Infinity
+      if (age > RECENT_MS) continue
     }
 
     rows.push({

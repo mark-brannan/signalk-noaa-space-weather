@@ -1783,7 +1783,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       list.innerHTML = '<div class="empty-state">No NOAA messages in force.</div>';
       return;
     }
-    list.innerHTML = messageRows.map(messageMarkup).join('');
+    list.innerHTML = messageRows.map((row, i) => messageMarkup(row, i)).join('');
     // The body text is long and there are usually several messages, so each
     // starts folded -- the head row is what makes the list scannable.
     for (const toggle of list.querySelectorAll('.msg-toggle')) {
@@ -1795,9 +1795,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     }
   }
 
-  function messageMarkup(row) {
+  function messageMarkup(row, i) {
     const sev = sevClass(row.level) || 'sev-0';
-    const bodyId = `msgBody_${row.code || Math.random().toString(36).slice(2)}`;
+    // Off the row's position in the list, not `row.code`: the code is NOAA
+    // text dropped straight into an unescaped attribute, and this is the one
+    // identifier in the render that has to be trusted rather than escaped.
+    const bodyId = `msgBody_${i}`;
     // Everything below originates at NOAA, so all of it goes through
     // escapeHtml --
     // this is the one place in the page that renders a payload body.
