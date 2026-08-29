@@ -36,11 +36,6 @@ what it is blocked by. Delete it when it is done.
       feedback into
       [#199](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/199),
       the issue's own last checkbox
-- [ ] Launch the coastline-extraction build sessions — names are settled
-      (`coastlines` data, `coast-wright` lib, `portolani` generator), so run
-      the handoff prompt: generator repo, then data repo, then lib repo, then
-      the swap-in PR here
-      ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179))
 - [ ] Deliver the resource-delivery-layer detail you were holding, and open
       the upstream Signal K discussion once the coastline packages exist
       ([#179](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/179)).
@@ -76,21 +71,6 @@ what it is blocked by. Delete it when it is done.
       the broader `test/dead-fields.test.ts` sweep rather than deleting the
       coverage outright, and pinned the two storm days by name in the new
       home; worth eyeballing that nothing was lost in the move
-- [ ] Decide the fate of the scratch signalk-server on port 3110 — still
-      running this branch against live NOAA, spun up during the #146
-      false-regression chase
-      ([log](https://github.com/mark-brannan/claude_prompts_scratch/blob/main/state/global/log/2026-08-25-dead-field-sweep-and-a-false-regression.md)).
-      Kill it once you're done, or fold it into a standing test-rig strategy
-      (2026-08-26: nothing listening on 3110 on the dev host — may be gone
-      already). Deferred — may overlap with the review-rig design card below
-      (portable Docker test instance vs. one-host `~/.signalk`); check there
-      first before designing this separately
-- [ ] Enable **private vulnerability reporting** (Settings → Code security), so
-      the advisory link in
-      [SECURITY.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/SECURITY.md)
-      and the Code of Conduct's enforcement contact both work — only a repo
-      admin can turn it on
-      ([#106](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/106))
 
 - [ ] Paste the cloud-environment setup blob from
       [dotfiles RUNBOOK](https://github.com/mark-brannan/dotfiles/blob/main/RUNBOOK.md#create-a-cloud-environment)
@@ -315,22 +295,6 @@ what it is blocked by. Delete it when it is done.
       version shipped and never mentions it again. The red release run is the
       only signal; a re-dispatch of `publish.yml` at the tag is the manual fix
       ([#136](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/136))
-- [ ] Fix the three defects the review sweep found on merged PRs: the banner
-      claims nothing is in force while a level quieter than the day's peak is
-      still running
-      ([#127](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/127#discussion_r3856428331)),
-      the quiet subtext overclaims a forecast it only bounds at G3
-      ([#127](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/127#discussion_r3856431336)),
-      and `parseDrapGrid` publishes a torn header's grid stamped with the local
-      clock
-      ([#101](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/101#discussion_r3828245008)).
-      Written and tested on `claude/repo-structure-review-75idam`, closed
-      unmerged as out of scope for the audit
-      ([#135](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/135))
-      — reopen as its own PR. That branch also carries three unrelated fixes
-      from the same sweep (the `SCALE_WORDS` reference that never existed,
-      `isRaised` typed `any`, a truncated-grid test that passes on an empty
-      payload); they are not this card, so split them out
 - [ ] Revisit the HF Radio tile's design when any of its four deferred inputs
       lands — MUF/foF2
       ([#82](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/82)),
@@ -343,24 +307,6 @@ what it is blocked by. Delete it when it is done.
       [#110](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/110)
       and
       [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md)
-- [ ] Derive the D-RAP grid geometry in `public/drapMap.js` instead of
-      hardcoding it — `cutoffAt` does `row = round((89 - lat)/2)` and
-      `col = round((lon + 178)/4)`, and `drawDrapMap` lays cells out on the
-      same assumption. Every other reader derives it: `drapLattice` in
-      `src/tiles.ts` says in as many words that a grid published
-      north-to-south or from -178 is _described_ rather than rewritten, and
-      `drapFrequencyAt` uses `nearestIndex` over the arrays. `parseDrapGrid`
-      checks only that both arrays are length 90, so a shifted grid publishes
-      right, tiles right, and draws and probes wrong in the webapp with no
-      signal — the failure
-      [docs/design-decisions.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md#noaa-changes-payload-shapes-without-notice)
-      exists to prevent. Both arrays are already in hand (`gridSummary` reads
-      them); ~10 lines, or one geometry assertion in `parseDrapGrid` instead.
-      While there: guard `greatCirclePoints` against the exact antipode
-      (`sin δ` → 0 scatters 82 of 202 points), and make
-      `test/drap-map.test.ts:38` assert against `drapFrequencyAt` rather than
-      a hardcoded 2.9
-      ([review](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/169#issuecomment-5431300417))
 - [ ] Trim the "The D-RAP map is the deliverable" section in
       [docs/design-decisions.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md) —
       its colour-ramp paragraph re-argues "The D-RAP overlay is coloured by
@@ -373,11 +319,6 @@ what it is blocked by. Delete it when it is done.
       (lines 167 and 341 still use `*`) — finish it or revert it, and decide
       whether `format:check` should cover markdown at all, since today it only
       covers `src/**/*.ts` and `test/**/*.ts`
-- [ ] Keep the vessel position across a map layer switch —
-      `document.getElementById('mapExtent').innerHTML = layer.extent` in
-      `public/index.html` re-inserts `<span id="vesselPos">the vessel</span>`,
-      so the extent reads "the vessel" until the next 60-second poll. Set the
-      text right after the swap
 - [ ] Decide whether a *named* destination is worth building on top of the
       absorption map's click-to-score probe — a route waypoint, a saved
       station list, a callsign lookup. The map answers the path question by
@@ -391,22 +332,6 @@ what it is blocked by. Delete it when it is done.
       force before writing the parser — quiet-day payloads can't pin the
       field's in-event shape
       ([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32))
-- [ ] Build the HF Radio tile and the data behind it
-      ([#110](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/110)) —
-      design is settled and recorded on the issue and in
-      [docs/hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md);
-      this is the implementation. Six paths reach `ENDPOINTS` in
-      `public/signalk.js`; the three-across row (aurora / Solar Activity / HF
-      Radio, all `span-4`) with Solar Wind renamed and dropped from `span-8`;
-      the band strip filling only the measured floor;
-      [#122](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/122)'s
-      two flare values with a dated `xray-flares-7-day` fixture (the
-      endpoint is measured in `docs/noaa-products.md`); the X-ray trend,
-      derived from the ~700 records already fetched every poll and currently
-      discarded; the F10.7 bands as a labelled convention; and zone metadata on
-      the HF paths — reading the
-      two hazards in `hf-operator-view.md` first, since F10.7 is inverted and
-      D-RAP's value is a frequency rather than a severity
 - [ ] Review the two HF markdown docs for accuracy and overlap —
       [hf-operator-view.md](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/hf-operator-view.md)
       is new and unreviewed, and it deliberately splits from
