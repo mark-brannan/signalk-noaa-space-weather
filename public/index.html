@@ -1490,8 +1490,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const n = series.length;
     const x = (i) => padL + (n <= 1 ? 0 : (i / (n - 1)) * plotW);
     const y = (v) => padT + plotH - (Math.min(v, maxKp) / maxKp) * plotH;
-    const nowIndex = Math.max(0, series.findIndex((p) => p.forecast) - 1);
-    const nowI = nowIndex < 0 ? n - 1 : nowIndex;
+    // Where measurement stops. NOAA's `observed` column lags the clock by one
+    // to two 3-hour bins, so this is not "now" -- the points between it and
+    // now are estimates, and colouring them as history would be the same lie
+    // `kp.observed` used to tell (see design-decisions.md).
+    const splitIndex = series.findIndex((p) => p.forecast);
+    const splitI = splitIndex < 0 ? n - 1 : Math.max(0, splitIndex - 1);
     // The x scale is by index, not by time, so a date boundary has to be
     // placed between two points rather than at one.
     const times = series.map((p) => Date.parse(p.time));
