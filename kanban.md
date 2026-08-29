@@ -7,18 +7,7 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
-- [ ] Rebase and merge
-      [#226](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/226)
-      (the two NOAA endpoint-drift CI checks) — it was stacked on #223, which
-      has since merged, so GitHub now shows it CONFLICTING against main
-- [ ] Close the issues verified done on 2026-08-28 —
-      [#174](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/174),
-      [#162](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/162),
-      [#122](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/122),
-      [#116](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/116),
-      [#110](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/110),
-      [#109](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/109)
-      — and rule on
+- [ ] Rule on
       [#115](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/115),
       which shipped at 290x270 against a ~530x425 target
 - [ ] Rule on the R-scale colouring in
