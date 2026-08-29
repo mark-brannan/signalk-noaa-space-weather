@@ -259,7 +259,10 @@ what it is blocked by. Delete it when it is done.
       (a compose file in this repo with overridable ports, or a command that
       builds and links into a dedicated plugin-dev Signal K), not one host's
       `~/.signalk`; purpose and both mechanisms are settled, the environment is
-      not
+      not. Live evidence this is overdue: a dedicated per-branch config dir +
+      port + plugin symlink (`~/.signalk-rig-<slug>`) has now been hand-rolled
+      ad hoc at least twice on this box with no name or writeup — worth
+      folding into whichever mechanism gets picked
       ([#125](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/125)),
       blocked: a one-on-one design pass, deliberately not blocking the rest of
       the #121 plan
@@ -397,3 +400,11 @@ what it is blocked by. Delete it when it is done.
       stood-down messages for two days and nothing longer is available without
       re-reading NOAA's 30-day archive.
       https://github.com/mark-brannan/signalk-noaa-space-weather/pull/242
+- [ ] Fix `scripts/check-noaa-live.mjs`: it passes endpoint *path strings* to
+      `client.json`/`client.text`, which have taken `Endpoint` objects since
+      the declarations landed, so every row reports "could not measure (client
+      threw: fetched an undeclared endpoint undefined)". The raw-socket wire
+      sizes still measure, so the table half-works and the break is quiet. It
+      predates #272 and #281; found while fixing the CacheStore half of the
+      same file's publisher stub.
+      https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/scripts/check-noaa-live.mjs
