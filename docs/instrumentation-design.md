@@ -1,6 +1,6 @@
 # Design: measuring what the plugin actually fetches
 
-**Status: phases 1, 2 and 3a shipped; 3b and 4 not started.** Recovered
+**Status: phases 1, 2, 3a and 3b shipped; 4 not started.** Recovered
 2026-08-29 — this file was written 2026-08-28 on a design branch that was
 never merged and got deleted after phases 1–2 landed off cherry-picked
 commits rather than a PR from this branch; it survived only as an
@@ -174,9 +174,11 @@ alongside the existing routes in `signalKApiRoutes`. Full detail: the ring, the
 with a `schema` field, safe to scrape. This is the primary surface — the other
 three are views of it.
 
-**Shipped in phase 1**, though without the totals (phase 4) or the
-predicted-vs-measured comparison (needs phase 2's declarations wired in —
-phase 3).
+**Shipped in phase 1**, though without the totals (phase 4). The predicted
+half landed in **phase 3b** as `src/telemetry.ts`: `predicted.endpoints` keyed
+by the same `subPath` as the measured half, and `predicted.total` straight from
+`predictedBytesPerDay`, at `schema: 2`. The route still compares nothing — see
+surface 3.
 
 **2. Signal K paths.** Deliberately few. Housekeeping data in a vessel's data
 model earns its place only where a time-series database should keep the
@@ -204,8 +206,10 @@ windowed per endpoint, not globally (see that function's doc).
 bytes/day measured against predicted, the last few fetches, and the errors.
 Its job is to make the divergence obvious at a glance.
 
-**Not yet built — this is phase 3b, split out from 3a because it is the
-harder card.**
+**Shipped — phase 3b**, as `public/diagnostics.js` and an overlay off the
+footstrip. The threshold this doc left as a placeholder became two thresholds
+and a window gate; the argument is in
+[docs/design-decisions.md](design-decisions.md#predicted-vs-measured-has-two-thresholds-and-one-window-gate).
 
 **4. Status line and log.** See below.
 
@@ -261,7 +265,7 @@ Four pull requests, each shippable alone, in this order:
    - **3a. Signal K paths.** Predicted vs measured becomes visible and gets
      recorded by whatever is already scraping Signal K. **Shipped.**
    - **3b. Webapp diagnostics tab.** The same numbers, read back out in the
-     UI. **Not started.**
+     UI. **Shipped.**
 4. **Persistence.** Tier 3, hourly flush, atomic rename, discard-on-corrupt.
    **Not started.**
 

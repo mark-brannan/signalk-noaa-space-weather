@@ -982,3 +982,96 @@ and fetches, which is 927 KB on the wire. The code is about six percent of one
 data fetch. `pages.yml` gained a `tsc` step and nothing else: the root `npm ci`
 is untouched, because the plugin registry scores this package by running that
 install offline under a 60-second cap.
+
+## Predicted-vs-measured has two thresholds and one window gate
+
+`docs/instrumentation-design.md` proposed the cross-check and then left the
+number open: *"a sustained divergence beyond, say, 25%"*, explicitly a
+placeholder. The webapp's diagnostics panel is where a number had to be
+chosen. It uses two, on two different comparisons, and refuses to make one of
+them at all until it has the data to make it honestly.
+
+**A row's payload size, at ±50%.** The mean wire size of one endpoint's
+fetches against the size `src/endpoints.ts` declares for it. This needs no
+time window: it is valid from the first fetches, and it is the comparison that
+would have caught [#223](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/223)
+fastest — 42 KB arriving where 5 KB was declared is visible immediately, a day
+before any daily figure could say anything. It is set loose because a single
+endpoint carries real variance. `/json/goes/primary/xray-flares-7-day.json` is
+one record per flare and `/products/alerts.json` is a rolling 30-day archive;
+both genuinely swell by a factor over an active week. A tighter line would
+mark them during exactly the storm a reader opened the page for, and a panel
+that cries wolf during storms is one nobody reads during storms. Three
+successful fetches are required before a row is allowed to accuse anything: a
+torn read is a short body, and one of those is not a drift.
+
+**The total, at ±25%.** Every endpoint's measured bytes against
+`predictedBytesPerDay`. Set tight, because the total's noise floor is far lower
+than any row's: the two weather-dependent endpoints above are a few KB against
+a prediction in the megabytes, so even at three times their declared size they
+move the total by a fraction of a percent. What moves the total is structural —
+an endpoint that grew a sibling, a cadence that is not what the settings say, a
+payload that changed shape. 25% is comfortably above that noise and catches a
+1.3× drift long before it becomes the 8× #223 was. So the placeholder number
+survives, but as the number for the *total* and on that argument, not because
+it was the placeholder.
+
+**And the total is not judged until the 24-hour window has actually filled.**
+This is the part that decides whether the panel is worth reading. The meter
+starts empty at every plugin start, and the aurora grid alone is 147 KB
+arriving in lumps two hours apart: three hours after a restart, measured sits
+somewhere between a twelfth and a fifth of a day's prediction for no reason but
+the clock. Pro-rating does not fix it — the problem is the lumpiness, not the
+scale. Judging there would raise the alarm after every single restart, which is
+the fastest way to build a diagnostic nobody looks at. Until the window fills,
+the panel says how far along it is and shows the measured figure without a
+verdict; the per-fetch comparison above stays live throughout, which is what
+keeps the panel useful on day one.
+
+`hoursCovered` reads the window off the meter's own buckets rather than off
+`startedAt`, because the client — and so the meter — outlives a `stop()`/
+`start()` cycle within one running server. A full window reads 24 and never 25:
+tier 2 prunes to 24 buckets by `hourStart`, so the oldest bucket start is at
+most 23 hours behind the newest, and the current partial hour is the
+twenty-fourth.
+
+**Two exceptions need no window, because no window could excuse them.** An
+endpoint carrying traffic the settings predict at zero is fetching something
+nobody asked for. And an endpoint the meter saw that the declarations do not
+carry should be unreachable — the client refuses an undeclared fetch and
+`test/endpoints.test.ts` walks the registry — which is exactly why it
+gets a row rather than being dropped on the floor.
+
+**The surfacing is a banner for the total and a marked row for an endpoint**,
+plus the finding itself on the footstrip link, so a page nobody opens the panel
+on still says when the numbers have parted company. The banner distinguishes
+over-fetching from under-fetching rather than folding both into "diverged":
+over is the configuration screen understating cost, which is #223's failure;
+under almost always means something is not running rather than something is
+cheap, and it wants a different first move.
+
+**And nothing is judged at all where the transfer size is not reported.** This
+was caught by opening the live demo, not by reasoning: every row read six to
+thirteen times its declared size, on a plugin doing exactly what it should. A
+browser's `fetch` decompresses transparently and does not expose the compressed
+length, so `wireBytesFor` in `src/noaa/client.ts` falls back to the decoded size
+and flags it — and comparing a decoded size against a declared, *measured* wire
+size is a guaranteed tenfold over-fetch. `docs/instrumentation-design.md` says
+never to quote a decoded size to a user as a cost, and a divergence verdict
+computed from one is the same mistake with a conclusion attached.
+
+So tier 2 carries an `estimated` count alongside `notModified`, per endpoint per
+hour. A row whose bytes are estimated is marked and compared against nothing;
+one estimated endpoint suppresses the *total* verdict as well, because its
+decoded bytes are in that sum. The one finding that survives is traffic on an
+endpoint the settings predict at zero — that a fetch happened at all does not
+depend on what it weighed. The granularity is per endpoint rather than per
+runtime for a reason the same demo showed: `/text/drap_global_frequencies.txt`
+comes back with a `Content-Length` in the same tab where the JSON endpoints do
+not.
+
+**The thresholds live in `public/diagnostics.js`, not in the plugin.** The
+`/telemetry` route serves the two halves keyed by the same `subPath` and
+compares nothing. Where the line falls is a presentation decision, and a
+scraper reading the same route — the Signal K paths from phase 3a are there for
+exactly that — is free to draw its own.

@@ -5,6 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import createPlugin, { retryDelayMs } from '../src/index'
 import { settingsFrom } from '../src/config'
 import {
+  AURORA,
+  ENDPOINTS,
+  SCALES,
+  fetchesPerDay,
+  predictedBytesPerDay
+} from '../src/endpoints'
+import {
   AURORA_BASE,
   DRAP_BASE,
   PROTON_FLUX_BASE,
@@ -573,7 +580,7 @@ describe('plugin module', () => {
 
       const response = await router.invoke(ROUTE)
       expect(response.status).toBe(200)
-      expect(response.json.schema).toBe(1)
+      expect(response.json.schema).toBe(2)
       expect(response.json.ring.length).toBeGreaterThan(0)
       const scales = response.json.ring.find(
         (r: any) => r.subPath === '/products/noaa-scales.json'
@@ -581,6 +588,58 @@ describe('plugin module', () => {
       expect(scales.trigger).toBe('schedule')
       expect(scales.outcome).toBe('ok')
       expect(response.json.hourly['/products/noaa-scales.json']).toBeDefined()
+
+      plugin.stop()
+    })
+
+    // The predicted half of the cross-check. Keyed by the same `subPath` as
+    // the measured half above, which is what makes comparing them a join
+    // rather than a translation -- and what a per-product key would have
+    // destroyed, since the bug this exists to catch was one product growing a
+    // second and a third endpoint.
+    it('serves what the declarations predict, keyed the same way', async () => {
+      const plugin = createPlugin(fakeApp())
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      const settings = settingsFrom({})
+      plugin.start(settings)
+
+      const { predicted } = (await router.invoke(ROUTE)).json
+      expect(predicted.endpoints.map((e: any) => e.subPath).sort()).toEqual(
+        ENDPOINTS.map((e) => e.subPath).sort()
+      )
+      // Not a second derivation of the same figure: both sides come from
+      // endpoints.ts, so the route and the configuration form cannot drift.
+      expect(predicted.total).toBe(predictedBytesPerDay(settings).total)
+      const scales = predicted.endpoints.find(
+        (e: any) => e.subPath === '/products/noaa-scales.json'
+      )
+      expect(scales.wireBytes).toBe(SCALES.wireBytes)
+      expect(scales.bytesPerDay).toBe(
+        fetchesPerDay(SCALES, settings) * SCALES.wireBytes
+      )
+      expect(scales.productName).toBeTruthy()
+
+      plugin.stop()
+    })
+
+    // Every endpoint gets a row whether or not the settings schedule it: a
+    // product the user switched off that is fetching anyway is exactly what
+    // the panel has to be able to show, and a table listing only what the
+    // settings expect cannot show it.
+    it('lists an endpoint the settings switch off, at zero', async () => {
+      const plugin = createPlugin(fakeApp())
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start(settingsFrom({ auroraEnabled: false }))
+
+      const { predicted } = (await router.invoke(ROUTE)).json
+      const grid = predicted.endpoints.find(
+        (e: any) => e.subPath === AURORA.subPath
+      )
+      expect(grid).toBeDefined()
+      expect(grid.fetchesPerDay).toBe(0)
+      expect(grid.bytesPerDay).toBe(0)
 
       plugin.stop()
     })
