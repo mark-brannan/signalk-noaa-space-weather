@@ -18,9 +18,13 @@
  */
 import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync } from 'fs'
-import { dirname, join, relative, resolve } from 'path'
+import { dirname, join, relative, resolve, sep } from 'path'
 
 const SRC = resolve(__dirname, '../src')
+
+/** Paths are only ever reported, never resolved, so keep them POSIX-shaped:
+ *  `relative` hands back backslashes on Windows and the CI runner is real. */
+const rel = (file: string) => relative(SRC, file).split(sep).join('/')
 const PRODUCTS = join(SRC, 'products')
 
 /** `import`/`export ... from '<specifier>'`, minus the type-only ones. */
@@ -45,7 +49,7 @@ function closure(entries: string[]): {
         continue
       if (!spec.startsWith('.')) {
         if (!bare.has(spec)) bare.set(spec, new Set())
-        bare.get(spec)!.add(relative(SRC, file))
+        bare.get(spec)!.add(rel(file))
         continue
       }
       // The emitted specifier ends in .js; the source it names is .ts.
@@ -77,7 +81,7 @@ describe('the product closure loads in a browser', () => {
 
   it('keeps the filesystem out of the closure', () => {
     const { modules } = closure(entries)
-    const names = [...modules].map((f) => relative(SRC, f))
+    const names = [...modules].map(rel)
     // publisher.ts owns the filesystem now, and products name only its types.
     expect(names).not.toContain('publisher.ts')
     expect(names).toContain('cache/entryCache.ts')
