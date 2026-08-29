@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.29.12](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.29.11...v0.29.12) (2026-08-29)
+
+
+### Added
+
+* **webapp:** let NOAA's watches speak in the hero banner ([#242](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/242)) ([ee24ab0](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/ee24ab009d52781602494093bd0b62f60b8bf0ea))
+* **webapp:** show NOAA's own messages, off a link in the hero ([#255](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/255)) ([b2f7fd3](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/b2f7fd3e64d700a289139be8369aa4599445fe1c))
+
+
+### Fixed
+
+* **noaa:** bound wireBytes() with a deadline, and catch up release docs ([#251](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/251)) ([ca40093](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/ca4009356663a32346583c859b88962f50966135))
+* **release:** give the publish dispatch step a repo to target ([#247](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/247)) ([5afcc35](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/5afcc3561bf0cdab86de0ec59f6805cce65d0e5e))
+
 ## [0.29.11](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.29.10...v0.29.11) (2026-08-28)
 
 

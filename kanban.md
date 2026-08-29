@@ -442,11 +442,14 @@ what it is blocked by. Delete it when it is done.
       Options not yet weighed: unit above or beside the bar instead of on the
       last tick, drop the 30 label, or right-align the last tick against the
       bar's end rather than centring it on its fraction
-- [ ] Build the in-force NOAA message tile — a new webapp surface listing the
-      alerts/watches/warnings currently in force, each with its verb (WATCH /
-      WARNING / ALERT / SUMMARY), scale, validity window and NOAA's own text,
-      expandable. The data is already published under `ALERTS_BASE` and the
-      webapp reads none of it; the hero's watch-awareness pass (this branch)
-      adds the `verb` and per-day predicted levels the tile would key off.
-      Mark's call, 2026-08-28: its own session, design iterated separately
-      rather than bolted onto the hero work
+- [ ] Refine the in-force NOAA message surface. A stop-gap shipped on
+      2026-08-29 (`public/messages.js` + the overlay off the hero link): the
+      list draws every message under `ALERTS_BASE` with its verb, scale, issue
+      time, a watch's per-day table and NOAA's own text folded behind a
+      toggle. What it does *not* do, and what a design pass is for: a real
+      tile rather than a second overlay, the validity window drawn as a window
+      rather than a timestamp, a place for the S and R messages that are not
+      about a storm at all, and a decision about history — the subtree keeps
+      stood-down messages for two days and nothing longer is available without
+      re-reading NOAA's 30-day archive.
+      https://github.com/mark-brannan/signalk-noaa-space-weather/pull/242
