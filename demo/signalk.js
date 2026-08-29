@@ -24,6 +24,7 @@ export const ENDPOINTS = {
   f107: 'environment/noaa/swpc/f107',
   aIndex: 'environment/noaa/swpc/a_index',
   sunspotNumber: 'environment/noaa/swpc/sunspot_number',
+  alerts: 'notifications/noaa/swpc/alerts',
   position: 'navigation/position',
   // No snapshot carries this yet -- the MUF is issue #82 -- and nodeAt
   // answers null, which is the same "not measured" the live webapp gets.

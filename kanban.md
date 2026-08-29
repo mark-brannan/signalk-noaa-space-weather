@@ -437,3 +437,11 @@ what it is blocked by. Delete it when it is done.
       Options not yet weighed: unit above or beside the bar instead of on the
       last tick, drop the 30 label, or right-align the last tick against the
       bar's end rather than centring it on its fraction
+- [ ] Build the in-force NOAA message tile — a new webapp surface listing the
+      alerts/watches/warnings currently in force, each with its verb (WATCH /
+      WARNING / ALERT / SUMMARY), scale, validity window and NOAA's own text,
+      expandable. The data is already published under `ALERTS_BASE` and the
+      webapp reads none of it; the hero's watch-awareness pass (this branch)
+      adds the `verb` and per-day predicted levels the tile would key off.
+      Mark's call, 2026-08-28: its own session, design iterated separately
+      rather than bolted onto the hero work
