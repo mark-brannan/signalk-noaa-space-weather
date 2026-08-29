@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.30.3](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.30.2...v0.30.3) (2026-08-29)
+
+
+### Added
+
+* **watch-drap:** sample continuously through a flare, and measure staleness across the hour ([#283](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/283)) ([aa253e0](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/aa253e012913d6c44e75203e5b0c8977cf72f49c)), closes [#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32)
+
+
+### Fixed
+
+* **ci:** drop ci-gate's name: so its context matches the ruleset ([#279](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/279)) ([5169efc](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/5169efcf4f3d5c1329e60a28f09b4356418674ee))
+* **scripts:** pass declared Endpoint objects to client.json/text in check-noaa-live ([#286](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/286)) ([9b711d2](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/9b711d24fbb983d1959ebb2d055cadb414821012))
+
 ## [0.30.2](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.30.1...v0.30.2) (2026-08-29)
 
 
