@@ -27,7 +27,6 @@
 // registry scores this package with `npm test` under --net=none.
 import fssync from 'node:fs'
 import fs from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -65,31 +64,28 @@ if (newest(path.join(REPO, 'src'), '.ts') > newest(path.join(REPO, 'dist'), '.js
 // a hand-maintained list is how the demo ended up with four values and a
 // half-empty page (issue #239). A product added to the registry lands in the
 // next capture with no edit to this file.
+// DEMO_POSITION and DEMO_PROPS come from dist/browser/live.js, which is where
+// the live demo reads them too: the two demos are the same page over two data
+// layers, and a capture claiming a different viewpoint or different settings
+// than the live one would make them disagree about their own numbers.
 const [
   { PRODUCTS },
   { settingsFrom },
   auroraCache,
   drapCache,
   advisoryCache,
-  { createClient }
+  { createClient },
+  { DEMO_POSITION, DEMO_PROPS }
 ] = await Promise.all([
   import(distIndex),
   import(path.join(REPO, 'dist', 'config.js')),
   import(path.join(REPO, 'dist', 'cache', 'auroraCache.js')),
   import(path.join(REPO, 'dist', 'cache', 'drapCache.js')),
   import(path.join(REPO, 'dist', 'cache', 'advisoryCache.js')),
-  import(path.join(REPO, 'dist', 'noaa', 'client.js'))
+  import(path.join(REPO, 'dist', 'noaa', 'client.js')),
+  import(path.join(REPO, 'dist', 'browser', 'live.js'))
 ])
 
-const dataDirPath = path.join(
-  os.tmpdir(),
-  'signalk-noaa-space-weather-demo-capture'
-)
-fssync.mkdirSync(dataDirPath, { recursive: true })
-
-// Real cruising water, and far enough north that both the aurora oval and
-// D-RAP's polar absorption are legible rather than flat zero most of the year.
-const DEMO_POSITION = { latitude: 60.4, longitude: 5.3 }
 // One clock for the whole capture: the vessel is at this position as of the
 // same moment the snapshot claims to be from.
 const capturedAt = new Date().toISOString()
@@ -102,6 +98,7 @@ const capturedAt = new Date().toISOString()
 // value (a subtree's description), which reads back as null the same way it
 // does from a real server.
 const values = {}
+const cacheStore = new Map()
 const nodeFor = (p) => values[p] ?? (values[p] = {})
 // Counted, not just stored: a refresh that returns without publishing is not
 // a success -- the plugin's own refresh route says so with a `fetchedAt` diff,
@@ -143,7 +140,11 @@ const publisher = {
     console.error(message, ...args)
   },
   debug() {},
-  dataDirPath: () => dataDirPath
+  // A Publisher is also the CacheStore its products persist through. A Map,
+  // not a directory: this process writes the three cached payloads and reads
+  // them back below, and nothing outside it ever wants them.
+  readCache: (filename) => cacheStore.get(filename) ?? null,
+  writeCache: (filename, text) => cacheStore.set(filename, text)
 }
 
 // The demo shows every surface the webapp can draw, which means the two grids
@@ -156,11 +157,6 @@ const publisher = {
 //
 // Still through `settingsFrom`, not an object assembled here, so every other
 // value is the one a fresh install gets and cannot drift from it.
-const DEMO_PROPS = {
-  auroraEnabled: true,
-  drapEnabled: true,
-  goesFluxEnabled: true
-}
 const settings = settingsFrom(DEMO_PROPS)
 
 const ctx = {
@@ -221,8 +217,8 @@ for (const product of PRODUCTS) {
 }
 
 const grids = {
-  aurora: auroraCache.readAuroraCache(dataDirPath),
-  drap: drapCache.readDrapCache(dataDirPath)
+  aurora: auroraCache.readAuroraCache(publisher),
+  drap: drapCache.readDrapCache(publisher)
 }
 for (const [name, entry] of Object.entries(grids)) {
   if (!entry?.grid) {
@@ -244,7 +240,7 @@ for (const [name, entry] of Object.entries(grids)) {
 // this capture or of a default install. `startedAt` is the capture instant,
 // which is what the demo's clock makes "just now".
 const routes = {
-  advisory: advisoryCache.readAdvisoryCache(dataDirPath),
+  advisory: advisoryCache.readAdvisoryCache(publisher),
   status: { startedAt: capturedAt, settings }
 }
 if (!routes.advisory) {

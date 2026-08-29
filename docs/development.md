@@ -245,27 +245,53 @@ the upstream instead.
 ## The browser demo
 
 ```shell
-npm install && npm run demo:build      # assembles demo-dist/
+npm install && npm run build           # the live layer is the compiled plugin
+npm run demo:build                     # assembles demo-dist/
 npx http-server demo-dist              # any static server works
 ```
+
+Then `/` for the saved snapshot, and `/?live` for live NOAA data.
 
 The public demo ([issue #199](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/199))
 is the shipping webapp page itself, served as static files, with exactly one
 substitution: `demo/signalk.js` lands in the assembled site as `signalk.js`,
 so `public/index.html` and everything it imports resolve `./signalk.js` to a
-version that answers every read from `demo/snapshot.json` — one saved NOAA
-capture — instead of a Signal K server. `public/index.html` is the entry page,
-copied verbatim with one script tag for `demo/chrome.js` appended;
-`test/demo.test.ts` pins the swap contract and that every import among the
-copied modules stays inside the copied set.
+version that answers every read from one of two data layers instead of a
+Signal K server. `public/index.html` is the entry page, copied verbatim with
+one script tag for `demo/chrome.js` appended; `test/demo.test.ts` pins the swap
+contract and that every import among the copied modules stays inside the copied
+set.
 
-**Load the built site in a browser before you believe it.** The import walk
-follows `import` statements only, so a dynamic `import()`, a `new Worker(...)`,
-a `new URL('./x.js', import.meta.url)` or an asset referenced from markup or
-CSS is copied by neither the build nor the test — and the test cannot catch
-what the build cannot see. A browser is the only guard that does, and it
-cannot go in `npm test`: the registry runs that under `firejail --net=none`
-with a 60-second cap.
+The two layers behind that one seam:
+
+| URL | Layer | Reaches NOAA |
+| --- | --- | --- |
+| `/` | `demo/snapshot.json`, one saved capture | no |
+| `/?live` | the plugin's own products, from `plugin/` | yes, all 16 endpoints |
+
+Live ([#239](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/239)
+leg 2) is `src/browser/live.ts` driving `PRODUCTS` against a browser publisher
+and an in-memory cache, with `createClient` in its no-extra-headers mode. The
+build copies `dist/` into the site under `plugin/`, following the emitted
+imports, so **`npm run build` has to have run** — `demo:build` says so and
+stops if it has not. It is opt-in and dynamically imported: a visitor who never
+asks for live data downloads none of those modules and makes no NOAA request.
+Why it is shaped this way is in
+[design-decisions.md](design-decisions.md#the-demos-third-data-layer-is-the-plugin-itself).
+
+**Load the built site in a browser before you believe it — both URLs.** The
+import walk follows `import` statements only, so a `new Worker(...)`, a
+`new URL('./x.js', import.meta.url)` or an asset referenced from markup or CSS
+is copied by neither the build nor the test — and the test cannot catch what
+the build cannot see. For the live layer a browser is the *only* place the
+thing can be checked at all: it is the one that decides whether a CORS
+preflight kills a request, and `npm test` runs under `firejail --net=none`
+with a 60-second cap, so nothing about reaching NOAA can be pinned there.
+
+What to look for on `/?live`: every tile populated within about ten seconds,
+the aurora oval and the D-RAP layer drawn on the map, and an empty console. A
+`plugin/` module failing to resolve shows up as one import error and a page
+that never leaves its no-data state.
 
 `.github/workflows/pages.yml` deploys `demo-dist/` to GitHub Pages on every
 push to `main` that touches the demo or `public/`. To refresh the committed
@@ -277,10 +303,14 @@ npm run build && node scripts/capture-demo-snapshot.mjs
 
 It runs the real products out of `dist/` against a capturing publisher — the
 same pattern as the mock's `loadRealProducts` — so it needs the network and a
-build, and it is deliberately outside the test suite. It runs with the aurora,
-D-RAP and GOES flux products switched on, and saves those settings into the
-snapshot as the `/status` route's body, so the demo represents a configured
-install rather than claiming defaults it is not running. It refuses to write a
+build, and it is deliberately outside the test suite. It takes its position and
+its settings from `src/browser/live.ts` (`DEMO_POSITION`, `DEMO_PROPS`), the
+same two the live layer runs, so the page's two modes cannot end up claiming
+different viewpoints; `test/browser-live.test.ts` holds the committed snapshot
+to both. It runs with the aurora, D-RAP and GOES flux products switched on, and
+saves those settings into the snapshot as the `/status` route's body, so the
+demo represents a configured install rather than claiming defaults it is not
+running. It refuses to write a
 snapshot with a hole in it: a product that throws, or that refreshes without
 publishing anything, fails the run and leaves the committed capture alone.
 

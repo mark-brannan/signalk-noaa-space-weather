@@ -4,9 +4,16 @@
 // gets is the page a boat owner gets, so nothing here may edit what that page
 // draws -- it says what the page is, when the data behind it was captured,
 // and where to get the real thing.
-import { snapshot } from './signalk.js'
+import { LIVE, snapshot } from './signalk.js'
 
 const REPO = 'https://github.com/mark-brannan/signalk-noaa-space-weather'
+
+// The two data layers are one URL apart, and the link between them is the
+// honest way to say what each is: a reader who doubts a saved capture can go
+// and watch the same page fetch NOAA itself, and a reader who lands on the
+// live one can go back to the moment that was worth saving.
+const LIVE_URL = './?live'
+const SNAPSHOT_URL = './'
 
 const STYLE = `
 .demo-note {
@@ -53,16 +60,26 @@ document.head.append(style)
 const note = document.createElement('div')
 note.className = 'demo-note'
 // Above the status bar rather than below the page: a visitor who reads
-// nothing else still has to learn that these numbers are saved, not current.
+// nothing else still has to learn where these numbers came from.
 note.innerHTML = `
   <p>
     NOAA's radio-blackout model and the aurora oval, drawn over a coastline,
     and what the sun was doing to the marine HF bands at one position. No
     install and no server: this is the webapp of the
     <a href="${REPO}">signalk-noaa-space-weather</a> Signal K plugin, running
-    on a saved NOAA capture.
+    ${
+      LIVE
+        ? 'in this tab against NOAA itself.'
+        : 'on a saved NOAA capture.'
+    }
   </p>
-  <p id="demoCaptured">A saved NOAA snapshot — not live data.</p>
+  <p id="demoCaptured">${
+    LIVE
+      ? 'Live data — the plugin\'s own code, fetching NOAA from your browser.' +
+        ` <a href="${SNAPSHOT_URL}">See the saved snapshot instead</a>.`
+      : 'A saved NOAA snapshot — not live data.' +
+        ` <a href="${LIVE_URL}">Fetch it live instead</a>.`
+  }</p>
   <p>
     The boat is a stand-in: the position everything here is worked out from —
     the aurora probability, the HF bands, the mark on the map — is a viewpoint
@@ -83,9 +100,15 @@ shell.prepend(note)
 // should still leave the visitor with the note telling them what this is --
 // which is why this catches rather than letting the rejection escape. The
 // note already reads "A saved NOAA snapshot — not live data" without a date.
-snapshot()
-  .then((data) => {
-    document.getElementById('demoCaptured').innerHTML =
-      `A saved NOAA snapshot, captured <b>${captured(data.capturedAt)}</b> — not live data.`
-  })
-  .catch(() => {})
+//
+// Live has no equivalent to fill in: there is no one instant to name, because
+// every product carries its own timestamp and the page already draws those.
+if (!LIVE) {
+  snapshot()
+    .then((data) => {
+      document.getElementById('demoCaptured').innerHTML =
+        `A saved NOAA snapshot, captured <b>${captured(data.capturedAt)}</b> — not live data.` +
+        ` <a href="${LIVE_URL}">Fetch it live instead</a>.`
+    })
+    .catch(() => {})
+}
