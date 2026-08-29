@@ -40,6 +40,27 @@ if (!fssync.existsSync(distIndex)) {
   process.exit(1)
 }
 
+// A stale dist/ is the dangerous case, not a missing one: the capture runs the
+// compiled products, so it silently bakes whatever parser dist/ happens to hold
+// into a snapshot that then looks like fresh NOAA data. It happened -- a
+// snapshot captured before #254 published the day's predicted Kp peak as the
+// observation, exactly the bug that fix removed, and nothing about the file
+// said so.
+const newest = (dir, ext) => {
+  let latest = 0
+  for (const entry of fssync.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) latest = Math.max(latest, newest(full, ext))
+    else if (entry.name.endsWith(ext))
+      latest = Math.max(latest, fssync.statSync(full).mtimeMs)
+  }
+  return latest
+}
+if (newest(path.join(REPO, 'src'), '.ts') > newest(path.join(REPO, 'dist'), '.js')) {
+  console.error('dist/ is older than src/ -- run `npm run build` first')
+  process.exit(1)
+}
+
 // Driven off the plugin's own PRODUCTS registry rather than a list kept here:
 // a hand-maintained list is how the demo ended up with four values and a
 // half-empty page (issue #239). A product added to the registry lands in the
