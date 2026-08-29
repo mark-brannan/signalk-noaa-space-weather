@@ -540,6 +540,50 @@ describe('plugin module', () => {
     })
   })
 
+  describe('GET /signalk-noaa-space-weather/telemetry (signalKApiRoutes)', () => {
+    const ROUTE = '/signalk-noaa-space-weather/telemetry'
+
+    it('answers 503 before the plugin has been started', async () => {
+      const plugin = createPlugin(fakeApp())
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(503)
+    })
+
+    it('reports what the scheduled fetches have actually done', async () => {
+      fetchMock = vi.fn(
+        async () =>
+          new Response(fixture('noaa-scales.2026_08_01.json'), {
+            status: 200,
+            headers: { 'content-length': '9' }
+          })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+      const plugin = createPlugin(fakeApp())
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start(settingsFrom({}))
+
+      // The initial per-product delay before the first scheduled run.
+      await vi.advanceTimersByTimeAsync(10_000)
+
+      const response = await router.invoke(ROUTE)
+      expect(response.status).toBe(200)
+      expect(response.json.schema).toBe(1)
+      expect(response.json.ring.length).toBeGreaterThan(0)
+      const scales = response.json.ring.find(
+        (r: any) => r.subPath === '/products/noaa-scales.json'
+      )
+      expect(scales.trigger).toBe('schedule')
+      expect(scales.outcome).toBe('ok')
+      expect(response.json.hourly['/products/noaa-scales.json']).toBeDefined()
+
+      plugin.stop()
+    })
+  })
+
   describe('GET /signalk-noaa-space-weather/aurora-refresh (signalKApiRoutes)', () => {
     const ROUTE = '/signalk-noaa-space-weather/aurora-refresh'
     const POSITION = { latitude: 70, longitude: 20 }
