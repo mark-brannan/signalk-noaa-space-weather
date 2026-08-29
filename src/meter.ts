@@ -61,10 +61,18 @@ const HOUR_MS = 60 * 60 * 1000
 export interface Meter {
   ring: FetchRecord[]
   hourly: Map<string, HourBucket[]>
+  /**
+   * Called at most once per `recordFetch`, when that call opens a new
+   * tier-2 hourly bucket for its endpoint. Phase 3's Signal K paths hang
+   * their publish off this rather than firing on every fetch -- the meter
+   * already knows when a bucket rolls over, so nothing downstream should
+   * reimplement that detection against a clock of its own.
+   */
+  onRollover?: () => void
 }
 
-export function createMeter(): Meter {
-  return { ring: [], hourly: new Map() }
+export function createMeter(onRollover?: () => void): Meter {
+  return { ring: [], hourly: new Map(), onRollover }
 }
 
 function isError(outcome: Outcome): boolean {
@@ -102,6 +110,7 @@ export function recordFetch(meter: Meter, entry: FetchRecord): void {
       notModified: 0
     }
     buckets.push(bucket)
+    meter.onRollover?.()
   }
   bucket.fetches += 1
   bucket.wireBytes += entry.wireBytes ?? 0
@@ -109,6 +118,36 @@ export function recordFetch(meter: Meter, entry: FetchRecord): void {
   if (entry.outcome === 'notModified') bucket.notModified += 1
   if (isError(entry.outcome)) bucket.errors += 1
   meter.hourly.set(entry.subPath, buckets)
+}
+
+/**
+ * Rolling 24h totals across every endpoint, as of `now`.
+ *
+ * Not a sum over whatever `meter.hourly` currently holds: a bucket list is
+ * only pruned to the last 24 hours *relative to that endpoint's own newest
+ * fetch* (see `recordFetch`'s comment), so an endpoint that has stopped being
+ * fetched can still be carrying buckets older than `now - 24h`. This applies
+ * that same window globally instead, which is what a total published under
+ * one Signal K path needs to mean.
+ */
+export function meterTotals(
+  meter: Meter,
+  now: number
+): { bytesPerDay: number; fetchesPerDay: number; errorsPerDay: number } {
+  const oldest =
+    Math.floor(now / HOUR_MS) * HOUR_MS - (HOURLY_BUCKETS - 1) * HOUR_MS
+  let bytesPerDay = 0
+  let fetchesPerDay = 0
+  let errorsPerDay = 0
+  for (const buckets of meter.hourly.values()) {
+    for (const bucket of buckets) {
+      if (bucket.hourStart < oldest) continue
+      bytesPerDay += bucket.wireBytes
+      fetchesPerDay += bucket.fetches
+      errorsPerDay += bucket.errors
+    }
+  }
+  return { bytesPerDay, fetchesPerDay, errorsPerDay }
 }
 
 /** JSON-safe view for the /telemetry route: the ring, and each endpoint's hourly buckets. */

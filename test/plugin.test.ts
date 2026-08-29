@@ -8,6 +8,7 @@ import {
   AURORA_BASE,
   DRAP_BASE,
   PROTON_FLUX_BASE,
+  TELEMETRY_BASE,
   XRAY_FLUX_BASE
 } from '../src/paths'
 import { ValueUpdate, parseDrapGrid } from '../src/parse'
@@ -580,6 +581,70 @@ describe('plugin module', () => {
       expect(scales.trigger).toBe('schedule')
       expect(scales.outcome).toBe('ok')
       expect(response.json.hourly['/products/noaa-scales.json']).toBeDefined()
+
+      plugin.stop()
+    })
+  })
+
+  describe('telemetry Signal K paths', () => {
+    const PATHS = [
+      `${TELEMETRY_BASE}.bytesPerDay`,
+      `${TELEMETRY_BASE}.bytesPerDayPredicted`,
+      `${TELEMETRY_BASE}.fetchesPerDay`,
+      `${TELEMETRY_BASE}.errorsPerDay`
+    ]
+
+    it('publishes metadata for all four paths on start, with no zones', () => {
+      const app = fakeApp()
+      const plugin = createPlugin(app)
+      plugin.start({})
+      plugin.stop()
+
+      for (const path of PATHS) {
+        const meta = metaFor(app.deltas, path)
+        expect(meta, path).toBeDefined()
+        expect(meta.displayName, path).toBeTruthy()
+        expect(meta.description, path).toBeTruthy()
+        // Zones raise notifications; a bandwidth wobble is not an alarm.
+        expect(meta, path).not.toHaveProperty('zones')
+      }
+      expect(metaFor(app.deltas, PATHS[0]).units).toBe('bytes')
+      expect(metaFor(app.deltas, PATHS[1]).units).toBe('bytes')
+      expect(metaFor(app.deltas, PATHS[2])).not.toHaveProperty('units')
+      expect(metaFor(app.deltas, PATHS[3])).not.toHaveProperty('units')
+    })
+
+    it('publishes values once a tier-2 bucket has rolled over, not before', async () => {
+      fetchMock = vi.fn(
+        async () =>
+          new Response(fixture('noaa-scales.2026_08_01.json'), {
+            status: 200,
+            headers: { 'content-length': '9' }
+          })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+      const app = fakeApp()
+      const plugin = createPlugin(app)
+      plugin.start(settingsFrom({}))
+
+      for (const path of PATHS)
+        expect(valueFor(app.deltas, path)).toBeUndefined()
+
+      // The initial per-product delay before the first scheduled run --
+      // that first fetch opens the very first tier-2 bucket, which is
+      // itself a rollover.
+      await vi.advanceTimersByTimeAsync(10_000)
+
+      expect(
+        valueFor(app.deltas, `${TELEMETRY_BASE}.bytesPerDay`)
+      ).toBeGreaterThan(0)
+      expect(
+        valueFor(app.deltas, `${TELEMETRY_BASE}.bytesPerDayPredicted`)
+      ).toBeGreaterThan(0)
+      expect(
+        valueFor(app.deltas, `${TELEMETRY_BASE}.fetchesPerDay`)
+      ).toBeGreaterThan(0)
+      expect(valueFor(app.deltas, `${TELEMETRY_BASE}.errorsPerDay`)).toBe(0)
 
       plugin.stop()
     })
