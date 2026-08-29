@@ -907,3 +907,11 @@ not the four the armv7 QEMU job costs — so taking on advanced setup's extra
 maintenance surface to filter a board-only PR out of it isn't worth what it
 would save. They're dropped from the ruleset's required contexts instead;
 they still run on every PR, just don't block merge.
+
+The reported check context is a job's `id`, unless the job sets `name:` --
+then the context is the name instead. The first version of `ci-gate` set
+`name: CI gate`, the ruleset was pointed at the context `ci-gate`, and the
+two never matched: every PR sat on "ci-gate — Expected — Waiting for status
+to be reported" forever, the exact failure this job exists to prevent, just
+moved one layer up. Caught live on #276 within minutes of applying the
+ruleset. Fixed by dropping the `name:` so the reported context is the job id.
