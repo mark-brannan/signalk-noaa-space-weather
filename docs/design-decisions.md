@@ -463,23 +463,34 @@ navigation server; it does not get to stall it.
 
 ## `observed` in the Kp feed is a column, not a timestamp comparison
 
-NOAA marks every row of the *current UTC day* `estimated` in
-`noaa-planetary-k-index-forecast.json`, not just the ones still ahead. So a
-row can be hours in the past and still be a forecast. Taking the latest row
-whose `time_tag` is behind `now` therefore published the day's predicted peak
-as the observation: on 2026-08-29 at 01:51Z it put Kp 5.67 / G2 on
+`noaa-planetary-k-index-forecast.json` carries an `observed` column reading
+`observed`, `estimated` or `predicted`, and it lags real time: a 3-hour bin
+stays `estimated` until its measurement lands. Across the fixtures in
+`examples/` that lag runs one to two bins — the last `observed` row is three
+to six hours behind the payload's own capture time — so a row can be in the
+past and still be a forecast.
+
+Taking the latest row whose `time_tag` is behind `now` therefore published a
+prediction as the observation: on 2026-08-29 at 01:51Z it put Kp 5.67 / G2 on
 `kp.observed` and drew it as history on the webapp's timeline, while NOAA's
 own site showed the measured 4.33 and G0 (the last `observed` row, 21:00Z the
 previous day — `noaa-planetary-k-index.json`, the observed-only product,
 agrees).
 
-`parseKpForecast` splits on the column: `kp.observed` is the newest row marked
-`observed`, and the forecast windows are everything not yet measured — the
-rows still ahead *plus* the in-progress 3-hour bin, whose forecast is
-timestamped in the past. A payload with no such column is treated as all
-measurement, which is the shape of the observed-only product. The timeline's
-`forecast` flag comes from the same column, so the estimated bin is drawn as
-forecast rather than as history.
+`parseKpForecast` splits on the column rather than on the clock. `kp.observed`
+is the newest row marked `observed`. A payload with no such column is treated
+as all measurement, which is the shape of the observed-only product, and the
+timeline's `forecast` flag comes from the same column, so an estimated bin is
+drawn as forecast rather than as history.
+
+The forecast windows — `max24h`, `max72h`, `nextStormTime` — need a third
+answer, because "not measured" and "still to come" are not the same set. They
+take the rows ahead *plus* the bin now in progress, and drop an estimated bin
+whose three hours have already run: it is neither a measurement nor a
+prediction about anything left. The distinction is not academic. If NOAA's
+observed column stalls — and this feed has broken before — most of a day's
+rows sit in the past marked `estimated`, and `nextStormTime` would name a
+storm onset hours behind the boat.
 
 ## The icon lives in two places, and the second copy is generated
 
