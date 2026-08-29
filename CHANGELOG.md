@@ -10,6 +10,11 @@ observe, so internal plumbing lands in a patch even when it adds something.
 ## [0.29.13](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.29.12...v0.29.13) (2026-08-29)
 
 
+### Added
+
+* meter every NOAA fetch, and read the counts back at `/telemetry` ([#245](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/245)) ([7eff645](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/7eff645be19839e878d5790964a9bcfb413afa67)) — outcome and wire bytes per request, kept in memory. The server log gains one fixed line per fetch at debug level, and repeat failures now collapse instead of repeating: the plugin status changes only when the message does.
+
+
 ### Fixed
 
 * address CodeRabbit findings on PR [#252](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/252) ([#257](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/257)) ([1ad9e55](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/1ad9e55a8b752668b5d9eb03f11911fe9b031f21))
