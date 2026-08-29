@@ -23,12 +23,13 @@ node scripts/measure-noaa.mjs --cadence  # adds a 15-minute content watch
 ```
 
 Two checks stand behind this file, because the numbers below went weeks out of
-date without anything noticing. `test/endpoint-coverage.test.ts` pins that
-every path `src/` fetches is in `ENDPOINTS`, offline, in the normal suite --
-an endpoint nobody measured cannot show up as missing from a measurement.
-`scripts/check-noaa-live.mjs`, run weekly by `.github/workflows/noaa-drift.yml`,
-re-measures the payload-size table against the live service and opens an issue
-when a row or the per-poll total leaves its band.
+date without anything noticing. `test/endpoints.test.ts` pins that every
+endpoint declared in `src/endpoints.ts` is measured here, offline, in the
+normal suite -- an endpoint nobody measured cannot show up as missing from a
+measurement. `scripts/check-noaa-live.mjs`, run weekly by
+`.github/workflows/noaa-drift.yml`, re-measures the payload-size table against
+the live service and opens an issue when a row or the per-poll total leaves
+its band.
 
 ## Endpoints
 
