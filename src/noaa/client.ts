@@ -73,6 +73,18 @@ export function createClient(publisher: Publisher): Client {
   }
 
   /**
+   * `publisher.fail` and `publisher.status` write the same field on the
+   * server, so a failure replaces the status line with the error banner.
+   * Forgetting the last message is what lets the next success set its status
+   * again and clear that banner -- without this, a plugin that failed once and
+   * then recovered would show the failure until some *other* product happened
+   * to produce a message this one had not already sent.
+   */
+  function forgetStatus() {
+    lastStatusMessage = null
+  }
+
+  /**
    * The transition-into-failure and exponential-backoff halves of the
    * logging discipline: a NOAA endpoint failing every minute must not
    * produce one identical line per minute. `publisher.fail` (the plugin's
@@ -88,6 +100,7 @@ export function createClient(publisher: Publisher): Client {
     }
     state.consecutiveErrors += 1
     if (state.consecutiveErrors === 1) {
+      forgetStatus()
       publisher.fail(message)
     } else if (state.consecutiveErrors >= state.nextLogAt) {
       publisher.error(
@@ -108,13 +121,26 @@ export function createClient(publisher: Publisher): Client {
     errorLogStates.delete(subPath)
   }
 
+  /** A failed request or a body that stopped arriving: a timeout, or anything else. */
+  function transportOutcome(err: unknown): Outcome {
+    return err instanceof Error && err.name === 'TimeoutError'
+      ? 'timeout'
+      : 'networkError'
+  }
+
   function wireBytesFor(
     response: Response,
     decodedBytes: number | null
   ): { wireBytes: number | null; wireBytesEstimated: boolean } {
-    const contentLength = response.headers.get('content-length')
-    if (contentLength !== null)
-      return { wireBytes: Number(contentLength), wireBytesEstimated: false }
+    // A malformed or repeated `content-length` parses to NaN, and NaN in a
+    // bucket is permanent -- every later sum for that endpoint is NaN too.
+    // Fall through to the decoded size rather than record one.
+    const contentLength = Number(response.headers.get('content-length'))
+    if (
+      response.headers.has('content-length') &&
+      Number.isFinite(contentLength)
+    )
+      return { wireBytes: contentLength, wireBytesEstimated: false }
     if (decodedBytes !== null)
       return { wireBytes: decodedBytes, wireBytesEstimated: true }
     return { wireBytes: null, wireBytesEstimated: false }
@@ -185,11 +211,7 @@ export function createClient(publisher: Publisher): Client {
           signal: AbortSignal.timeout(TIMEOUT_MS)
         })
       } catch (err) {
-        const outcome: Outcome =
-          err instanceof Error && err.name === 'TimeoutError'
-            ? 'timeout'
-            : 'networkError'
-        finish(null, outcome, null, null, false)
+        finish(null, transportOutcome(err), null, null, false)
         logFailure(
           subPath,
           `NOAA Space Weather '${productName}' unreachable at ${url}: ${err}`
@@ -224,14 +246,19 @@ export function createClient(publisher: Publisher): Client {
       try {
         result = await read(response)
       } catch (err) {
+        // `ReadError` is the only failure that is really about the payload;
+        // anything else thrown here aborted the body mid-stream, which the
+        // request timeout covers as much as it covers the headers.
         const decodedBytes = err instanceof ReadError ? err.decodedBytes : null
+        const outcome: Outcome =
+          err instanceof ReadError ? 'parseError' : transportOutcome(err)
         const { wireBytes, wireBytesEstimated } = wireBytesFor(
           response,
           decodedBytes
         )
         finish(
           response.status,
-          'parseError',
+          outcome,
           decodedBytes,
           wireBytes,
           wireBytesEstimated

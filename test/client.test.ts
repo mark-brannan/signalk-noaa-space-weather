@@ -287,6 +287,60 @@ describe('createClient logging discipline', () => {
     expect(failCount).toBe(1)
   })
 
+  it('sets the status line again after a failure, so the error banner clears', async () => {
+    // `fail()` and `status()` are the same field on the server. Deduping the
+    // status message must not mean a recovery leaves the error banner up.
+    let requestCount = 0
+    vi.stubGlobal('fetch', async () => {
+      requestCount++
+      return requestCount === 2
+        ? new Response('nope', { status: 500 })
+        : jsonResponse({ a: 1 })
+    })
+    const { publisher, statusLines } = harness()
+    const client = createClient(publisher as any)
+
+    await client.json(XRAY_FLARE_LATEST, 'X')
+    await expect(client.json(XRAY_FLARE_LATEST, 'X')).rejects.toThrow()
+    await client.json(XRAY_FLARE_LATEST, 'X')
+
+    expect(statusLines).toHaveLength(2)
+  })
+
+  it('records an unparseable content-length as an estimate, never as NaN', async () => {
+    vi.stubGlobal('fetch', async () =>
+      jsonResponse({ a: 1 }, { 'content-length': 'not-a-number' })
+    )
+    const { publisher } = harness()
+    const client = createClient(publisher as any)
+
+    await client.json(XRAY_FLARE_LATEST, 'X')
+
+    const record = client.meter.ring[0]
+    expect(record.wireBytes).toBe(record.decodedBytes)
+    expect(record.wireBytesEstimated).toBe(true)
+    const bucket = client.meter.hourly.get(XRAY_FLARE_LATEST.subPath)![0]
+    expect(Number.isFinite(bucket.wireBytes)).toBe(true)
+  })
+
+  it('calls a body that aborts mid-stream a timeout, not a parse error', async () => {
+    vi.stubGlobal('fetch', async () => {
+      const error = new Error('The operation was aborted due to timeout')
+      error.name = 'TimeoutError'
+      return new Response(
+        new ReadableStream({
+          start: (controller) => controller.error(error)
+        }),
+        { status: 200 }
+      )
+    })
+    const { publisher } = harness()
+    const client = createClient(publisher as any)
+
+    await expect(client.json(XRAY_FLARE_LATEST, 'X')).rejects.toThrow()
+    expect(client.meter.ring[0].outcome).toBe('timeout')
+  })
+
   it('logs a recovery line with the failure count once the fetch succeeds again', async () => {
     let requestCount = 0
     vi.stubGlobal('fetch', async () => {

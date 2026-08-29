@@ -8,8 +8,9 @@
  *
  * - Tier 1, the ring: the last 200 fetch records, full detail, never
  *   persisted. "What has it been doing the last few hours."
- * - Tier 2, the rolling 24 hours: per endpoint, 24 hourly buckets of
- *   aggregate counts. What a daily-cost comparison reads.
+ * - Tier 2, the rolling 24 hours: per endpoint, one bucket of aggregate
+ *   counts per hour, for the 24 hours up to its newest fetch. What a
+ *   daily-cost comparison reads.
  *
  * Tier 3 (totals since install, persisted) is a later phase.
  */
@@ -72,15 +73,24 @@ function isError(outcome: Outcome): boolean {
 
 /**
  * Append one fetch to the ring and fold it into its endpoint's current hourly
- * bucket, rolling a new bucket in (and the oldest one out past 24) when the
- * hour has turned over since the last record for that endpoint.
+ * bucket, dropping any bucket that has aged out of the 24-hour window.
+ *
+ * The window is measured in hours, not in buckets: an endpoint polled once
+ * every two hours would otherwise accumulate 24 buckets spanning two days and
+ * report them as a day's traffic. Only a fetch advances it -- the meter has no
+ * clock of its own -- so a snapshot's oldest bucket can still predate
+ * `now - 24h` for an endpoint that has stopped being fetched. `hourStart` is
+ * on every bucket, which is what lets a reader see that.
  */
 export function recordFetch(meter: Meter, entry: FetchRecord): void {
   meter.ring.push(entry)
   if (meter.ring.length > RING_LIMIT) meter.ring.shift()
 
   const hourStart = Math.floor(entry.startedAt / HOUR_MS) * HOUR_MS
-  const buckets = meter.hourly.get(entry.subPath) ?? []
+  const oldest = hourStart - (HOURLY_BUCKETS - 1) * HOUR_MS
+  const buckets = (meter.hourly.get(entry.subPath) ?? []).filter(
+    (b) => b.hourStart >= oldest
+  )
   let bucket = buckets[buckets.length - 1]
   if (!bucket || bucket.hourStart !== hourStart) {
     bucket = {
@@ -92,7 +102,6 @@ export function recordFetch(meter: Meter, entry: FetchRecord): void {
       notModified: 0
     }
     buckets.push(bucket)
-    if (buckets.length > HOURLY_BUCKETS) buckets.shift()
   }
   bucket.fetches += 1
   bucket.wireBytes += entry.wireBytes ?? 0

@@ -60,6 +60,19 @@ describe('recordFetch: tier 2, the rolling 24 hours', () => {
     expect(buckets[23].hourStart).toBe(29 * HOUR_MS)
   })
 
+  it('bounds the window by hours, not by bucket count', () => {
+    // An endpoint polled every two hours: 24 buckets would span two days and
+    // be read as one day's traffic.
+    const meter = createMeter()
+    for (let hour = 0; hour < 60; hour += 2) {
+      recordFetch(meter, entry({ startedAt: hour * HOUR_MS }))
+    }
+    const buckets = meter.hourly.get('/products/noaa-scales.json')!
+    expect(buckets[buckets.length - 1].hourStart).toBe(58 * HOUR_MS)
+    expect(buckets[0].hourStart).toBe(36 * HOUR_MS)
+    expect(buckets).toHaveLength(12)
+  })
+
   it('counts notModified and every non-ok outcome separately from errors', () => {
     const meter = createMeter()
     recordFetch(meter, entry({ outcome: 'ok' }))
