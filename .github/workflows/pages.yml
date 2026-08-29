@@ -1,9 +1,10 @@
 name: demo-pages
 
-# Publishes the browser demo (issue #199) to GitHub Pages: the map stack from
-# public/ against the saved NOAA snapshot in demo/, assembled by
-# scripts/build-demo.mjs. Requires Pages to be set to "GitHub Actions" in the
-# repo settings, once.
+# Publishes the browser demo (issues #199, #239) to GitHub Pages: the map stack
+# from public/ against the saved NOAA snapshot in demo/, and -- on ?live -- the
+# plugin's own compiled product modules fetching NOAA from the visitor's
+# browser. Assembled by scripts/build-demo.mjs. Requires Pages to be set to
+# "GitHub Actions" in the repo settings, once.
 
 on:
   push:
@@ -11,6 +12,8 @@ on:
     paths:
       - 'demo/**'
       - 'public/**'
+      - 'src/**'
+      - 'tsconfig.json'
       - 'scripts/build-demo.mjs'
       - 'scripts/sync-coastline.mjs'
       - 'package.json'
@@ -39,9 +42,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      # npm ci's prepare step vendors the coastline into public/, which is the
-      # only build the demo needs -- no tsc, nothing from dist/.
+      # npm ci's prepare step vendors the coastline into public/. Unchanged on
+      # purpose: the plugin registry scores this package by running `npm ci`
+      # offline under a 60-second cap, so nothing may be added to the root
+      # install to serve this workflow.
       - run: npm ci
+      # The demo's live data layer is the compiled plugin, loaded unbundled --
+      # `tsc` emits ES modules a browser resolves as they are, and this package
+      # has no runtime dependencies to bundle. So dist/ has to exist before the
+      # demo can be assembled, and typescript is already a devDependency here.
+      - run: npm run build
       - run: node scripts/build-demo.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

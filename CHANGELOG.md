@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.30.4](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.30.3...v0.30.4) (2026-08-29)
+
+
+### Added
+
+* **demo:** run the plugin against NOAA in the browser, on ?live ([#281](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/281)) ([c228820](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/c22882023442c1c461eb768e04114559fe8eaa16))
+
 ## [0.30.3](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.30.2...v0.30.3) (2026-08-29)
 
 

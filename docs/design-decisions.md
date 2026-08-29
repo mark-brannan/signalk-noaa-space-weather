@@ -915,3 +915,70 @@ two never matched: every PR sat on "ci-gate — Expected — Waiting for status
 to be reported" forever, the exact failure this job exists to prevent, just
 moved one layer up. Caught live on #276 within minutes of applying the
 ruleset. Fixed by dropping the `name:` so the reported context is the job id.
+## The demo's third data layer is the plugin itself
+
+The demo page has always been the shipping page rather than a fork of it,
+reading through one seam — `public/signalk.js`, substituted at build time by
+`demo/signalk.js`. Leg 2 of
+[#239](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/239)
+puts a third thing behind that seam: not a Signal K server, and not a saved
+capture, but the plugin's own product modules fetching NOAA from the visitor's
+tab. Twenty-six compiled modules, no bundler, no server, on `?live`.
+
+Nothing in `src/products/` was written for this and nothing in it changed to
+allow it. A product takes a client, a publisher and settings; the server hands
+it one of each and so does the browser. What made it reachable was moving the
+last host resources behind those parameters — the network into
+`noaa/client.ts` long ago, and storage into the Publisher in
+[#272](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/272).
+
+**Live is opt-in, and the default stays the saved snapshot.** A page anyone can
+open must not spend a fresh 927 KB aurora grid of NOAA's bandwidth on every
+visit, and the snapshot shows the same surfaces for nothing. Opt-in also keeps
+the cost of the live layer off a snapshot visitor entirely: the import is
+dynamic, so a reader who never asks for live data downloads none of it —
+verified in Chromium, zero requests under `plugin/`.
+
+**The browser client is the shipping client with two flags, not a second
+implementation.** `createClient` takes `conditionalGet` and `userAgent`, and
+the browser turns both off for one measured reason each (see
+[noaa-products.md](noaa-products.md#every-endpoint-is-cors-open-but-only-to-a-request-with-no-extra-headers)):
+`User-Agent` is a forbidden header name, and NOAA's fixed
+`Access-Control-Allow-Headers` excludes both conditional-GET headers, so a
+preflight kills a request carrying either. A fork would have duplicated the
+endpoint guard, the torn-payload recovery, the meter and the failure logging,
+and then drifted from all four. Two flags on the real path cannot drift.
+
+**`PRODUCTS` moved to `src/products/registry.ts`.** The browser has to drive
+the plugin's own list rather than a copy — a hand-kept list is how the demo
+once ended up with four values and a half-empty page — but `index.ts` owns the
+plugin lifecycle, the HTTP routes and the tile renderer, and reaches the
+filesystem through all three. The registry is the seam that lets the browser
+have the list without the host; `index.ts` re-exports it, so `PRODUCTS` is
+still one name. `test/browser-closure.test.ts` now walks `src/browser/` as
+well as `src/products/`, which is what caught `noaa/client.ts` importing
+`Publisher` as a value and dragging `fs` back in.
+
+**A manual refresh keeps the plugin's own two rules**, because the button is
+more exposed here rather than less: one refresh per product in flight at a
+time, and the cooldown — now `src/refreshPolicy.ts`, so the demo cannot hold a
+looser limit than the server. A refresh that returns without writing anything
+fails on the same `fetchedAt` diff and with the same 502 the plugin's route
+answers, which is what `refreshFailure` in `public/aurora.js` already knows how
+to label.
+
+**The page's first paint waits for the first pass, bounded by one request
+timeout.** The page polls every 60 seconds, so a first read taken a moment too
+early costs a minute of the hero saying "nothing received since the plugin
+started" over data that has already arrived. The bound is what stops that
+becoming an unbounded blank page when NOAA is the thing not answering — there
+is nothing to paint then anyway, and the next poll picks up whatever did land.
+Measured in Chromium, the full pass over twelve products — sixteen endpoints,
+the 927 KB aurora grid among them — paints at about eight seconds.
+
+**The size argument still does not apply.** The live closure is 26 modules,
+202 KB raw and **59 KB gzipped**, against the single aurora grid it then goes
+and fetches, which is 927 KB on the wire. The code is about six percent of one
+data fetch. `pages.yml` gained a `tsc` step and nothing else: the root `npm ci`
+is untouched, because the plugin registry scores this package by running that
+install offline under a 60-second cap.
