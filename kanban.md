@@ -150,6 +150,12 @@ what it is blocked by. Delete it when it is done.
       from markup is invisible to both. The only true check is loading the
       built page; that belongs in `scripts/screenshots/`, which already has
       Playwright and is outside the registry's offline `npm ci`
+- [ ] Revisit the Kp timeline's peak dot in
+      [public/index.html](https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/public/index.html#L1636)
+      — it marks nothing but the maximum of the plotted -24h/+72h window
+      (earliest point on a tie), red above the G1 floor and amber below, and
+      it has no legend entry. Mark's read on seeing it: "kinda funky". Decide
+      what it should mark, or drop it
 
 - [ ] Roll release-please out to the other packages that need release
       automation — `ampacity`, `wire-wright`, `coastlines`, `coast-wright`,
