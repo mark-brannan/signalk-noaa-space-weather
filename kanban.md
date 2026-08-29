@@ -7,6 +7,18 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Rule on
+      [#115](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/115),
+      which shipped at 290x270 against a ~530x425 target
+- [ ] Rule on the R-scale colouring in
+      [#131](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/131)
+      — colour currently tracks rarity, not severity, so 1% R1-R2 renders green
+      directly above 55% R3-R5 in red; recommendation and evidence are in the
+      issue comment, nothing ships until you pick
+- [ ] Give [#177](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/177)
+      the design pass it was opened to hold, and say what "done" means for it —
+      the controls exist but were arrived at ad-hoc, not designed
+
 - [ ] Decide the map's Expand/Shrink control's fate — it does nothing at a
       narrow viewport, only grows the tile past the page's other columns at
       a wide one, and defaults to shrunk for now (round-3 review on
