@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.30.0](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.29.12...v0.30.0) (2026-08-29)
+
+
+### Fixed
+
+* address CodeRabbit findings on PR [#252](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/252) ([#257](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/257)) ([1ad9e55](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/1ad9e55a8b752668b5d9eb03f11911fe9b031f21))
+* **kp:** keep an elapsed estimated bin out of the forecast windows ([#266](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/266)) ([f168d35](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/f168d3574e552688f85ec82d3bda65ef7f9b9b87))
+* **kp:** read the observed Kp from NOAA's column, not the clock ([#254](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/254)) ([37d4706](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/37d47066165d705b2803fe6cc2a79fe8fde2bec3))
+* **webapp:** draw the Kp chart's NOW line from the clock ([#269](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/269)) ([e77b23c](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/e77b23ca45fa2009f6d10cf382e605956f808637))
+* **webapp:** keep an open message from folding itself up on the poll ([#258](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/258)) ([400a042](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/400a04206aa2f1eb82bfce141aeaca3730329f44))
+
+
+### Added
+
+* meter every NOAA fetch, and read the counts back at `/telemetry` ([#245](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/245)) ([7eff645](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/7eff645be19839e878d5790964a9bcfb413afa67)) — outcome and wire bytes per request, kept in memory. The server log gains one fixed line per fetch at debug level, and repeat failures now collapse instead of repeating: the plugin status changes only when the message does.
+
+
+### Changed
+
+* publish under AGPL-3.0-or-later ([#268](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/268)) ([2aa84ad](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/2aa84ad86a0bde6a9f44966a47e27787996e239e))
+
 ## [0.29.12](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.29.11...v0.29.12) (2026-08-29)
 
 
