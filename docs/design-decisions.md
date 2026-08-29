@@ -812,3 +812,54 @@ two-click detour costs more than a dimmed line costs by staying. The path now
 survives the checkbox in both directions; only turning the layer off dims its
 display, per the same rule the footer sections and the help line already
 follow.
+
+## The browser gets the product modules unbundled, and storage is a parameter
+
+Leg 2 of [#199](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/239)
+runs the plugin's own product modules in the browser against NOAA directly.
+The plan for it assumed a bundler, kept in a separate package the way
+`scripts/screenshots/` keeps Playwright, so it could never reach the plugin
+registry's offline `npm ci` and its 60-second cap.
+
+Measured instead of assumed, it turns out no bundler is needed. `tsc` already
+emits ES modules whose every relative import carries a `.js` extension, which
+is precisely what a browser resolves, and the plugin has no runtime
+dependencies at all — `dependencies` is empty, and has always been. Serving
+`dist/` over HTTP and importing each product in Chromium, nine of the twelve
+loaded untouched. The three that did not — aurora, D-RAP and advisory — all
+failed on one import: `src/cache/entryCache.ts` reaching for `fs` and `path`.
+
+So the fix is the seam, not the tooling. `entryCache` takes a `CacheStore`
+rather than a directory path, and `Publisher` extends it: `createPublisher`
+supplies the file-backed store, the demo supplies one over memory. That is the
+same rule publisher.ts already carried for the Signal K `app` object and
+`noaa/client.ts` for the network — one module owns the host, everything
+downstream takes it as a parameter — extended to the last host resource that
+was still being reached for directly. All twelve products then load in the
+browser.
+
+The size argument never applied: the closure is 20 modules, 155 KB raw and
+**45 KB gzipped**, against a single aurora grid that costs 926 KB on the wire.
+The code is about five percent of one data fetch, so bundling would be
+optimising the wrong thing.
+
+What a bundler *would* have bought is protection against a bare specifier
+appearing later — a runtime dependency, or another Node builtin — which breaks
+the page exactly the way `fs` did, and invisibly. `test/browser-closure.test.ts`
+buys that instead: it walks the closure from `src/products/` the way a browser
+would and fails on any import a browser cannot resolve, naming the module that
+did it. The type-only imports in that closure are written `import type` so the
+walk sees the graph `tsc` emits rather than the one the type-checker sees —
+publisher.ts does still touch the filesystem, and the products still name its
+types.
+
+The argument against ever adding a bundler is the one already made for the page
+itself: the demo is the shipping page, never a fork. Unbundled, it also runs the
+shipping *code* — the exact modules `tsc` emits for the plugin. A bundle is a
+transformation, and a transformation is where "works in the demo, broken on the
+boat" comes from.
+
+CORS was the other gate, and it is measured for all sixteen endpoints in
+[docs/noaa-products.md](noaa-products.md#every-endpoint-is-cors-open-but-only-to-a-request-with-no-extra-headers):
+open to a plain GET, closed to the conditional-GET headers, which costs nothing
+because no endpoint has ever answered 304 at a realistic poll interval.

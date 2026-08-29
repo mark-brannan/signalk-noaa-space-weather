@@ -9,6 +9,7 @@
 import { Settings, schema, settingsFrom } from './config.js'
 import { createClient, Trigger } from './noaa/client.js'
 import { meterSnapshot } from './meter.js'
+import { CacheStore } from './cache/entryCache.js'
 import { readAuroraCache } from './cache/auroraCache.js'
 import { readDrapCache } from './cache/drapCache.js'
 import { readAdvisoryCache } from './cache/advisoryCache.js'
@@ -155,7 +156,7 @@ export default function (app: any): Plugin {
    * would serve one product's picture for the other's.
    */
   function tileSource<T extends { fetchedAt: string }>(
-    read: (dataDirPath: string) => T | null,
+    read: (store: CacheStore) => T | null,
     latticeOf: (entry: T) => Lattice | null
   ) {
     let key: string | null = null
@@ -164,7 +165,7 @@ export default function (app: any): Plugin {
 
     return {
       current(): { lattice: Lattice; key: string } | null {
-        const cached = read(publisher.dataDirPath())
+        const cached = read(publisher)
         if (!cached) return null
         if (key !== cached.fetchedAt || !lattice) {
           const next = latticeOf(cached)
@@ -403,7 +404,7 @@ export default function (app: any): Plugin {
       router.get(
         '/signalk-noaa-space-weather/aurora-grid',
         (_req: any, res: any) => {
-          const cached = readAuroraCache(publisher.dataDirPath())
+          const cached = readAuroraCache(publisher)
           if (!cached) {
             res.status(404).json({
               error:
@@ -423,7 +424,7 @@ export default function (app: any): Plugin {
       router.get(
         '/signalk-noaa-space-weather/drap-grid',
         (_req: any, res: any) => {
-          const cached = readDrapCache(publisher.dataDirPath())
+          const cached = readDrapCache(publisher)
           if (!cached) {
             res.status(404).json({
               error:
@@ -443,7 +444,7 @@ export default function (app: any): Plugin {
       router.get(
         '/signalk-noaa-space-weather/advisory-outlook',
         (_req: any, res: any) => {
-          const cached = readAdvisoryCache(publisher.dataDirPath())
+          const cached = readAdvisoryCache(publisher)
           if (!cached) {
             res.status(404).json({
               error: 'No advisory outlook cached yet.'
@@ -666,11 +667,11 @@ export default function (app: any): Plugin {
 
       router.get(
         '/signalk-noaa-space-weather/aurora-refresh',
-        refreshHandler(aurora, () => readAuroraCache(publisher.dataDirPath()))
+        refreshHandler(aurora, () => readAuroraCache(publisher))
       )
       router.get(
         '/signalk-noaa-space-weather/drap-refresh',
-        refreshHandler(drap, () => readDrapCache(publisher.dataDirPath()))
+        refreshHandler(drap, () => readDrapCache(publisher))
       )
       // Whether or not `goesFluxEnabled` schedules it, for the same reason the
       // two grids have a route: the setting says what the plugin may spend on
