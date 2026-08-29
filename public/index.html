@@ -1,5 +1,10 @@
 <!doctype html>
 <title>NOAA Space Weather</title>
+<!-- signalk-server and GitHub Pages both send charset=utf-8, so this was never
+     needed while the plugin's own server was the only thing serving this file.
+     The browser demo (#199) is served by whatever a reader points at demo-dist/,
+     and without this every curly quote in the copy renders as mojibake. -->
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   /* Subset to printable ASCII plus the punctuation the JS actually emits
@@ -206,6 +211,51 @@
     text-wrap: balance; line-height: 1.15; margin: 0 0 8px;
   }
   .hero .sub { color: var(--text-dim); font-size: 0.86rem; max-width: 52ch; }
+  /* A link, not a button: it continues the sentence above it, and a second
+     outlined button in the hero would compete with "Read full outlook"
+     across the rule for which one is the tile's action. */
+  .link-more {
+    margin-top: 6px; padding: 0; border: 0; background: transparent; cursor: pointer;
+    font: inherit; font-size: 0.8rem; color: var(--amber); text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .link-more[hidden] { display: none; }
+
+  /* One NOAA message: its verb and scale on a head row, then whatever it
+     carries -- a watch's day table, the body text. The list is the stop-gap
+     for the designed in-force tile, so it stays inside the overlay the
+     advisory already established rather than claiming grid space. */
+  .msg { border-top: 1px solid var(--grid); padding: 14px 0 4px; }
+  .msg:first-of-type { border-top: 0; }
+  .msg-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 10px; }
+  .msg-verb { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.06em; font-size: 0.78rem; }
+  .msg-scale { font-size: 0.78rem; color: var(--text); }
+  .msg-when { font-size: 0.68rem; color: var(--text-dim); margin-left: auto; font-variant-numeric: tabular-nums; }
+  .msg-headline { font-size: 0.86rem; margin: 4px 0 0; }
+  /* A stood-down message is kept because the sequence is the story -- the
+     watch, then the warning, then the summary -- but it is not a claim about
+     now, and has to read as history at a glance. */
+  .msg.stood-down { opacity: 0.55; }
+  .msg-stood-down { font-size: 0.68rem; color: var(--text-dim); font-style: italic; }
+  .msg-days { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+  .msg-day {
+    border: 1px solid var(--grid); border-radius: 3px; padding: 3px 8px; font-size: 0.7rem;
+    color: var(--text-dim);
+  }
+  /* The days still ahead are the reason a watch exists; the ones behind it
+     are context for reading the table, not a forecast. */
+  .msg-day.ahead { border-color: currentColor; }
+  .msg-day .lvl { font-weight: 700; }
+  .msg-body {
+    font-family: var(--font-mono); font-size: 0.72rem; line-height: 1.5; white-space: pre-wrap;
+    color: var(--text-dim); margin: 8px 0 0; max-height: 15em; overflow-y: auto;
+  }
+  .msg-body[hidden] { display: none; }
+  .msg-toggle {
+    margin-top: 8px; padding: 0; border: 0; background: transparent; cursor: pointer;
+    font: inherit; font-size: 0.7rem; color: var(--amber); text-decoration: underline;
+    text-underline-offset: 2px;
+  }
 
   /* The header carries only the chip and countdown now (issue #36's HF
      indices and clock were pulled back out -- low value for most users, and
@@ -757,6 +807,10 @@
       <div class="hero-verdict">
         <div class="headline" id="heroHeadline">Reading current conditions&hellip;</div>
         <div class="sub" id="heroSub"></div>
+        <!-- Sits at the end of the hero text rather than in a tile of its
+             own: the banner's one clause is a summary of these messages, so
+             the way to more of them is from where the summary ends. -->
+        <button type="button" id="messagesOpen" class="link-more" hidden></button>
       </div>
       <div class="hero-rule" aria-hidden="true"></div>
       <div class="hero-advisory">
@@ -884,12 +938,27 @@
   </div>
 </div>
 
+<div class="overlay" id="messagesOverlay" hidden>
+  <div class="overlay-backdrop" id="messagesBackdrop"></div>
+  <div class="overlay-panel" role="dialog" aria-modal="true" aria-labelledby="messagesOverlayTitle">
+    <button type="button" class="overlay-close" id="messagesClose" aria-label="Close">&times;</button>
+    <span class="label">NOAA SWPC &middot; Space weather messages</span>
+    <h2 id="messagesOverlayTitle">Messages in force</h2>
+    <div id="messagesList"></div>
+    <p class="overlay-explainer">NOAA issues a <strong>watch</strong> when a storm is expected days out, a
+      <strong>warning</strong> when it is expected within hours, an <strong>alert</strong> when it is
+      observed, and a <strong>summary</strong> once it is over. This lists what is in force now, plus
+      anything stood down in the last two days that this plugin saw &mdash; it is not NOAA&rsquo;s archive.</p>
+  </div>
+</div>
+
 <script type="module">
-import { heroState, kpFloorForG, uncapitalise } from './hero.js';
+import { heroState, kpFloorForG, uncapitalise, watchAhead } from './hero.js';
+import { messagesInForce, messagesSummary, messagesTitle } from './messages.js';
 import { scalesCard, scalesMarkup, sevClass, sevWord } from './scales.js';
 import { bandStrip, hfCard, solarCard } from './hf.js';
-import { leafTime, leafValue, readAll } from './signalk.js';
-import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
+import { AuthRequiredError, distanceUnitPreference, fetchGridCache, forceRefresh, getJson, leafTime, leafValue, readAll } from './signalk.js';
+import { auroraCardState, refreshFailure } from './aurora.js';
 import { gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
 import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
@@ -914,31 +983,17 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     chipEl.textContent = label;
   }
 
-  // Thrown by getJson on 401/403 so refresh() can tell "you're not logged
-  // in" apart from "nothing published yet" (both used to render as the same
-  // blank/zero UI, which is indistinguishable from a broken plugin).
-  class AuthRequiredError extends Error {}
-
-  async function getJson(path) {
-    let res;
-    try {
-      res = await fetch(path, { cache: 'no-store' });
-    } catch {
-      return null; // offline / DNS / etc. -- not an auth problem
-    }
-    if (res.status === 401 || res.status === 403) throw new AuthRequiredError(path);
-    if (!res.ok) return null;
-    try {
-      return await res.json();
-    } catch {
-      return null;
-    }
-  }
   function fmtTime(iso) {
     if (!iso) return '–';
     const d = new Date(iso);
     if (isNaN(d.getTime())) return '–';
     return d.toISOString().slice(11, 16) + ' UTC';
+  }
+  /** A NOAA watch names a UTC day, not a time, so this shows only the day. */
+  function fmtWatchDay(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'a day ahead';
+    return d.toUTCString().slice(0, 11).trim() + ' UTC';
   }
   // For text that ends up in innerHTML but did not originate in this file --
   // a NOAA-derived read error, a server error message -- so it renders as
@@ -1017,6 +1072,10 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       'since-start': ['Since plugin start', () => Date.now() - at],
       'since-update': ['Since last update', () => Date.now() - at],
       'until-level': [`Until G${timer.level} window`, () => at - Date.now()],
+      // NOAA's watch table has day granularity, so this counts to the start of
+      // the day it names and the label says "day" rather than "window" -- the
+      // storm is expected during it, not at the tick.
+      'until-watch-day': [`Until G${timer.level} watch day`, () => at - Date.now()],
       'until-easing': [gOnly ? 'Until G eases' : 'Until easing', () => at - Date.now()],
       // Deliberately 00:00 rather than a placeholder: the slot counts to the
       // next thing that matters, and when nothing is forecast, that is what
@@ -1040,7 +1099,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     cdLabel.textContent = counting[0];
   }
 
-  function renderHero(scales, peak24h, kp, status) {
+  function renderHero(scales, peak24h, kp, status, alerts) {
     const state = heroState({
       observed: {
         G: leafValue(scales?.G),
@@ -1053,6 +1112,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         R: leafValue(peak24h?.R)
       },
       series: leafValue(kp?.['forecast.series']),
+      watch: watchAhead(alerts, Date.now()),
       observedAt: leafTime(scales?.G) || leafTime(scales?.time),
       startedAt: status?.startedAt,
       staleAfterMs: STALE_MS
@@ -1091,9 +1151,15 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       ].join(' ');
       timerSev = sevClass(state.timer.kind === 'until-level' ? state.timer.level : state.level);
     } else if (state.kind === 'brewing') {
-      setChip(chip, state.level, `G${state.level} forecast`);
+      const letter = state.letter;
+      setChip(chip, state.level, `${letter}${state.level} ${state.watch ? 'watch' : 'forecast'}`);
       headline.textContent = 'Storm’s A-Brewin’!';
-      sub.textContent = `Expect ${uncapitalise(impact('G', state.level))}`;
+      // A watch is NOAA saying so in words on a dated day, which is a
+      // different and better-sourced claim than a Kp model run -- so it gets
+      // named, with its day, rather than folded into the same sentence.
+      sub.textContent = state.watch
+        ? `NOAA watch: ${letter}${state.level} predicted for ${fmtWatchDay(state.watch.at)}. Expect ${uncapitalise(impact(letter, state.level))}`
+        : `Expect ${uncapitalise(impact(letter, state.level))}`;
       timerSev = sevClass(state.level);
     } else if (state.kind === 'all-clear') {
       // A real storm ended, so the relief is the news and the chip says so --
@@ -1123,7 +1189,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       // with no series at all it bounds nothing -- so the second clause is a
       // claim this page can only make in one of the two cases.
       sub.textContent = state.timer.kind === 'forecast-clear'
-        ? 'Nothing above background in the last 24 hours, and no G3 or stronger in the forecast.'
+        ? 'Nothing above background in the last 24 hours, and no storm in the forecast.'
         : 'Nothing above background in the last 24 hours.';
     }
 
@@ -1409,8 +1475,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const n = series.length;
     const x = (i) => padL + (n <= 1 ? 0 : (i / (n - 1)) * plotW);
     const y = (v) => padT + plotH - (Math.min(v, maxKp) / maxKp) * plotH;
-    const nowIndex = Math.max(0, series.findIndex((p) => p.forecast) - 1);
-    const nowI = nowIndex < 0 ? n - 1 : nowIndex;
+    // Where measurement stops. NOAA's `observed` column lags the clock by one
+    // to two 3-hour bins, so this is not "now" -- the points between it and
+    // now are estimates, and colouring them as history would be the same lie
+    // `kp.observed` used to tell (see design-decisions.md).
+    const splitIndex = series.findIndex((p) => p.forecast);
+    const splitI = splitIndex < 0 ? n - 1 : Math.max(0, splitIndex - 1);
     // The x scale is by index, not by time, so a date boundary has to be
     // placed between two points rather than at one.
     const times = series.map((p) => Date.parse(p.time));
@@ -1420,6 +1490,14 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       const prev = next - 1;
       const span = times[next] - times[prev] || 1;
       return x(prev + (ms - times[prev]) / span);
+    }
+    // NOW has to land somewhere even when the clock is outside the series --
+    // a stalled feed leaves the last point hours behind, and returning null
+    // would drop the line entirely just when it is most worth seeing.
+    function xAtTimeClamped(ms) {
+      if (!(ms > times[0])) return x(0);
+      if (!(ms < times[n - 1])) return x(n - 1);
+      return xAtTime(ms);
     }
 
     // Each G level gets its own dotted, severity-colored line so the chart
@@ -1490,13 +1568,13 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       ctx.textBaseline = 'middle';
     }
 
-    if (nowI < n - 1) {
+    if (splitI < n - 1) {
       const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
       grad.addColorStop(0, amber + '55');
       grad.addColorStop(1, amber + '00');
       ctx.beginPath();
-      ctx.moveTo(x(nowI), y(0));
-      for (let i = nowI; i < n; i++) ctx.lineTo(x(i), y(series[i].kp));
+      ctx.moveTo(x(splitI), y(0));
+      for (let i = splitI; i < n; i++) ctx.lineTo(x(i), y(series[i].kp));
       ctx.lineTo(x(n - 1), y(0));
       ctx.closePath();
       ctx.fillStyle = grad;
@@ -1504,7 +1582,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     }
 
     ctx.beginPath();
-    for (let i = 0; i <= nowI; i++) {
+    for (let i = 0; i <= splitI; i++) {
       const px = x(i), py = y(series[i].kp);
       i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
     }
@@ -1512,23 +1590,29 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     ctx.lineWidth = 1.75;
     ctx.stroke();
 
-    if (nowI < n - 1) {
+    if (splitI < n - 1) {
       ctx.beginPath();
-      for (let i = nowI; i < n; i++) {
+      for (let i = splitI; i < n; i++) {
         const px = x(i), py = y(series[i].kp);
-        i === nowI ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        i === splitI ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
       }
       ctx.strokeStyle = amber;
       ctx.lineWidth = 2.25;
       ctx.stroke();
     }
 
-    // Where measurement stops and prediction starts. Dotted, and dashed the
-    // same way as the G-threshold lines, so it reads as an annotation rather
-    // than as another data series -- solid, it looked like part of the plot.
+    // NOW is the clock, not the colour split. They are different instants:
+    // NOAA's `observed` column lags by one to two bins, so at 21:30Z the
+    // split sits back in the morning while the boat is at the right-hand
+    // end. Drawing the split as NOW pinned the label to the far left and
+    // showed a day with no history in it.
+    // Dotted, and dashed the same way as the G-threshold lines, so it reads
+    // as an annotation rather than as another data series -- solid, it
+    // looked like part of the plot.
+    const nowX = xAtTimeClamped(Date.now());
     ctx.beginPath();
-    ctx.moveTo(x(nowI), padT);
-    ctx.lineTo(x(nowI), padT + plotH);
+    ctx.moveTo(nowX, padT);
+    ctx.lineTo(nowX, padT + plotH);
     ctx.strokeStyle = dimColor;
     ctx.globalAlpha = 0.85;
     ctx.lineWidth = 1;
@@ -1538,13 +1622,13 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     ctx.font = "9px 'Space Mono', monospace";
     ctx.fillStyle = dimColor;
     ctx.textBaseline = 'top';
-    // Flip the label to the left of the line once the split sits near the
-    // right edge, so it never runs off the canvas.
+    // Flip the label to the left of the line once it sits near the right
+    // edge, so it never runs off the canvas.
     const labelW = ctx.measureText('NOW').width;
-    const labelRight = x(nowI) + 4 + labelW > cssW - padR;
-    const labelX = x(nowI) + (labelRight ? -4 - labelW : 4);
+    const labelRight = nowX + 4 + labelW > cssW - padR;
+    const labelX = nowX + (labelRight ? -4 - labelW : 4);
     // The G-threshold lines run behind this; knock them out so the label
-    // stays legible wherever the split happens to fall.
+    // stays legible wherever NOW happens to fall.
     ctx.fillStyle = styles.getPropertyValue('--panel').trim();
     ctx.fillRect(labelX - 2, padT, labelW + 4, 10);
     ctx.fillStyle = dimColor;
@@ -1618,6 +1702,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   let advisoryData = null;
+  let messageRows = [];
   // The teaser is a teaser -- the full bulletin is one tap away -- so it is
   // trimmed to two lines to keep the tile off the rest of the page.
   //
@@ -1680,7 +1765,95 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   document.getElementById('advisoryOpen').addEventListener('click', openAdvisoryOverlay);
   document.getElementById('advisoryClose').addEventListener('click', closeAdvisoryOverlay);
   document.getElementById('advisoryBackdrop').addEventListener('click', closeAdvisoryOverlay);
+
+  // NOAA's own messages, as a list off the hero. Rebuilt from the subtree on
+  // every poll rather than cached: a message's state changes under it when it
+  // is stood down, and a list showing a withdrawn watch as in force is the
+  // failure this whole branch is about, one surface further on.
+  function renderMessages(alerts) {
+    messageRows = messagesInForce(alerts, Date.now());
+    const link = document.getElementById('messagesOpen');
+    const summary = messagesSummary(messageRows);
+    link.hidden = !summary;
+    if (summary) link.textContent = summary;
+    if (!document.getElementById('messagesOverlay').hidden) drawMessages();
+  }
+
+  // Which bodies the reader has unfolded, by message code. The list is
+  // redrawn on the 60-second poll, so without this a message being read would
+  // fold itself back up under the reader once a minute.
+  const expandedMessages = new Set();
+
+  function drawMessages() {
+    const list = document.getElementById('messagesList');
+    document.getElementById('messagesOverlayTitle').textContent = messagesTitle(messageRows);
+    const markup = messageRows.length === 0
+      ? '<div class="empty-state">No NOAA messages in force.</div>'
+      : messageRows.map(messageMarkup).join('');
+    // Rewriting identical markup would still reset the scroll position inside
+    // a long message body, which is the other half of reading one.
+    if (list.innerHTML === markup) return;
+    list.innerHTML = markup;
+    // The body text is long and there are usually several messages, so each
+    // starts folded -- the head row is what makes the list scannable.
+    for (const toggle of list.querySelectorAll('.msg-toggle')) {
+      toggle.addEventListener('click', () => {
+        const body = document.getElementById(toggle.dataset.body);
+        body.hidden = !body.hidden;
+        toggle.setAttribute('aria-expanded', String(!body.hidden));
+        toggle.textContent = body.hidden ? 'Show NOAA’s message' : 'Hide NOAA’s message';
+        if (body.hidden) expandedMessages.delete(toggle.dataset.code);
+        else expandedMessages.add(toggle.dataset.code);
+      });
+    }
+  }
+
+  function messageMarkup(row, index) {
+    const sev = sevClass(row.level) || 'sev-0';
+    // Keyed by code so the unfolded state survives a redraw; a leaf with no
+    // readable code has no identity to track and falls back to its position.
+    const key = row.code || `#${index}`;
+    const bodyId = `msgBody_${index}`;
+    const open = expandedMessages.has(key);
+    // Everything below originates at NOAA, so all of it goes through
+    // escapeHtml --
+    // this is the one place in the page that renders a payload body.
+    const days = row.days.map((day) => `
+      <span class="msg-day ${day.ahead ? 'ahead ' + (sevClass(day.level) || 'sev-0') : ''}">
+        ${escapeHtml(day.date ? fmtWatchDay(day.date) : '—')} · <span class="lvl">${day.level > 0 ? escapeHtml(day.letter + day.level) : 'none'}</span>
+      </span>`).join('');
+    return `
+      <div class="msg ${row.inForce ? '' : 'stood-down'}">
+        <div class="msg-head">
+          <span class="msg-verb ${sev}">${escapeHtml(row.verb || 'MESSAGE')}</span>
+          <span class="msg-scale">${escapeHtml(row.scale || row.code)}</span>
+          <span class="msg-when">${escapeHtml(row.issued ? `${shortDate(row.issued)} ${fmtTime(row.issued)}` : '')}</span>
+        </div>
+        <div class="msg-headline">${escapeHtml(row.headline)}</div>
+        ${row.inForce ? '' : '<div class="msg-stood-down">No longer in force</div>'}
+        ${days ? `<div class="msg-days">${days}</div>` : ''}
+        <button type="button" class="msg-toggle" data-body="${bodyId}" data-code="${escapeHtml(key)}"
+          aria-controls="${bodyId}" aria-expanded="${open}">${open ? 'Hide' : 'Show'} NOAA’s message</button>
+        <pre class="msg-body" id="${bodyId}"${open ? '' : ' hidden'}>${escapeHtml(row.text)}</pre>
+      </div>`;
+  }
+
+  function openMessagesOverlay() {
+    drawMessages();
+    document.getElementById('messagesOverlay').hidden = false;
+  }
+  function closeMessagesOverlay() {
+    document.getElementById('messagesOverlay').hidden = true;
+  }
+  document.getElementById('messagesOpen').addEventListener('click', openMessagesOverlay);
+  document.getElementById('messagesClose').addEventListener('click', closeMessagesOverlay);
+  document.getElementById('messagesBackdrop').addEventListener('click', closeMessagesOverlay);
+
   window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !document.getElementById('messagesOverlay').hidden) {
+      closeMessagesOverlay();
+      return;
+    }
     if (e.key === 'Escape' && !document.getElementById('advisoryOverlay').hidden) {
       closeAdvisoryOverlay();
       return;
@@ -1738,6 +1911,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const canvas = document.getElementById('spaceMapCanvas');
     if (!canvas) return;
     if (!document.getElementById('advisoryOverlay').hidden) return;
+    if (!document.getElementById('messagesOverlay').hidden) return;
     const activeTag = document.activeElement && document.activeElement.tagName;
     if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
     if (e.key === 'Escape') {
@@ -1786,16 +1960,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // answer from the plugin's own cache), so loading it on page open costs
   // nothing extra and the toggle was only ever hiding the map for its own
   // sake.
-  // Manual "fetch now": forces the plugin to fetch NOAA off its schedule,
-  // cooldown-limited server-side (see aurora-refresh in src/index.ts). Shared
-  // by the product tiles' own buttons and the map's, since a fresh fetch
-  // updates the same underlying data both read. Declared here because the
-  // layer table below reaches them as it is built.
-  const AURORA_REFRESH_URL = '/signalk/v1/api/signalk-noaa-space-weather/aurora-refresh'
-  const DRAP_REFRESH_URL = '/signalk/v1/api/signalk-noaa-space-weather/drap-refresh'
-
-  const AURORA_GRID_URL = '/signalk/v1/api/signalk-noaa-space-weather/aurora-grid'
-  const DRAP_GRID_URL = '/signalk/v1/api/signalk-noaa-space-weather/drap-grid'
 
   // What the reader has set. Both layers on by default: seeing them together
   // is the point of there being one map, and neither costs a NOAA fetch.
@@ -1819,42 +1983,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   const mapEntries = { aurora: null, drap: null }
   const mapErrors = { aurora: null, drap: null }
 
-  // The reader's own distance unit, read once from the server's Unit
-  // Preferences API (https://github.com/SignalK/signalk-server) rather than
-  // hardcoded nmi (Mark's round-3 review) -- a plain function of km so
-  // drawProbe never needs to know where the preference came from. Servers
-  // without that API (older ones, or none set) 404 and this stays the nmi
-  // formatDistanceNm already gave every reader, so there is nothing to fall
-  // back to but the existing behaviour.
+  // Read once from the server, so drawProbe never needs to know where the
+  // preference came from. Nothing to fall back to but the nmi
+  // formatDistanceNm already gave every reader, which is what no usable
+  // preference leaves in place.
   let distanceFormat = formatDistanceNm
-  async function loadDistanceUnitPref() {
-    try {
-      const res = await fetch('/signalk/v1/unitpreferences/active', { headers: { Accept: 'application/json' } })
-      if (!res.ok) return
-      const prefs = await res.json()
-      const distance = prefs?.categories?.distance
-      // Never eval a formula that isn't plain arithmetic on `value` -- the
-      // server is a trusted origin for the numbers it publishes, but not
-      // trusted enough to hand it script execution over a preferences file a
-      // reader could edit or a proxy could tamper with. Strip every literal
-      // "value" token out first and check what's left is only digits,
-      // whitespace and arithmetic -- no other identifier can survive that.
-      const formula = distance?.formula
-      if (!formula || !/^[\d\s.+\-*/()]*$/.test(formula.split('value').join(''))) return
-      const convert = new Function('value', `"use strict"; return (${formula})`)
-      const digits = Math.min(6, (distance.displayFormat?.split('.')[1] || '').length)
-      const unit = distance.symbol || distance.targetUnit
-      // Surviving the character allowlist above doesn't make a formula
-      // callable arithmetic (`value(value)` passes it and throws), and a
-      // unit-less reading is meaningless. Prove both once here, synchronously,
-      // rather than throwing out of drawMapCanvas on every redraw.
-      if (!unit || !Number.isFinite(convert(1000))) return
-      distanceFormat = (km) => `${convert(km * 1000).toFixed(digits)} ${unit}`
-    } catch {
-      // Network hiccup or a malformed response -- nmi is still a correct
-      // answer, just not necessarily the reader's preferred one.
-    }
-  }
 
   let lastPosition = null
   let mapState = 'idle' // idle | loading | ready | error
@@ -1874,8 +2007,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   const LAYER_META = {
     aurora: {
       label: 'Aurora',
-      gridUrl: AURORA_GRID_URL,
-      refreshUrl: AURORA_REFRESH_URL,
       relabel: labelAuroraButton,
       stamp: (entry) => `observed ${fmtTime(entry.grid['Observation Time'])}`,
       empty: 'No aurora grid cached yet.',
@@ -1884,8 +2015,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     },
     drap: {
       label: 'HF absorption',
-      gridUrl: DRAP_GRID_URL,
-      refreshUrl: DRAP_REFRESH_URL,
       relabel: labelDrapButton,
       stamp: (entry) => `valid ${fmtTime(entry.grid.validTime)}`,
       empty: 'No D-RAP grid cached yet.',
@@ -1895,19 +2024,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   const layerOn = (id) => mapControls.layers.has(id)
-
-  async function fetchGridCache(url) {
-    const res = await fetch(url, { headers: { Accept: 'application/json' } })
-    if (res.status === 401 || res.status === 403) throw new AuthRequiredError(url)
-    const body = await res.json().catch(() => null)
-    if (res.status === 404) {
-      const err = new Error((body && body.error) || 'Nothing cached yet.')
-      err.notCached = true
-      throw err
-    }
-    if (!res.ok) throw new Error(`Server responded ${res.status}`)
-    return body // { fetchedAt, grid }
-  }
 
   // --- the D-RAP absorption probe -----------------------------------------
   //
@@ -2272,7 +2388,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         meta.relabel(button)
       }
       button.addEventListener('click', () =>
-        handleRefreshClick(button, meta.refreshUrl, async () => {
+        handleRefreshClick(button, id, async () => {
           await refresh()
           await refetchLayer(id)
         }, meta.relabel))
@@ -2337,7 +2453,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // exactly the one layer a fetch just refreshed, switched on or not).
   async function loadLayer(id, loadId) {
     try {
-      const entry = await fetchGridCache(LAYER_META[id].gridUrl)
+      const entry = await fetchGridCache(id)
       if (loadId !== mapLoadId) return
       mapEntries[id] = entry
       mapErrors[id] = null
@@ -2415,29 +2531,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     renderMap()
   }
 
-  // Manual "fetch now": forces the plugin to fetch NOAA off its schedule,
-  // cooldown-limited server-side (see aurora-refresh in src/index.ts). Shared
-  // by both the ring tile's own button and the map's, since a fresh fetch
-  // updates the same underlying data both read.
-  //
-  // Works with automatic updates switched off, which is the case it mostly
-  // exists for: that setting is about what the plugin spends on its own, and
-  // a press is not the plugin's own initiative. Nothing on this page reaches
-  // NOAA without one -- the poll below only reads the server, and the map is
-  // drawn from whatever the plugin last cached.
-  async function forceRefresh(url) {
-    const res = await fetch(url, { headers: { Accept: 'application/json' } })
-    if (res.status === 401 || res.status === 403) throw new AuthRequiredError(url)
-    const body = await res.json().catch(() => null)
-    if (!res.ok) {
-      const err = new Error((body && body.error) || `Server responded ${res.status}`)
-      err.status = res.status
-      err.retryAfterSeconds = retryAfterSeconds(res.headers.get('Retry-After'))
-      throw err
-    }
-    return body
-  }
-
   // One short label per refusal, because they ask for different things: one is
   // a wait, one is a login, one is a server that isn't running and one is NOAA
   // being unreachable. The full sentence goes on the button's title so
@@ -2495,14 +2588,20 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
 
   // One handler for both products' buttons: the request, the refusals and the
   // way a refusal is held on the button are the same for either, and only the
-  // URL, the label and what has to be redrawn afterwards differ.
-  async function handleRefreshClick(button, url, after, relabel) {
+  // product, the label and what has to be redrawn afterwards differ. The ring
+  // tile's button and the map's are the same act for the same reason -- one
+  // fetch updates the underlying data both of them read.
+  //
+  // Nothing on this page reaches NOAA without one of these presses -- the
+  // poll below only reads the server, and the map is drawn from whatever the
+  // plugin last cached.
+  async function handleRefreshClick(button, which, after, relabel) {
     const original = button.textContent
     const originalTitle = button.title
     button.disabled = true
     button.textContent = 'Fetching…'
     try {
-      await forceRefresh(url)
+      await forceRefresh(which)
       await after()
     } catch (err) {
       const failure = refreshFailure(err instanceof AuthRequiredError ? { auth: true } : err)
@@ -2525,7 +2624,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   function handleAuroraRefreshClick(button) {
-    return handleRefreshClick(button, AURORA_REFRESH_URL, async () => {
+    return handleRefreshClick(button, 'aurora', async () => {
       await refresh() // re-polls everything, so the ring tile picks up the fresh value right away
       await refetchLayer('aurora')
     }, labelAuroraButton)
@@ -2539,7 +2638,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const button = document.getElementById('hfRefresh')
     // Same as the aurora tile's button: a fresh grid reaches an open map
     // rather than waiting to be asked for a second time (#185).
-    handleRefreshClick(button, DRAP_REFRESH_URL, async () => {
+    handleRefreshClick(button, 'drap', async () => {
       await refresh()
       await refetchLayer('drap')
     }, labelDrapButton)
@@ -2598,7 +2697,8 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // The hero keeps both observed readings: telling a storm in progress from
     // one that has passed needs the pair. The card takes only the 24-hour
     // maximum, and picks that path itself -- see scales.js.
-    renderHero(data.scalesNow, data.scalesObserved, kp, status);
+    renderHero(data.scalesNow, data.scalesObserved, kp, status, data.alerts);
+    renderMessages(data.alerts);
     renderScales(scalesCard(data));
     renderAurora(data.aurora, auroraScheduled, status?.settings?.auroraInterval, !!status, pos);
     labelAuroraButtons();
@@ -2641,6 +2741,9 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // Fire-and-forget: the map already drew with nmi by the time this
   // resolves, so redraw once it lands rather than block the first paint on
   // a request most servers will 404 anyway.
-  loadDistanceUnitPref().then(() => { if (mapState === 'ready') drawMapCanvas() });
+  distanceUnitPreference().then((format) => {
+    if (format) distanceFormat = format;
+    if (mapState === 'ready') drawMapCanvas();
+  });
 })();
 </script>

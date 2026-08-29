@@ -1,5 +1,6 @@
 import { settingsFrom } from '../src/config'
 import { Client } from '../src/noaa/client'
+import { createMeter } from '../src/meter'
 import { ValueUpdate } from '../src/parse'
 import { Meta, Publisher } from '../src/publisher'
 import { ProductContext } from '../src/products/types'
@@ -50,19 +51,23 @@ export function harness(responses: Record<string, unknown>) {
   }
 
   const client: Client = {
-    json: async (subPath) => {
+    json: async ({ subPath }) => {
       if (!(subPath in responses)) throw new Error(`unstubbed ${subPath}`)
       return responses[subPath]
     },
     // Narrowed rather than cast, so a stub handing a parsed object to a
     // product that asked for text fails here rather than in the parser.
-    text: async (subPath) => {
+    text: async ({ subPath }) => {
       if (!(subPath in responses)) throw new Error(`unstubbed ${subPath}`)
       const body = responses[subPath]
       if (typeof body !== 'string')
         throw new Error(`stub for ${subPath} is not text`)
       return body
-    }
+    },
+    // No product exercised here reads its own client's meter or trigger --
+    // this satisfies the Client shape without a product noticing the stub.
+    withTrigger: () => client,
+    meter: createMeter()
   }
 
   const ctx: ProductContext = {

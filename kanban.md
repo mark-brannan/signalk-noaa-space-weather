@@ -7,6 +7,23 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Rule on
+      [#115](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/115),
+      which shipped at 290x270 against a ~530x425 target
+- [ ] Rule on the R-scale colouring in
+      [#131](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/131)
+      — colour currently tracks rarity, not severity, so 1% R1-R2 renders green
+      directly above 55% R3-R5 in red; recommendation and evidence are in the
+      issue comment, nothing ships until you pick
+- [ ] Give [#177](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/177)
+      the design pass it was opened to hold, and say what "done" means for it —
+      the controls exist but were arrived at ad-hoc, not designed
+
+- [ ] List your gripes with the demo page as it stands, for
+      [#199](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/199)'s
+      last boxes — most may be moot once phase 1 replaces `demo/index.html`
+      with the real webapp, so this is wanted at phase 4, not before, unless
+      one of them is structural
 - [ ] Decide the map's Expand/Shrink control's fate — it does nothing at a
       narrow viewport, only grows the tile past the page's other columns at
       a wide one, and defaults to shrunk for now (round-3 review on
@@ -100,6 +117,19 @@ what it is blocked by. Delete it when it is done.
       [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191))
 
 ## Claude's
+
+- [ ] Two dead links survive into the browser demo, both in `public/`: the
+      auth banner's `/admin/#/login` and the aurora empty state's
+      `../admin/#/apps/configuration/…`. Both 404 on Pages. Currently
+      unreachable there, so this is about the next person who makes them
+      reachable
+
+- [ ] Give the demo a real closure guard — `scripts/build-demo.mjs` finds the
+      files to copy by regex over imports, and the test can only mirror that
+      regex, so a dynamic `import()`, a `new Worker`, or an asset referenced
+      from markup is invisible to both. The only true check is loading the
+      built page; that belongs in `scripts/screenshots/`, which already has
+      Playwright and is outside the registry's offline `npm ci`
 
 - [ ] Roll release-please out to the other packages that need release
       automation — `ampacity`, `wire-wright`, `coastlines`, `coast-wright`,
@@ -350,3 +380,14 @@ what it is blocked by. Delete it when it is done.
       Options not yet weighed: unit above or beside the bar instead of on the
       last tick, drop the 30 label, or right-align the last tick against the
       bar's end rather than centring it on its fraction
+- [ ] Refine the in-force NOAA message surface. A stop-gap shipped on
+      2026-08-29 (`public/messages.js` + the overlay off the hero link): the
+      list draws every message under `ALERTS_BASE` with its verb, scale, issue
+      time, a watch's per-day table and NOAA's own text folded behind a
+      toggle. What it does *not* do, and what a design pass is for: a real
+      tile rather than a second overlay, the validity window drawn as a window
+      rather than a timestamp, a place for the S and R messages that are not
+      about a storm at all, and a decision about history — the subtree keeps
+      stood-down messages for two days and nothing longer is available without
+      re-reading NOAA's 30-day archive.
+      https://github.com/mark-brannan/signalk-noaa-space-weather/pull/242

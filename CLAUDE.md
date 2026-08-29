@@ -30,11 +30,23 @@ public/
   spaceMap.js     the drawing: raster, contours, graticule, coastline, marks
   drap-colors.js  NOAA's D-RAP colorbar, mirrored from tiles.ts
   geo.js          the coastline, decoded and drawn
+  signalk.js      the ONLY module the page reaches the server through
 ```
 
 **To add a data source: write `src/products/<name>.ts` implementing `Product`,
 add it to `PRODUCTS` in `index.ts`.** Nothing else. That is the whole reason
 for this shape.
+
+**Every endpoint a product fetches is declared in `src/endpoints.ts`, with its
+measured wire size**, and the client refuses to fetch anything else. That table
+is what `config.ts`'s form descriptions and `public/config-panel.js`'s daily
+bill are computed from, so a new endpoint is priced by adding it and nothing
+else — and an undeclared one is a test failure rather than traffic nobody was
+told about. `test/endpoints.test.ts` holds the declarations against
+`docs/noaa-products.md` byte for byte, so re-measuring means updating both.
+This exists because "together about 5 KB per poll" outlived a product growing
+from one endpoint to three, and #223 had to go and re-measure to find it. The
+correction was one release; the declarations are what stop the next one.
 
 A `Product` declares `schedule` (`observations` or `notifications`), optional
 `enabled(settings)` if the user can switch it off, optional `metadata(settings)`
@@ -188,6 +200,33 @@ flat view goes through the library and `strokeRings` in `public/spaceMap.js`
 strokes the azimuthal one against the antipode instead. Argument in
 [docs/design-decisions.md](docs/design-decisions.md#every-webapp-map-draws-its-own-coastline-the-chart-overlay-draws-none).
 
+**The browser demo is the shipping page, not a copy of it.**
+`scripts/build-demo.mjs` copies `public/index.html` itself and substitutes
+`demo/signalk.js` for `signalk.js` — that one seam is why the demo runs the
+real page unchanged, and `test/webapp-seam.test.ts` fails if the page regrows
+a `fetch`, a `WebSocket` or a server URL of its own. **Don't fork
+`index.html`, and don't hand-list the copied files** — the demo's framing is
+*appended* as one script tag (`demo/chrome.js`, which may say what the page is
+and may not change what it draws), and the file set is the page's transitive
+import closure. The snapshot carries plugin **route bodies** (`grids`,
+`routes`) as well as vessel-tree `values`, because the routes' shapes are not
+the published paths' shapes. The capture runs from a fixed demo position, and
+that position is a stated viewpoint, not a boat. It runs with the aurora,
+D-RAP and GOES flux products switched **on** and saves those settings as the
+`/status` body, because the page reads `status.settings` to describe how
+the plugin is running — a snapshot that carries a product's data while claiming
+its switch is off states the opposite of the truth. And **`demo/signalk.js`
+owns the page's clock**: it shifts `Date.now()` and the bare `new Date()` onto
+the captured instant, leaving `new Date(iso)` alone, or the page's own
+three-hour `STALE_MS` brands the demo "STALE DATA" from one afternoon after
+capture onwards
+([#199](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/199),
+[#239](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/239)
+— argument in
+[docs/design-decisions.md](docs/design-decisions.md#the-demo-is-the-shipping-page-not-a-copy-of-it)
+and
+[the demo owns the clock](docs/design-decisions.md#the-demo-owns-the-clock)).
+
 **Tile rendering must not block the event loop.** Render tiles async, one at a
 time — `Promise.all` over tiles is worse than a blocking loop, since it runs
 every rasterize synchronously before awaiting anything. This is a plugin
@@ -308,8 +347,10 @@ pre-1.0 — the standing bias against minting minors, enforced instead of asked
 for. See [AGENTS.md](AGENTS.md).
 
 Publishing is still npm OIDC trusted publishing with no token anywhere.
-release-please creates the tag and the GitHub Release, then dispatches
-`publish.yml` explicitly — a tag pushed with the default `GITHUB_TOKEN` does
-not trigger workflows, which is GitHub's own loop prevention and not something
-to work around by making `publish.yml` listen harder. Argument in
+release-please runs as a GitHub App (not the default `GITHUB_TOKEN`) so its
+own release pull request gets real CI, and its tag push therefore *does*
+trigger workflows — which is exactly why `publish.yml` has no `push: tags`
+listener of its own: one would race the explicit dispatch.
+`release-please.yml` creates the tag and the GitHub Release, then dispatches
+`publish.yml` explicitly, the same path a human uses by hand. Argument in
 [docs/design-decisions.md](docs/design-decisions.md#release-please-owns-the-version-no-pull-request-does).

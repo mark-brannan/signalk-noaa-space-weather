@@ -1,6 +1,6 @@
 {
   "name": "signalk-noaa-space-weather",
-  "version": "0.29.11",
+  "version": "0.30.0",
   "description": "Find out about geomagnetic storms, radio blackouts, aurora visibility, and more using data from the NOAA Space Weather Prediction Center (SWPC). Includes a webapp for visualization.",
   "type": "module",
   "displayName": "NOAA Space Weather",
@@ -57,7 +57,7 @@
     ]
   },
   "author": "mark-brannan",
-  "license": "ISC",
+  "license": "AGPL-3.0-or-later",
   "devDependencies": {
     "@types/node": "^26.1.2",
     "coast-wright": "^0.0.1-alpha.0",

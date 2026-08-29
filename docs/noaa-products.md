@@ -22,6 +22,15 @@ node scripts/measure-noaa.mjs            # sizes and conditional GET, ~6 min
 node scripts/measure-noaa.mjs --cadence  # adds a 15-minute content watch
 ```
 
+Two checks stand behind this file, because the numbers below went weeks out of
+date without anything noticing. `test/endpoints.test.ts` pins that every
+endpoint declared in `src/endpoints.ts` is measured here, offline, in the
+normal suite -- an endpoint nobody measured cannot show up as missing from a
+measurement. `scripts/check-noaa-live.mjs`, run weekly by
+`.github/workflows/noaa-drift.yml`, re-measures the payload-size table against
+the live service and opens an issue when a row or the per-poll total leaves
+its band.
+
 ## Endpoints
 
 | Endpoint | Product | Notes |
@@ -75,6 +84,12 @@ that mattered, which is part of how the totals below went stale unnoticed.
 | `/text/daily-solar-indices.txt` | `sunspot` | 4 h | 845 B | 2.9 KB |
 | `/text/advisory-outlook.txt` | `advisory` | adaptive | 768 B | 1.5 KB |
 | `/text/27-day-outlook.txt` | `outlook27` | 24 h | 442 B | 1.6 KB |
+
+**This table is what `src/endpoints.ts` declares**, at the precision recorded
+here; `test/endpoints.test.ts` renders each declaration back into these units
+and fails if a cell disagrees. So a re-measurement is two edits rather than
+one, and the config form quotes whatever the code declares instead of a
+sentence somebody wrote once.
 
 **The seven rows still marked `updateInterval` come to about 9.7 KB a poll** —
 roughly 230 KB a day at the hourly default. The alerts archive is over half of
@@ -294,7 +309,7 @@ one was.
 | At the default alarm level | In force | Audible |
 | --- | --- | --- |
 | At each fixture's capture time | 4, in all three | 0 |
-| Peak over each fixture's whole span | 8 / 9 / 11 | 0 |
+| Peak over each fixture's whole span | 8 / 10 / 11 | 0 |
 
 **Nothing in any captured payload is audible at the default**, including both
 April 2025 storms: they peaked at an observed G4, which is `warn` — visual only

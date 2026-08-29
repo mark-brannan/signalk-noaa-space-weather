@@ -362,10 +362,21 @@ const fmtIssued = (offsetMin) => {
  * timer reads this and nothing else, so `peakInMin` is what actually decides
  * whether the hero says "until G3 window", "until easing", or "no storm
  * inbound" -- not the observed levels.
+ *
+ * `historyMin` extends it backwards, and `observedUntilMin` says how far
+ * NOAA's `observed` column has caught up -- the two things the real feed has
+ * that a forecast-only series cannot show. Left off, every point is a
+ * forecast starting at now, which is what the states above this line expect.
  */
-function series({ peakKp, peakInMin, base = 2 }) {
+function series({
+  peakKp,
+  peakInMin,
+  base = 2,
+  historyMin = 0,
+  observedUntilMin = null
+}) {
   const out = []
-  for (let m = 0; m <= 72 * 60; m += 180) {
+  for (let m = -historyMin; m <= 72 * 60; m += 180) {
     let kp = base + Math.sin(m / 900) * 0.6
     if (peakKp != null) {
       const d = Math.abs(m - peakInMin) / 600
@@ -374,10 +385,35 @@ function series({ peakKp, peakInMin, base = 2 }) {
     out.push({
       time: iso(m),
       kp: Math.round(Math.max(0.33, Math.min(9, kp)) * 3) / 3,
-      forecast: true
+      forecast: observedUntilMin === null ? true : m > observedUntilMin
     })
   }
   return out
+}
+
+/** A watch body, in NOAA's layout -- the list renders this verbatim. */
+function watchText(level, firstDay, stormDay) {
+  const cell = (d) => d.toUTCString().slice(5, 11).replace(/^0/, '')
+  return [
+    'Space Weather Message Code: WATA30',
+    'Serial Number: 279',
+    `Issue Time: ${fmtIssued(0)}`,
+    '',
+    `WATCH: Geomagnetic Storm Category G${level} Predicted`,
+    '',
+    'Highest Storm Level Predicted by Day:',
+    `${cell(firstDay)}:  None (Below G1)   ${cell(stormDay)}:  G${level} (Moderate)`,
+    '',
+    'THIS SUPERSEDES ANY/ALL PRIOR WATCHES IN EFFECT',
+    '',
+    'NOAA Space Weather Scale descriptions can be found at',
+    'www.swpc.noaa.gov/noaa-scales-explanation',
+    '',
+    `Potential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.`,
+    'Induced Currents - Power grid fluctuations can occur. High-latitude power systems',
+    'may experience voltage alarms.',
+    'Aurora - Aurora may be seen as low as New York to Wisconsin to Washington state.'
+  ].join('\n')
 }
 
 const ADVISORY_ISSUED_MIN = -1140
@@ -434,6 +470,47 @@ const STATES = {
     series: series({ peakKp: 7.0, peakInMin: 860 }),
     sfi: 118 // Fair, near the Good boundary
   },
+  watch: {
+    // The 2026-08-28 case: a CME left the sun, NOAA issued a G2 watch for the
+    // day it arrives, and the Kp forecast has not moved yet. Everything the
+    // page reads except the watch says quiet, which is exactly why this state
+    // has to exist -- it is unreachable by waiting, since the interesting
+    // window is the two days *before* anything happens.
+    label: 'G2 watch, quiet series',
+    observed: { G: 0, S: 0, R: 0 },
+    peak24h: { G: 0, S: 0, R: 0 },
+    kpObserved: 2.0,
+    series: series({ peakKp: 3.0, peakInMin: 1800 }),
+    watchDayInMin: 2400,
+    watchLevel: 2,
+    // The watch above plus the one it superseded, which the plugin stood down
+    // rather than deleted -- the pair is what the messages list has to get
+    // right, since a withdrawn watch shown as live is the same failure as a
+    // live one shown as nothing.
+    messages: [
+      {
+        code: 'WATA20',
+        alertLevel: 'WATCH',
+        scale: 'G1 - Minor',
+        issuedMin: -2160,
+        state: 'normal',
+        serialNumber: '278',
+        message: 'WATCH: Geomagnetic Storm Category G1 Predicted',
+        // Matches the body text below -- a stood-down watch still carries the
+        // table it was superseded with, so its day chips are reachable too.
+        predictedByDay: [
+          { date: iso(-2160), letter: 'G', level: 1 },
+          { date: iso(-2160 + 24 * 60), letter: 'G', level: 0 }
+        ],
+        body: [
+          'Highest Storm Level Predicted by Day:',
+          'Aug 28:  G1 (Minor)   Aug 29:  None (Below G1)',
+          '',
+          'THIS SUPERSEDES ANY/ALL PRIOR WATCHES IN EFFECT'
+        ]
+      }
+    ]
+  },
   eased: {
     // A real storm (G3, above NOTABLE) ended, but a quieter G1 is still
     // running under it. Unreachable against a live sky on demand, and the
@@ -450,6 +527,62 @@ const STATES = {
     // Two scales at once, so the hero has to fold an "Also S4:" clause into
     // the impact sentence -- the longest string the layout ever carries.
     label: 'G4 + S4 in force',
+    // What a real storm's messages look like: the alert that fired, the
+    // warning still running under it, and the summary of the burst that has
+    // already passed. Three verbs, three states, one story.
+    messages: [
+      {
+        code: 'ALTK08',
+        alertLevel: 'ALERT',
+        scale: 'G4 - Severe',
+        issuedMin: -95,
+        state: 'warn',
+        serialNumber: '4051',
+        message: 'ALERT: Geomagnetic K-index of 8, Severe',
+        body: [
+          'Threshold Reached: 2026 Aug 29 1804 UTC',
+          'Synoptic Period: 1800-2100 UTC',
+          '',
+          'Active Warning: Yes',
+          'Potential Impacts: Area of impact primarily poleward of 45 degrees',
+          'Geomagnetic Latitude. Induced Currents - Possible widespread voltage',
+          'control problems. Aurora - Aurora may be seen as low as Alabama and',
+          'northern California.'
+        ]
+      },
+      {
+        code: 'WARK07',
+        alertLevel: 'WARNING',
+        scale: 'G3 - Strong',
+        issuedMin: -260,
+        validUntilMin: 160,
+        state: 'warn',
+        serialNumber: '2210',
+        message: 'WARNING: Geomagnetic K-index of 7 expected',
+        body: [
+          'Valid From: 2026 Aug 29 1500 UTC',
+          'Valid To: 2026 Aug 30 0000 UTC',
+          'Warning Condition: Persistence'
+        ]
+      },
+      {
+        code: 'SUM10R',
+        alertLevel: 'SUMMARY',
+        scale: 'R2 - Moderate',
+        issuedMin: -640,
+        state: 'normal',
+        serialNumber: '1877',
+        message: 'SUMMARY: X-ray Event exceeded M5',
+        body: [
+          'Begin Time: 2026 Aug 29 0712 UTC',
+          'Maximum Time: 2026 Aug 29 0741 UTC',
+          'End Time: 2026 Aug 29 0759 UTC',
+          'X-ray Class: M6.4',
+          'Optical Class: 2n',
+          'Location: S14W38'
+        ]
+      }
+    ],
     observed: { G: 4, S: 4, R: 2 },
     peak24h: { G: 4, S: 4, R: 3 },
     kpObserved: 8.0,
@@ -457,6 +590,26 @@ const STATES = {
     sfi: 187 // Excellent (>=150) -- also the longest quality word, on the state
     // with the widest MUF/headline text, so the SFI badge's flex-middle
     // spacing gets checked against the tile's most crowded layout too.
+  },
+  stalled: {
+    // NOAA's `observed` column has stalled: the last measured bin is 21 hours
+    // back, so most of the day sits in the past still marked `estimated`.
+    // Live on 2026-08-29, and the case that showed the Kp chart was drawing
+    // NOW at the observed/forecast split -- which pinned it to the far left
+    // with a single point of history behind it, on a chart covering four
+    // days. NOW is the clock; the colour split is the column. Impractical to
+    // wait for on a real server, and invisible to a forecast-only series.
+    label: 'Observed column stalled',
+    observed: { G: 1, S: 0, R: 0 },
+    peak24h: { G: 1, S: 0, R: 0 },
+    kpObserved: 4.33,
+    series: series({
+      peakKp: 5.67,
+      peakInMin: -1080,
+      historyMin: 24 * 60,
+      observedUntilMin: -21 * 60
+    }),
+    sfi: 128 // Good (120-149)
   },
   stale: {
     label: 'Stale data',
@@ -517,15 +670,76 @@ function payload(name, s) {
     }
     case 'kp':
       if (s.kpObserved === null) return null
+      // The next 24h is the eight bins from the one containing now. Half a
+      // bin of back-tolerance so a series that starts at now still counts its
+      // own first point, which drifts into the past between module load and
+      // the request.
+      const from = Math.max(
+        0,
+        s.series.findIndex((p) => Date.parse(p.time) >= Date.now() - 90 * 60000)
+      )
       return {
         observed: leaf(s.kpObserved, s.ageMin ?? -6),
         forecast: {
-          max24h: leaf(Math.max(...s.series.slice(0, 8).map((p) => p.kp))),
+          max24h: leaf(Math.max(...s.series.slice(from, from + 8).map((p) => p.kp))),
           max72h: leaf(Math.max(...s.series.map((p) => p.kp))),
           maxNoaaScale: leaf(s.observed?.G ?? 0),
           series: leaf(s.series)
         }
       }
+    case 'alerts': {
+      // The whole subtree, one leaf per NOAA message code -- what the hero's
+      // `watchAhead` and the messages list both read. A state's `messages`
+      // are written the way NOAA writes them, because the list renders
+      // NOAA's own words and a paraphrase would not show what it looks like.
+      const out = {}
+      if (s.watchLevel) {
+        const day = new Date(Date.now() + s.watchDayInMin * 60000)
+        day.setUTCHours(0, 0, 0, 0)
+        const yesterday = new Date(day.getTime() - 24 * 60 * 60 * 1000)
+        out.WATA30 = leaf({
+          id: 'noaa_swpc_alert_WATA30',
+          serialNumber: '279',
+          issued: new Date().toISOString(),
+          validUntil: null,
+          message: `WATCH: Geomagnetic Storm Category G${s.watchLevel} Predicted`,
+          description: watchText(s.watchLevel, yesterday, day),
+          alertLevel: 'WATCH',
+          scale: `G${s.watchLevel} - Moderate`,
+          state: 'alert',
+          method: [],
+          predictedByDay: [
+            { date: yesterday.toISOString(), letter: 'G', level: 0 },
+            { date: day.toISOString(), letter: 'G', level: s.watchLevel }
+          ]
+        })
+      }
+      for (const m of s.messages ?? []) {
+        out[m.code] = leaf({
+          id: `noaa_swpc_alert_${m.code}`,
+          serialNumber: m.serialNumber ?? '1000',
+          issued: iso(m.issuedMin),
+          validUntil: m.validUntilMin != null ? iso(m.validUntilMin) : null,
+          message: m.message,
+          description: [
+            `Space Weather Message Code: ${m.code}`,
+            `Serial Number: ${m.serialNumber ?? '1000'}`,
+            `Issue Time: ${fmtIssued(m.issuedMin)}`,
+            '',
+            m.message,
+            ...(m.scale ? [`NOAA Scale: ${m.scale}`] : []),
+            '',
+            ...(m.body ?? [])
+          ].join('\n'),
+          alertLevel: m.alertLevel,
+          scale: m.scale ?? '',
+          state: m.state,
+          method: [],
+          predictedByDay: m.predictedByDay ?? []
+        })
+      }
+      return out
+    }
     case 'wind':
       if (s.observed === null) return null
       // Tesla, not the nT an operator quotes: Signal K carries SI and the tile
@@ -677,6 +891,7 @@ const ROUTES = [
   [/swpc\/f107$/, 'f107'],
   [/swpc\/a_index$/, 'aIndex'],
   [/swpc\/sunspot_number$/, 'sunspotNumber'],
+  [/noaa\/swpc\/alerts$/, 'alerts'],
   [/navigation\/position$/, 'position'],
   [/advisory-outlook$/, 'advisory'],
   [/space-weather\/status$/, 'status']

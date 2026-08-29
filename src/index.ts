@@ -7,7 +7,8 @@
  * (in) and src/publisher (out).
  */
 import { Settings, schema, settingsFrom } from './config.js'
-import { createClient } from './noaa/client.js'
+import { createClient, Trigger } from './noaa/client.js'
+import { meterSnapshot } from './meter.js'
 import { readAuroraCache } from './cache/auroraCache.js'
 import { readDrapCache } from './cache/drapCache.js'
 import { readAdvisoryCache } from './cache/advisoryCache.js'
@@ -36,7 +37,10 @@ import {
   renderTile
 } from './tiles.js'
 
-const PRODUCTS: Product[] = [
+// Exported for test/endpoints.test.ts, which walks it to check that every
+// endpoint a product can fetch is declared in src/endpoints.ts and priced by
+// the config form. Nothing else reads it from outside this module.
+export const PRODUCTS: Product[] = [
   scales,
   kp,
   outlook27,
@@ -252,14 +256,23 @@ export default function (app: any): Plugin {
    * be rolled back so a boat still waiting on a GPS fix was not also made to
    * wait out a cooldown for traffic it never sent.
    */
-  function refreshOnce(product: Product, settings: Settings) {
+  function refreshOnce(
+    product: Product,
+    settings: Settings,
+    trigger: Trigger = 'schedule'
+  ) {
     const joined = inFlight.get(product.name)
     if (joined) return joined
 
     lastRefreshStartedAt.set(product.name, Date.now())
 
     const attempt: Promise<RefreshResult> = product
-      .refresh({ client, publisher, settings, stopped: () => stopped })
+      .refresh({
+        client: client.withTrigger(trigger),
+        publisher,
+        settings,
+        stopped: () => stopped
+      })
       .finally(() => {
         if (inFlight.get(product.name) === attempt)
           inFlight.delete(product.name)
@@ -616,7 +629,7 @@ export default function (app: any): Plugin {
 
           let result: RefreshResult
           try {
-            result = await refreshOnce(product, settings)
+            result = await refreshOnce(product, settings, 'webapp')
           } catch (err) {
             res
               .status(502)
@@ -693,6 +706,27 @@ export default function (app: any): Plugin {
             return
           }
           res.json({ startedAt, settings: currentSettings })
+        }
+      )
+
+      // The primary surface for docs/instrumentation-design.md: the ring of
+      // recent fetches and each endpoint's rolling 24 hourly buckets, straight
+      // from the meter with nothing computed on top yet. `schema` is versioned
+      // so a scraper can tell one shape from the next; the totals-since-install
+      // tier and the predicted-vs-measured comparison are later phases.
+      router.get(
+        '/signalk-noaa-space-weather/telemetry',
+        (_req: any, res: any) => {
+          if (!startedAt) {
+            res.status(503).json({ error: 'Plugin is not running.' })
+            return
+          }
+          res.json({
+            schema: 1,
+            startedAt,
+            settings: currentSettings,
+            ...meterSnapshot(client.meter)
+          })
         }
       )
 
