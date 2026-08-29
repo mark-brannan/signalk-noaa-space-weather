@@ -18,9 +18,9 @@ form.
 **Verification status is marked throughout.** Anything sourced from vendor
 documentation is cited; anything measured here carries the date and the method;
 anything that could not be established from outside the system is called
-**unverified** rather than described plausibly. Three things in particular could
-only be settled by an operator with a Winlink or Sailmail account actually
-sending a message, and they are listed under
+**unverified** rather than described plausibly. Most of what is still open could
+only be settled by an operator with a radio actually sending or hearing a
+message, and all of it is listed under
 [What is still unverified](#what-is-still-unverified).
 
 ## The constraint that shapes everything: the plugin never transmits
@@ -54,6 +54,51 @@ for something else; a navigation plugin does not get to key a transmitter. And
 Sailmail's [terms](https://sailmail.com/cost-and-application-process/terms-and-conditions/)
 cap use at "a running average of 90 minutes per week", which is the operator's
 budget to spend, not the plugin's.
+
+## The carriers, and who is licensed for what
+
+Three names get used interchangeably in cruising forums and they sit on three
+different regulatory footings. The plugin is indifferent to all of it — the
+receive side is the same directory of files either way — but it is the first
+question an operator asks, and the answer changes what they are allowed to send.
+
+**Saildocs holds no licence and needs none.** It never transmits. It is a mail
+robot on the internet, run by Sirius Cybernetics LLC, and it does not know or
+care that the far end of the conversation is a radio. Its `sub` is a scheduled
+_delivery_ — a cron entry that mails a document for `days=` days — not a paid
+subscription. NOAA's [PSS](https://pss.swpc.noaa.gov) is the same shape: a free
+mailing list, pushed by an ordinary mail server.
+
+**Sailmail is licensed maritime spectrum, operated by a non-profit for
+non-commercial vessels.** The SailMail Association holds FCC **Part 80 private
+coast station** licences — WQAB964 San Diego, KUZ533 Honolulu, KZN508 Rock Hill,
+WHV382 Friday Harbor, WPTG385 Corpus Christi, plus stations outside the US
+([their licence page](https://sailmail.com/fcc-licenses/)). The eligibility that
+allows it is
+[§80.501(a)(10)](https://www.govregs.com/regulations/expand/title47_chapterI-i4_part80_subpartK_section80.501):
+"A nonprofit organization providing noncommercial communications to vessels
+other than commercial transport vessels." Membership is limited to
+non-commercial vessels under 1600 tons; each member vessel needs its own ship
+station licence and must carry copies of Sailmail's FCC licences aboard. Part 80
+permits the members' own business and operational traffic, which is the practical
+difference from Winlink — and the reason it costs $275 a year.
+
+**Winlink is amateur spectrum under Part 97.** Winlink is a volunteer project of
+the Amateur Radio Safety Foundation, a non-profit; every gateway and every boat
+is an ordinary licensed amateur station, and use is free with a donation
+requested. Two rules follow and both matter here:
+[§97.113(a)(3)](https://www.law.cornell.edu/cfr/text/47/97.113) forbids traffic
+in which the operator has a pecuniary interest, so boat business goes over
+Sailmail and not over Winlink; and §97.113(a)(4) forbids "messages encoded for
+the purpose of obscuring their meaning", which is why Winlink is plaintext —
+with consequences taken up under
+[the ambitious form](#the-ambitious-form-a-ham-ground-station). Winlink also runs
+MARS and SHARES networks on federal spectrum for military and government users;
+those are separately authorised and not a cruiser's to use.
+
+**Neither is a commercial band in the common-carrier sense**, and the licence is
+the operator's problem, not the plugin's. Routes A and B below work identically
+over either.
 
 ## Transmit side: three routes, two of which need nothing built
 
@@ -344,21 +389,55 @@ The line that follows is sharp, and it is the finding:
   the cruiser-facing product; at most, cruisers who happen to be licensed hear
   the bulletin as amateurs.
 
-The throughput arithmetic then decides the mode. JS8Call is the natural carrier
-for a bulletin — it has `@ALLCALL` and callgroup addressing and a group message
-inbox that holds messages for stations that were not listening — but its normal
-speed is on the order of 16 WPM (vendor-stated; not measured here). At roughly
-1.3 characters a second, a 540-byte `wwv.txt` is about seven minutes of
-transmission and a 4 KB ARLP is nearly an hour. **A JS8 bulletin is only viable
-for a purpose-built digest of tens of bytes** — say `SFI116 A15 K4 R1 S0 G2
-0300Z` — which is a fifth of `wwv.txt` and loses the narrative. That is a real
-product, and a fun one, and it is nothing this plugin needs: the same 30 bytes
-arrive by email as part of a 540-byte message that costs seconds.
+### One transmission, many consumers: Winlink is in clear, and receivers are free
 
-**Recommendation: don't pursue it as part of this feature.** File it as its own
-conversation with an amateur partner, out of the plugin's scope. If it ever
-happens, the receive side designed below is mode-agnostic — a JS8 decode written
-to a directory is the same ingest as an email written to a directory.
+The interesting consequence of §97.113(a)(4)'s ban on obscuring meaning is that
+a Winlink session over HF is readable by anyone in range. That is not a
+theoretical property. SCS, PACTOR's own developer, publishes
+[PMON](https://winlink.org/content/pmon_independent_pactorwinlink_monitor_raspberry_pi):
+"over-the-air monitoring of PACTOR 1/2/3 transmissions for meaning", on "a
+Raspberry Pi 3 Model B+ (minimum) computer and an inexpensive USB sound device",
+and "an SCS Pactor modem is not needed". It "automatically decompresses
+B2F/LZHUF compressed messages on the fly".
+
+So the receive side of a shared bulletin costs a listener nothing at all: no
+Winlink account, no Sailmail membership, no $1,000 modem, no per-boat
+subscription — a receiver and the Pi the plugin is already running on. And
+divulging what is heard is lawful:
+[47 USC §605(a)](https://www.law.cornell.edu/uscode/text/47/605) exempts "any
+radio communication … transmitted by an amateur radio station operator" from its
+no-divulging rule. **That exemption covers amateur only. It does not cover
+Sailmail**, which is Part 80 maritime traffic, so the same monitoring over
+Sailmail is a legal problem rather than a design option.
+
+Which reframes the ambitious option, and improves it. The naive version — one
+person subscribes and everyone else quietly copies their inbound mail — fails on
+three counts: the session happens once, on one gateway's frequency, at a time
+nobody else knows and only within that one path's footprint; VARA is
+closed-source and no third-party monitor for it was found (**unverified**, but
+do not assume one exists); and if the _purpose_ of the transmission is that
+others copy it, it is an information bulletin wearing a disguise.
+
+There is no reason to disguise it. §97.111(b)(6) makes the bulletin lawful
+outright, and doing it openly fixes the timing problem in the same move: an
+announced frequency and schedule, transmitted one-way in PACTOR's FEC/unproto
+broadcast mode (documented for PACTOR-1 and PACTOR-2; whether PACTOR-3 offers
+one is **unverified**), reaches everyone who chose to listen instead of whoever
+happened to be. PACTOR also removes the throughput ceiling that makes JS8 look
+marginal here: JS8Call has the better addressing — `@ALLCALL`, callgroups, and a
+group inbox that holds messages for stations that were not listening — but at a
+vendor-stated ~16 WPM, roughly 1.3 characters a second, a 540-byte `wwv.txt` is
+about seven minutes on the air and a 4 KB ARLP is nearly an hour. Over PACTOR
+the same `wwv.txt` is seconds, and every listener decodes it with free software.
+
+**Recommendation: still don't build it as part of this feature, but it is now
+worth a conversation rather than a footnote.** It needs an amateur partner
+willing to run a scheduled station, a Part 97 read on the bulletin's addressing,
+and someone to measure whether a one-way PACTOR bulletin is actually receivable
+at sea. None of that is plugin work. What matters here is that the plugin does
+not have to change to benefit: the receive side designed below is
+transport-agnostic, and a PMON decode written to a watched directory is the same
+ingest as an email written to a watched directory.
 
 ## Receive side: a second transport, not a second parser
 
@@ -577,6 +656,12 @@ message. None of it blocks the design; all of it blocks quoting a number.
    only the OPC Atlantic schedule page for space-weather products.
 7. **JS8's actual throughput**, quoted from vendor documentation as ~16 WPM in
    normal mode.
+8. **Whether VARA HF sessions can be monitored by a third party.** No monitor
+   was found and VARA is closed-source, but absence of a search result is not
+   proof. PMON's PACTOR coverage is documented; VARA's is not.
+9. **Whether PACTOR-3 has a one-way FEC/unproto broadcast mode.** Documented for
+   PACTOR-1 and PACTOR-2; not established for PACTOR-3, and a bulletin station's
+   throughput depends on the answer.
 
 ## Follow-up issues
 
@@ -602,6 +687,10 @@ fetches`** — small, and it makes the webapp able to say how a value arrived.
    deliverable an actual cruiser wants, and it is useful before any code ships.
 7. **`research: measure a real Saildocs reply`** — closes unverified items 1, 2
    and 4 in one session with a radio.
-8. **Deferred, open only if asked:** IMAP or Pat's HTTP API as a second source;
-   an amateur-radio bulletin ground station (its own conversation, with a
-   partner, and a Part 97 read before anything is keyed).
+8. **`research: is a shared PACTOR bulletin receivable at sea?`** — the one that
+   changes the shape of the initiative rather than the plugin: PMON makes the
+   receive side free for every boat, so the question is whether a partner
+   station will run a scheduled one-way bulletin and whether PACTOR-3 offers an
+   unproto mode to run it in. Closes unverified items 8 and 9. Needs an amateur
+   partner; nothing is keyed before a Part 97 read on the addressing.
+9. **Deferred, open only if asked:** IMAP or Pat's HTTP API as a second source.
