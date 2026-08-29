@@ -100,6 +100,7 @@ export function recordFetch(meter: Meter, entry: FetchRecord): void {
     (b) => b.hourStart >= oldest
   )
   let bucket = buckets[buckets.length - 1]
+  let rolledOver = false
   if (!bucket || bucket.hourStart !== hourStart) {
     bucket = {
       hourStart,
@@ -110,7 +111,7 @@ export function recordFetch(meter: Meter, entry: FetchRecord): void {
       notModified: 0
     }
     buckets.push(bucket)
-    meter.onRollover?.()
+    rolledOver = true
   }
   bucket.fetches += 1
   bucket.wireBytes += entry.wireBytes ?? 0
@@ -118,6 +119,9 @@ export function recordFetch(meter: Meter, entry: FetchRecord): void {
   if (entry.outcome === 'notModified') bucket.notModified += 1
   if (isError(entry.outcome)) bucket.errors += 1
   meter.hourly.set(entry.subPath, buckets)
+  // Fired only after the triggering fetch is folded in and stored, so a
+  // listener reading meterTotals() from inside the callback sees it counted.
+  if (rolledOver) meter.onRollover?.()
 }
 
 /**
@@ -134,8 +138,12 @@ export function meterTotals(
   meter: Meter,
   now: number
 ): { bytesPerDay: number; fetchesPerDay: number; errorsPerDay: number } {
-  const oldest =
-    Math.floor(now / HOUR_MS) * HOUR_MS - (HOURLY_BUCKETS - 1) * HOUR_MS
+  // A bucket covers a full hour, so one that started up to 24h (not 23h)
+  // before `now` can still overlap the last 24 hours -- e.g. now = 30.5h,
+  // a bucket started at 6h covers up to 7h and its 6.75h fetch is only
+  // 23.75h old. Using HOURLY_BUCKETS rather than HOURLY_BUCKETS - 1 keeps
+  // that boundary bucket in.
+  const oldest = Math.floor(now / HOUR_MS) * HOUR_MS - HOURLY_BUCKETS * HOUR_MS
   let bytesPerDay = 0
   let fetchesPerDay = 0
   let errorsPerDay = 0

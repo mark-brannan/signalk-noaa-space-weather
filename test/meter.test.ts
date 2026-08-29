@@ -122,6 +122,28 @@ describe('recordFetch: tier 2, the rolling 24 hours', () => {
 
     expect(rollovers).toBe(2)
   })
+
+  it('has already folded the triggering fetch in by the time onRollover fires', () => {
+    // onRollover fires because *this* fetch opened a new bucket -- a
+    // listener reading meterTotals() from inside the callback must see
+    // that fetch counted, not just the buckets that existed before it.
+    let totalsAtRollover: ReturnType<typeof meterTotals> | undefined
+    const meter = createMeter(() => {
+      totalsAtRollover = meterTotals(meter, HOUR_MS)
+    })
+
+    recordFetch(meter, entry({ startedAt: 0, wireBytes: 100 })) // opens bucket 0, no rollover
+    recordFetch(
+      meter,
+      entry({ startedAt: HOUR_MS, wireBytes: 50 }) // opens bucket 1 -- rolls over
+    )
+
+    expect(totalsAtRollover).toEqual({
+      bytesPerDay: 150,
+      fetchesPerDay: 2,
+      errorsPerDay: 0
+    })
+  })
 })
 
 describe('meterTotals', () => {
@@ -166,6 +188,30 @@ describe('meterTotals', () => {
     const totals = meterTotals(meter, 30 * HOUR_MS)
     expect(totals.bytesPerDay).toBe(1)
     expect(totals.fetchesPerDay).toBe(1)
+  })
+
+  it('includes a bucket whose hour overlaps the 24h window even though it started more than 23h ago', () => {
+    // now = 30.5h: a fetch in the bucket starting at 6h landed at 6.75h,
+    // which is 23.75h old and belongs in the last 24 hours -- a cutoff of
+    // "23 hours before now, floored" excludes the whole bucket that fetch
+    // is in.
+    const meter = createMeter()
+    recordFetch(
+      meter,
+      entry({ subPath: '/a', startedAt: 6.75 * HOUR_MS, wireBytes: 7 })
+    )
+
+    const totals = meterTotals(meter, 30.5 * HOUR_MS)
+    expect(totals.bytesPerDay).toBe(7)
+    expect(totals.fetchesPerDay).toBe(1)
+  })
+
+  it('includes a bucket exactly on the 24h boundary', () => {
+    const meter = createMeter()
+    recordFetch(meter, entry({ subPath: '/a', startedAt: 0, wireBytes: 3 }))
+
+    const totals = meterTotals(meter, 24 * HOUR_MS)
+    expect(totals.bytesPerDay).toBe(3)
   })
 })
 
