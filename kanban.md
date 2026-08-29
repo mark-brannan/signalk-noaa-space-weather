@@ -7,6 +7,12 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] Pick which of the eight follow-ups in
+      [docs/hf-email-transport.md](docs/hf-email-transport.md#follow-up-issues)
+      to file for
+      [#86](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/86)
+      — items 1-4 are the feature, item 7 needs somebody with a radio to close
+      the seven unverified measurements
 - [ ] Rule on
       [#115](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/115),
       which shipped at 290x270 against a ~530x425 target
