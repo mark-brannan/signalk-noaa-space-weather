@@ -251,7 +251,7 @@ a `new URL('./x.js', import.meta.url)` or an asset referenced from markup or
 CSS is copied by neither the build nor the test — and the test cannot catch
 what the build cannot see. A browser is the only guard that does, and it
 cannot go in `npm test`: the registry runs that under `firejail --net=none`
-with a 60 second cap.
+with a 60-second cap.
 
 `.github/workflows/pages.yml` deploys `demo-dist/` to GitHub Pages on every
 push to `main` that touches the demo or `public/`. To refresh the committed
