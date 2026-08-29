@@ -100,9 +100,11 @@ jobs:
   # why this exists. `always()` is what lets it evaluate when plugin-ci and
   # typecheck were skipped rather than being skipped itself -- a required
   # context that inherits a skip has the same "never reports" problem this
-  # whole job exists to avoid.
+  # whole job exists to avoid. No `name:` here, deliberately: the reported
+  # check context is the job id unless overridden, and the ruleset requires
+  # the context "ci-gate" -- a `name:` here made it wait on a context that
+  # never reports, the exact failure mode this job exists to avoid.
   ci-gate:
-    name: CI gate
     needs: [plugin-ci, typecheck]
     if: always()
     runs-on: ubuntu-latest
