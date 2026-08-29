@@ -15,19 +15,7 @@ import { readDrapCache } from './cache/drapCache.js'
 import { readAdvisoryCache } from './cache/advisoryCache.js'
 import { createPublisher } from './publisher.js'
 import { PROTON_FLUX_BASE, XRAY_FLUX_BASE } from './paths.js'
-import { advisory } from './products/advisory.js'
-import { aIndex } from './products/aIndex.js'
-import { aurora } from './products/aurora.js'
-import { alerts } from './products/alerts.js'
-import { drap } from './products/drap.js'
-import { f107 } from './products/f107.js'
-import { goesFlux } from './products/goesFlux.js'
-import { kp } from './products/kp.js'
-import { outlook27 } from './products/outlook27.js'
-import { scales } from './products/scales.js'
-import { sunspot } from './products/sunspot.js'
-import { solarWind } from './products/solarWind.js'
-import { Product } from './products/types.js'
+import { FORCE_REFRESH_COOLDOWN_MS } from './refreshPolicy.js'
 import {
   Lattice,
   MAX_ZOOM,
@@ -38,23 +26,15 @@ import {
   renderTile
 } from './tiles.js'
 
-// Exported for test/endpoints.test.ts, which walks it to check that every
-// endpoint a product can fetch is declared in src/endpoints.ts and priced by
-// the config form. Nothing else reads it from outside this module.
-export const PRODUCTS: Product[] = [
-  scales,
-  kp,
-  outlook27,
-  solarWind,
-  f107,
-  goesFlux,
-  aIndex,
-  sunspot,
-  aurora,
-  drap,
-  advisory,
-  alerts
-]
+// Re-exported so `PRODUCTS` stays one list with one importable name: the
+// registry moved to src/products/registry.ts when the browser demo needed it
+// (#239), and this module's own closure reaches the filesystem.
+import { aurora } from './products/aurora.js'
+import { drap } from './products/drap.js'
+import { goesFlux } from './products/goesFlux.js'
+import { PRODUCTS } from './products/registry.js'
+import type { Product } from './products/types.js'
+export { PRODUCTS }
 
 const PLUGIN_ID = 'signalk-noaa-space-weather'
 /** Let the server settle before the first fetch. */
@@ -67,19 +47,6 @@ const INITIAL_DELAY_MS = 5000
  */
 const RETRY_BASE_MS = 5000
 const RETRY_MAX_MS = 5 * 60 * 1000
-/**
- * Floor between aurora fetches a manual "refresh now" is allowed to start. The
- * aurora interval defaults to two hours to bound what that payload costs, so a
- * button a user can mash has to bound it too, independent of the configured
- * interval.
- *
- * Measured against the last fetch rather than the last press, so a scheduled
- * fetch holds it down as well — a press seconds after one would buy the same
- * grid twice. One number for both cases: it is the same NOAA traffic whether
- * or not a schedule is running, and a second, longer floor for the unscheduled
- * case would be a rule nobody could predict from the setting they changed.
- */
-const FORCE_REFRESH_COOLDOWN_MS = 60 * 1000
 /**
  * Rendered tiles held in memory. A 1280x800 viewport is about 20 tiles, so
  * this covers several pans and zooms of the same forecast; anything evicted
