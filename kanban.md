@@ -16,11 +16,6 @@ what it is blocked by. Delete it when it is done.
 - [ ] Rule on
       [#115](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/115),
       which shipped at 290x270 against a ~530x425 target
-- [ ] Decide the collapsed storm notification's path name (a placeholder
-      shipped in [#300](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/300))
-      and whether its loudness stays on the shared thresholds — both open in
-      [#298](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/298);
-      the placeholder must not reach a release
 - [ ] Rule on the R-scale colouring in
       [#131](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/131)
       — colour currently tracks rarity, not severity, so 1% R1-R2 renders green
@@ -129,6 +124,27 @@ what it is blocked by. Delete it when it is done.
 
 ## Claude's
 
+- [ ] Finish the G3+ storm redesign from
+      [#298](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/298)
+      / [#300](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/300).
+      Mark ruled out a new collapsed notification path (2026-08-30): no
+      `STORM_BASE`, no `stormCache.ts`. Instead make the existing per-code
+      `ALERTS_BASE` publish/standdown logic in `src/products/alerts.ts` /
+      `currentAlertNotifications` escalate and de-escalate intelligently on
+      its own — raise on a real level change, suppress a same-level
+      re-trigger, hold through the synoptic-period gaps that would otherwise
+      flap. Loudness: fixed at G3+, not configurable (his call, same issue).
+      Two phases, do not skip the checkpoint between them: **phase 1** is a
+      short design note only — how "escalate on level transition, suppress
+      same-level re-trigger, hold through gaps" maps onto per-code paths,
+      given a level transition can be carried by a different message code
+      than the one currently in force — for Mark to review before any code
+      moves. **Phase 2** is the implementation against that approved plan.
+      Start phase 1 on a fresh branch off `main` (already carries #302's
+      `ALERTS_BASE` guard); do not resume the old
+      `claude/g3-noaa-alert-notifications-68ea96` branch/PR #300, which built
+      the architecture this replaces. blocked: phase 2 on phase 1's plan
+      being reviewed
 - [ ] Two dead links survive into the browser demo, both in `public/`: the
       auth banner's `/admin/#/login` and the aurora empty state's
       `../admin/#/apps/configuration/…`. Both 404 on Pages. Currently
