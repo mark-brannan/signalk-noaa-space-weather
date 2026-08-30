@@ -75,6 +75,7 @@ const [
   drapCache,
   advisoryCache,
   { createClient },
+  { telemetryBody },
   { DEMO_POSITION, DEMO_PROPS }
 ] = await Promise.all([
   import(distIndex),
@@ -83,6 +84,7 @@ const [
   import(path.join(REPO, 'dist', 'cache', 'drapCache.js')),
   import(path.join(REPO, 'dist', 'cache', 'advisoryCache.js')),
   import(path.join(REPO, 'dist', 'noaa', 'client.js')),
+  import(path.join(REPO, 'dist', 'telemetry.js')),
   import(path.join(REPO, 'dist', 'browser', 'live.js'))
 ])
 
@@ -159,8 +161,9 @@ const publisher = {
 // value is the one a fresh install gets and cannot drift from it.
 const settings = settingsFrom(DEMO_PROPS)
 
+const client = createClient(publisher)
 const ctx = {
-  client: createClient(publisher),
+  client,
   publisher,
   settings,
   stopped: () => false
@@ -239,9 +242,16 @@ for (const [name, entry] of Object.entries(grids)) {
 // updates are off -- a claim about how the plugin ships that is not true of
 // this capture or of a default install. `startedAt` is the capture instant,
 // which is what the demo's clock makes "just now".
+//
+// `telemetry` is this capture's own meter: the real wire size of every fetch
+// it just made, against the declarations. Its 24-hour window is minutes old,
+// which is the honest thing for a snapshot to say -- the diagnostics panel
+// draws that as "collecting", compares the per-fetch sizes it can already
+// judge, and withholds the day's verdict it cannot.
 const routes = {
   advisory: advisoryCache.readAdvisoryCache(publisher),
-  status: { startedAt: capturedAt, settings }
+  status: { startedAt: capturedAt, settings },
+  telemetry: telemetryBody(capturedAt, settings, client.meter)
 }
 if (!routes.advisory) {
   console.error('the advisory refresh left nothing in the cache')

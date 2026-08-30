@@ -306,6 +306,17 @@ export function retryAfterSeconds(header) {
   return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : null
 }
 
+/**
+ * The telemetry route's body, saved or live. On a snapshot this is what the
+ * capture's own client metered while it ran -- a handful of fetches, minutes
+ * old, which is exactly the "the window has not filled yet" state the panel is
+ * built to say honestly. On `?live` it is this tab's own meter, and the panel
+ * fills as the visitor watches.
+ */
+export async function fetchTelemetry() {
+  return routeJson('telemetry')
+}
+
 /** The grid this layer holds, in the shape the map's layer loader takes. */
 export async function fetchGridCache(which) {
   const { grids } = await document_()

@@ -94,18 +94,19 @@ argument in
 [docs/design-decisions.md](docs/design-decisions.md#alerts-are-keyed-by-message-code-not-serial-number)).
 
 **Every notification goes through `methodForState`, and loudness is
-controlled only by two ordered thresholds — `alarmLevel` (sounds) and
-`popupLevel` (visible, silent).** State is the only input; don't add a
-per-method override. `ALERT_FLOOR` (level 3) never turns off; `ALARM_NEVER` is
-the one value above the alarm that isn't a mistake. Default mapping: 0
-`nominal`, 1–2 `normal`, 3 `alert` (empty method array), 4 `warn` (visual), 5
-`alarm` (visual + sound) — don't make it louder without a frequency argument,
-and don't derive one threshold from the other
+controlled only by three ordered thresholds — `alarmLevel` (sounds),
+`popupLevel` (visible, silent) and `listLevel` (listed, silent).** State is
+the only input; don't add a per-method override. `ALARM_NEVER` is the one
+value above a threshold that isn't a mistake. Default mapping: 0 `nominal`,
+1–2 `normal`, 3 `alert` (empty method array), 4 `warn` (visual), 5 `alarm`
+(visual + sound) — don't make it louder without a frequency argument. Keep
+explicit thresholds independent; derive an absent threshold from the level
+above
 ([#71](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/71),
 [#120](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/120),
 [#126](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/126)
 — argument in
-[docs/design-decisions.md](docs/design-decisions.md#loudness-is-two-ordered-thresholds-not-one)).
+[docs/design-decisions.md](docs/design-decisions.md#loudness-is-three-ordered-thresholds-not-one)).
 
 **Zone metadata generates notifications.** signalk-server's `src/zones.ts`
 watches any path with `meta.zones` and raises `notifications.<path>` on zone
@@ -116,10 +117,10 @@ at all. The metadata's `alertMethod` / `warnMethod` / `alarmMethod` set the
 notification's `method` array independently of its `state`, which is how a
 level is visible in the UI without interrupting the user.
 
-**In the panel, the two thresholds are lines drawn across the ladder, not
+**In the panel, the three thresholds are lines drawn across the ladder, not
 dropdowns**, and the table showing the consequence of the setting *is* the
 setting. `withLevel` is the panel's clamp; `config-panel.test.ts` pins that
-nothing it can produce is a pair `settingsFrom` would rewrite. Argument in
+nothing it can produce is a triple `settingsFrom` would rewrite. Argument in
 [docs/design-decisions.md](docs/design-decisions.md#thresholds-are-lines-on-the-ladder-not-dropdowns).
 
 **Signal K wants SI units.** Solar wind speed in m/s (NOAA gives km/s), Bt and
@@ -170,6 +171,28 @@ check gates re-raising, not just expiry — a fetch that keeps turning up the
 same already-expired bulletin must not undo `expireIfStale`'s stand-down on
 the very next tick. Argument in
 [docs/design-decisions.md](docs/design-decisions.md#the-advisory-outlook-is-also-published-as-plain-data).
+
+**Predicted-vs-measured is compared in the webapp, not in the plugin, and its
+verdict waits for a full 24 hours.** `src/telemetry.ts` serves the two halves
+of the cross-check keyed by the same `subPath` and compares nothing; where the
+line falls is a presentation decision, and `public/diagnostics.js` owns it.
+There are two thresholds and they are not interchangeable: **±50% on one
+endpoint's bytes-per-fetch** (no 24-hour gate, but three successful fetches
+required before a row is judged; set loose because the flares and alerts
+payloads genuinely track the weather) and **±25% on the
+total** (set tight, because the total's only real movers are structural).
+**The total is not judged until `hoursCovered` reads 24** — the meter starts
+empty at every plugin start and the aurora grid arrives in 147 KB lumps, so
+judging a partial window would raise the alarm after every restart, and
+pro-rating does not fix it. A row whose `wireBytes` came back
+`estimated` — no `Content-Length`, so a decoded size stood in, which is every
+JSON endpoint in a browser — is compared against nothing at all, and one of
+those suppresses the total's verdict too: a decoded size is roughly ten times a
+cost, and judging one against a declared wire size reports a tenfold
+over-fetch on a healthy plugin. Don't collapse the two thresholds into one,
+don't move the comparison into the route, don't drop the window gate, and don't
+compare an estimated size to a declared one. Argument in
+[docs/design-decisions.md](docs/design-decisions.md#predicted-vs-measured-has-two-thresholds-and-one-window-gate).
 
 **The map's data goes through `public/mapRaster.js`; everything with a
 measurable edge is drawn vectorially over it.** One canvas — the products are

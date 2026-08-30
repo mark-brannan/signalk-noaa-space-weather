@@ -5,6 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import createPlugin, { retryDelayMs } from '../src/index'
 import { settingsFrom } from '../src/config'
 import {
+  AURORA,
+  ENDPOINTS,
+  SCALES,
+  fetchesPerDay,
+  predictedBytesPerDay
+} from '../src/endpoints'
+import {
   AURORA_BASE,
   DRAP_BASE,
   PROTON_FLUX_BASE,
@@ -601,6 +608,122 @@ describe('plugin module', () => {
       expect(scales.trigger).toBe('schedule')
       expect(scales.outcome).toBe('ok')
       expect(response.json.hourly['/products/noaa-scales.json']).toBeDefined()
+
+      plugin.stop()
+    })
+
+    // The predicted half of the cross-check. Keyed by the same `subPath` as
+    // the measured half above, which is what makes comparing them a join
+    // rather than a translation -- and what a per-product key would have
+    // destroyed, since the bug this exists to catch was one product growing a
+    // second and a third endpoint.
+    it('serves what the declarations predict, keyed the same way', async () => {
+      const plugin = createPlugin(fakeApp())
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      const settings = settingsFrom({})
+      plugin.start(settings)
+
+      const { predicted } = (await router.invoke(ROUTE)).json
+      expect(predicted.endpoints.map((e: any) => e.subPath).sort()).toEqual(
+        ENDPOINTS.map((e) => e.subPath).sort()
+      )
+      // Not a second derivation of the same figure: both sides come from
+      // endpoints.ts, so the route and the configuration form cannot drift.
+      expect(predicted.total).toBe(predictedBytesPerDay(settings).total)
+      const scales = predicted.endpoints.find(
+        (e: any) => e.subPath === '/products/noaa-scales.json'
+      )
+      expect(scales.wireBytes).toBe(SCALES.wireBytes)
+      expect(scales.bytesPerDay).toBe(
+        fetchesPerDay(SCALES, settings) * SCALES.wireBytes
+      )
+      expect(scales.productName).toBeTruthy()
+
+      plugin.stop()
+    })
+
+    // Every endpoint gets a row whether or not the settings schedule it: a
+    // product the user switched off that is fetching anyway is exactly what
+    // the panel has to be able to show, and a table listing only what the
+    // settings expect cannot show it.
+    it('lists an endpoint the settings switch off, at zero', async () => {
+      const plugin = createPlugin(fakeApp())
+      const router = fakeRouter()
+      plugin.signalKApiRoutes(router)
+      plugin.start(settingsFrom({ auroraEnabled: false }))
+
+      const { predicted } = (await router.invoke(ROUTE)).json
+      const grid = predicted.endpoints.find(
+        (e: any) => e.subPath === AURORA.subPath
+      )
+      expect(grid).toBeDefined()
+      expect(grid.fetchesPerDay).toBe(0)
+      expect(grid.bytesPerDay).toBe(0)
+
+      plugin.stop()
+    })
+  })
+
+  describe('telemetry Signal K paths', () => {
+    const PATHS = [
+      `${TELEMETRY_BASE}.bytesPerDay`,
+      `${TELEMETRY_BASE}.bytesPerDayPredicted`,
+      `${TELEMETRY_BASE}.fetchesPerDay`,
+      `${TELEMETRY_BASE}.errorsPerDay`
+    ]
+
+    it('publishes metadata for all four paths on start, with no zones', () => {
+      const app = fakeApp()
+      const plugin = createPlugin(app)
+      plugin.start({})
+      plugin.stop()
+
+      for (const path of PATHS) {
+        const meta = metaFor(app.deltas, path)
+        expect(meta, path).toBeDefined()
+        expect(meta.displayName, path).toBeTruthy()
+        expect(meta.description, path).toBeTruthy()
+        // Zones raise notifications; a bandwidth wobble is not an alarm.
+        expect(meta, path).not.toHaveProperty('zones')
+      }
+      expect(metaFor(app.deltas, PATHS[0]).units).toBe('bytes')
+      expect(metaFor(app.deltas, PATHS[1]).units).toBe('bytes')
+      expect(metaFor(app.deltas, PATHS[2])).not.toHaveProperty('units')
+      expect(metaFor(app.deltas, PATHS[3])).not.toHaveProperty('units')
+    })
+
+    it('publishes values once a tier-2 bucket has rolled over, not before', async () => {
+      fetchMock = vi.fn(
+        async () =>
+          new Response(fixture('noaa-scales.2026_08_01.json'), {
+            status: 200,
+            headers: { 'content-length': '9' }
+          })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+      const app = fakeApp()
+      const plugin = createPlugin(app)
+      plugin.start(settingsFrom({}))
+
+      for (const path of PATHS)
+        expect(valueFor(app.deltas, path)).toBeUndefined()
+
+      // The initial per-product delay before the first scheduled run --
+      // that first fetch opens the very first tier-2 bucket, which is
+      // itself a rollover.
+      await vi.advanceTimersByTimeAsync(10_000)
+
+      expect(
+        valueFor(app.deltas, `${TELEMETRY_BASE}.bytesPerDay`)
+      ).toBeGreaterThan(0)
+      expect(
+        valueFor(app.deltas, `${TELEMETRY_BASE}.bytesPerDayPredicted`)
+      ).toBeGreaterThan(0)
+      expect(
+        valueFor(app.deltas, `${TELEMETRY_BASE}.fetchesPerDay`)
+      ).toBeGreaterThan(0)
+      expect(valueFor(app.deltas, `${TELEMETRY_BASE}.errorsPerDay`)).toBe(0)
 
       plugin.stop()
     })
