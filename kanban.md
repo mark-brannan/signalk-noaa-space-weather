@@ -16,6 +16,11 @@ what it is blocked by. Delete it when it is done.
 - [ ] Rule on
       [#115](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/115),
       which shipped at 290x270 against a ~530x425 target
+- [ ] Decide the collapsed storm notification's path name (a placeholder
+      shipped in [#300](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/300))
+      and whether its loudness stays on the shared thresholds — both open in
+      [#298](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/298);
+      the placeholder must not reach a release
 - [ ] Rule on the R-scale colouring in
       [#131](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/131)
       — colour currently tracks rarity, not severity, so 1% R1-R2 renders green
