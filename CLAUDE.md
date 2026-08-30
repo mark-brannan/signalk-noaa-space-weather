@@ -99,8 +99,9 @@ controlled only by three ordered thresholds — `alarmLevel` (sounds),
 the only input; don't add a per-method override. `ALARM_NEVER` is the one
 value above a threshold that isn't a mistake. Default mapping: 0 `nominal`,
 1–2 `normal`, 3 `alert` (empty method array), 4 `warn` (visual), 5 `alarm`
-(visual + sound) — don't make it louder without a frequency argument, and
-don't derive one threshold from another
+(visual + sound) — don't make it louder without a frequency argument. Keep
+explicit thresholds independent; derive an absent threshold from the level
+above
 ([#71](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/71),
 [#120](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/120),
 [#126](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/126)

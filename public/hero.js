@@ -14,7 +14,7 @@ const KP_FOR_G1 = 5
  * The level this page treats as worth naming in the banner. It decides
  * precedence and nothing else here -- it is not the notification floor,
  * which is `listLevel` and is a user setting. Whether a storm is worth
- * *saying* is a lower bar than whether it is worth a notification -- see
+ * *saying* uses a separate fixed bar from notification settings -- see
  * IN_FORCE.
  */
 const NOTABLE = 3

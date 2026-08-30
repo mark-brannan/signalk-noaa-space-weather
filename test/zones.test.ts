@@ -47,8 +47,8 @@ describe('stateForScaleValue', () => {
     // The one alarm setting that deliberately cannot sound. G5 still pops up,
     // so the loudest event remains visible -- the bug the test below guards
     // against was a choice that looked loud and was silent. With no popup or
-    // list level given, both derive one below the level above them, so G4
-    // reaches the popup band and G3 the list band.
+    // list level given, both derive one below the level above them, so G5
+    // reaches the popup band and G4 the list band.
     expect(stateForScaleValue(5, ALARM_NEVER)).toBe('warn')
     expect(stateForScaleValue(4, ALARM_NEVER)).toBe('alert')
     expect(
