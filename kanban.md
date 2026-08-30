@@ -123,6 +123,28 @@ what it is blocked by. Delete it when it is done.
       [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191))
 
 ## Claude's
+- [ ] Take the standalone app out of this repo. `app/` + `scripts/build-app.mjs`
+      ship an installable PWA off `public/index.html` today, but it is built
+      from a Signal K plugin's repo, versioned with the plugin, and deployed
+      by nothing. The pieces both consumers share are already named --
+      `src/browser/` (live.ts, seam.ts, publisher.ts), `src/parse.ts`,
+      `src/products/`, `src/noaa/`, `src/cache/`, `src/paths.ts`,
+      `src/endpoints.ts`, and the `public/` map stack -- and
+      `test/browser-closure.test.ts` already fails if any of them grows a Node
+      import, so the cut is enforced before it is made. Order that keeps a
+      working thing at every step: publish the shared core as a package, point
+      the plugin and the app at it, then move the app to its own repo with its
+      own Pages deploy. Decide first whether the map stack is one package with
+      the NOAA core or two -- `coastlines`/`coast-wright` say two.
+      https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md#the-standalone-app-is-the-fourth-thing-behind-the-same-seam
+- [ ] Give the app a deploy. `npm run app:build` writes `app-dist/` and nothing
+      publishes it, so the PWA cannot actually be installed on a phone or
+      shared with anyone -- geolocation and service workers are both
+      secure-context features, so a LAN address will not do. `pages.yml`
+      already deploys `demo-dist/`; the open question is whether the app gets
+      its own Pages site, a path under the demo's, or waits for the repo split
+      above. Until then it is verifiable only in a local browser.
+      https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/.github/workflows/pages.yml
 
 - [ ] Finish the G3+ storm redesign from
       [#298](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/298)

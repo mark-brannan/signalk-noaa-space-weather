@@ -314,6 +314,42 @@ running. It refuses to write a
 snapshot with a hole in it: a product that throws, or that refreshes without
 publishing anything, fails the run and leaves the committed capture alone.
 
+## The standalone app
+
+The same webapp page with no Signal K server under it: the plugin's own product
+modules fetch NOAA from the reader's tab, indexed at whatever position their
+device reports, and the whole thing installs to a home screen.
+
+```shell
+npm install && npm run build && npm run app:build   # assembles app-dist/
+npx http-server app-dist                            # any static server works
+```
+
+**It must be served over HTTPS or from `localhost`.** Both `navigator.geolocation`
+and service-worker registration are secure-context features, so opening
+`app-dist/index.html` as a `file://` URL gets you neither — the page still
+draws the global maps, but nothing is indexed to a position and nothing is
+installable. On a phone, the practical options are a local server reached by
+LAN address (which is *not* a secure context — use a tunnel) or a real deploy.
+
+`app/` holds only what makes it an app rather than the demo: `signalk.js` (the
+always-live data layer and the geolocation watch), `store.js` (the localStorage
+`CacheStore`, so a cold start paints from the last grid instead of buying a
+~900 KB one), `chrome.js` (the framing, the location prompt and the worker
+registration), plus the manifest and `sw.js`. Everything else is
+`public/index.html` and its imports, copied verbatim.
+
+Two things are generated and must not be hand-written: the file list (the
+page's transitive import closure, walked by `scripts/site.mjs` — shared with
+the demo build) and the service worker's precache list, derived from that same
+closure by `fillWorker` in `scripts/build-app.mjs`. A stale hand-kept list
+fails offline and only offline, which is the hardest way to find out.
+
+To check it end to end, serve `app-dist/` and load it in a browser with a
+granted location. The tests cannot do this — `npm test` runs offline under a
+60-second cap — so `test/app.test.ts` pins the surface, the closure and the
+worker substitution, and a browser is what confirms it draws.
+
 ## Regenerating the README screenshots
 
 `scripts/screenshots/capture.mjs` rewrites all five PNGs in `docs/screenshots/`
