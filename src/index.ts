@@ -8,8 +8,9 @@
  */
 import { Settings, schema, settingsFrom } from './config.js'
 import { createClient, Trigger } from './noaa/client.js'
-import { flushTotals, loadTotals, meterSnapshot, meterTotals } from './meter.js'
+import { flushTotals, loadTotals, meterTotals } from './meter.js'
 import { predictedBytesPerDay } from './endpoints.js'
+import { telemetryBody } from './telemetry.js'
 import { CacheStore } from './cache/entryCache.js'
 import { readAuroraCache } from './cache/auroraCache.js'
 import { readDrapCache } from './cache/drapCache.js'
@@ -765,25 +766,26 @@ export default function (app: any): Plugin {
       )
 
       // The primary surface for docs/instrumentation-design.md: the ring of
-      // recent fetches, each endpoint's rolling 24 hourly buckets, and its
-      // totals since install, straight from the meter with nothing computed
-      // on top yet. `schema` is versioned so a scraper can tell one shape
-      // from the next -- bumped to 2 when `totals` was added; the
-      // predicted-vs-measured comparison is still a later phase, needing
-      // src/endpoints.ts's declarations wired in alongside this.
+      // recent fetches, each endpoint's rolling 24 hourly buckets, and beside
+      // them what the declarations predicted a day at these settings would
+      // cost. Both halves keyed by `subPath`, so comparing them is a join and
+      // not a translation. `schema` is versioned so a scraper can tell one
+      // shape from the next -- 2 added `predicted` and the totals-since-install
+      // tier from phase 4.
+      //
+      // The comparison itself is deliberately not made here. This route serves
+      // the two halves and the window they cover; what counts as a divergence
+      // worth saying out loud is a presentation decision, and it lives with
+      // the surface that presents it (`public/diagnostics.js`) so that a
+      // scraper reading these numbers is free to draw its own line.
       router.get(
         '/signalk-noaa-space-weather/telemetry',
         (_req: any, res: any) => {
-          if (!startedAt) {
+          if (!startedAt || !currentSettings) {
             res.status(503).json({ error: 'Plugin is not running.' })
             return
           }
-          res.json({
-            schema: 2,
-            startedAt,
-            settings: currentSettings,
-            ...meterSnapshot(client.meter)
-          })
+          res.json(telemetryBody(startedAt, currentSettings, client.meter))
         }
       )
 
