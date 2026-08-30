@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.30.6](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.30.5...v0.30.6) (2026-08-30)
+
+
+### Added
+
+* **webapp:** a diagnostics panel comparing measured NOAA traffic to predicted (phase 3b) ([#292](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/292)) ([bc40e9a](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/bc40e9a5ad8fd2aa4e8b54b3083f20d714713712))
+
 ## [0.30.5](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.30.4...v0.30.5) (2026-08-29)
 
 
