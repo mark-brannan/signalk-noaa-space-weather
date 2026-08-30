@@ -15,8 +15,8 @@ Earth.
   leave the bands noisy and unreliable for days.
 - **GPS suffers in storms too.** While the ionosphere is disturbed, positions
   can wander or drop out. Small glitches might be noticed at G3, and at G4
-  navigation can be disrupted for several hours with widespread positioning errors
-- Low earth orbit satellite services such as Starlink also begin degrade at
+  navigation can be disrupted for several hours with widespread positioning errors.
+- Low earth orbit satellite services such as Starlink also begin to degrade at
   levels noticeable to individual users around G3.
 - **VHF and AIS are mostly safe, but not untouchable.** Marine VHF is
   line-of-sight, so the absorption that silences HF never reaches 156 MHz.
@@ -25,9 +25,9 @@ Earth.
   storm can degrade the GPS positions that AIS depends on. A coastal boat
   with no SSB still has a stake in this.
 - In the most severe storms, induced currents might damage electronics or power systems.
-Severe storms do affect power grids but it is unclear how likely this is for the shorter wire runs on boats.
+  Severe storms do affect power grids but it is unclear how likely this is for the shorter wire runs on boats.
 - Note that long-range over-the-horizon radar is affected even at G1 levels (and severely disrupted at G3),
-but line-of-site marine radar would not be expected to suffer, even in severe storms.
+  but line-of-sight marine radar would not be expected to suffer, even in severe storms.
 
 Activity follows the sun's roughly 11-year cycle, so busy years are somewhat
 predictable. It isn't all bad news either: a storm at high latitudes can mean
@@ -78,6 +78,7 @@ endpoints and publishes to Signal K paths under `environment.noaa.swpc` and
 - Aurora probability at your position, from NOAA's OVATION model.
 
 **What does it mean for my data consumption?**
+
 Every path, with units and metadata, is visible in the Signal K Data
 Browser once the plugin runs. The NOAA endpoints backing these
 are measured in [docs/noaa-products.md](docs/noaa-products.md).
