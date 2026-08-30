@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.30.9](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.30.8...v0.30.9) (2026-08-30)
+
+
+### Added
+
+* **webapp:** three views, and a Kp chart that expands to 27 days ([#308](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/308)) ([0ed5c44](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/0ed5c445b5e9dcb0e8e0b1112c4e9a781207efd8))
+
 ## [0.30.8](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.30.7...v0.30.8) (2026-08-30)
 
 
