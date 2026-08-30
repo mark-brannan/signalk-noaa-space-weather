@@ -820,7 +820,7 @@ export function stormLevelInForce(inForce: AlertNotification[]): {
     const rung = ladderRung(alert.code)
     if (!rung || rung.family === 'WATA') continue
     const g = gScaleForKp(rung.level)
-    if (g >= ALERT_FLOOR && g > level) {
+    if (g >= NoaaScaleValues.STRONG && g > level) {
       level = g
       driver = alert
     }
@@ -847,7 +847,7 @@ export function stormTransition(
 ): { next: StormState; changed: boolean } {
   const held = prev ?? { level: 0, belowSince: null }
 
-  if (level >= ALERT_FLOOR) {
+  if (level >= NoaaScaleValues.STRONG) {
     return {
       next: { level, belowSince: null },
       changed: level !== held.level
