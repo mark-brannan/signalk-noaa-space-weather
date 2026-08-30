@@ -172,6 +172,11 @@ the path name (the current leaf is a deliberate placeholder) and whether
 loudness stays on the shared `alarmLevel`/`popupLevel` thresholds — it does
 for now, tentatively, so don't cite this section as settling either.
 
+[gannon-storm-replay.html](gannon-storm-replay.html) is the felt version of
+this argument: the Gannon storm replayed hourly through the shipped state
+machine, with a scrubber showing what a client presents under each scheme.
+Open it in a browser; it is self-contained.
+
 ## Loudness is three ordered thresholds, not one
 
 `methodForState` is the single policy for whether a state interrupts the
