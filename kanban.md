@@ -419,3 +419,13 @@ what it is blocked by. Delete it when it is done.
       predates #272 and #281; found while fixing the CacheStore half of the
       same file's publisher stub.
       https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/scripts/check-noaa-live.mjs
+- [ ] Design the Timeline view's content: observed Kp -> 3-day forecast ->
+      27-day outlook on one segmented axis, plus `f107` and `aIndex`. The data
+      is already published and undrawn — `outlook27.ts` puts all 27 rows on
+      `…kp.forecast.outlook27.series` and its own metadata says it is
+      "intended for drawing a timeline rather than a gauge". Open questions:
+      how to break the axis between 3-hourly and daily resolution, and how to
+      draw the 27-day recurrence forecast so it does not read as being as
+      confident as the 3-day one. Blocked on the four-view shell landing
+      first.
+      https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/src/products/outlook27.ts
