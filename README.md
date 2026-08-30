@@ -257,7 +257,7 @@ Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Licence
 
-[AGPL-3.0-or-later](LICENSE). Copyright (c) 2025 Mark Brannan.
+[AGPL-3.0-or-later](LICENSE). Copyright (c) 2025-2026 Mark Brannan.
 
 **If you package this plugin, you are not packaging its licence.** The
 LICENSE file ends with an additional permission under section 7 of the AGPL:
