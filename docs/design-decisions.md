@@ -132,6 +132,46 @@ is in force, and withdrawn ones actively set back to `normal`.
 `currentAlertNotifications` in `parse.ts` owns all of that and is the thing to
 change; don't reintroduce a per-message loop in the product.
 
+## The storm notification collapses by level and rides a six-hour hold
+
+The collapsed G3+ notification (`STORM_BASE`, `publishStorm` in
+`products/alerts.ts`) is a derived view over the same in-force set the
+per-code paths are published from — not a new product, and not a second
+reading of NOAA. It exists because the per-code stream is honest but noisy in
+exactly the situation it matters: replaying the 2018–2025 SWPC archive
+through `currentAlertNotifications` at hourly polls
+([#297](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/297),
+[#298](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/298)),
+the May 2024 Gannon storm produced 26 G3+ path deltas in 35 hours, 16 of them
+the same level under a fresh serial number.
+
+Three choices came out of that replay, each against a measured alternative:
+
+- **Collapse by level, not to a flat binary.** A delta is published on every
+  change of the storm's G level, both directions, and the level follows the
+  storm down so a return to G5 alarms again — a deepening storm is new
+  actionable information (worse GNSS and HF degradation), and flattening the
+  episode to raised/normal would hide every escalation. What is suppressed is
+  the same level under a fresh serial, which is most of a storm's issuance.
+- **"In force" alone flaps, so stand-down waits out a hold.** Storms dip
+  below G3 between K-index synoptic periods: with no hold the collapsed
+  signal raised and stood down 51 times in 7 years, with within-episode
+  down-gaps of 1–6 hours (median 2). Six hours merges every observed gap and
+  cuts the raises to 29 (~48 interrupting events over 7 years, ~20 of them
+  in 2024); twelve buys one fewer. The hold state survives restarts in the
+  cache (`stormCache.ts`), not the model — a server restart empties the
+  model, and rereading the level from the path would re-alarm at an
+  unchanged level.
+- **Watches don't raise it.** Every collapsed transition in the replay was
+  driven by `ALTK07–09`/`WARK07`; a `WATA` watch is a multi-day forecast, and
+  including it raises "a storm is happening" days before one is. The watch
+  already has its own per-code path.
+
+Still open in [#298](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/298):
+the path name (the current leaf is a deliberate placeholder) and whether
+loudness stays on the shared `alarmLevel`/`popupLevel` thresholds — it does
+for now, tentatively, so don't cite this section as settling either.
+
 ## Loudness is three ordered thresholds, not one
 
 `methodForState` is the single policy for whether a state interrupts the
