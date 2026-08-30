@@ -260,7 +260,7 @@ Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
 [AGPL-3.0-or-later](LICENSE). Copyright (c) 2025 Mark Brannan.
 
 **If you package this plugin, you are not packaging its licence.** The
-LICENSE file opens with an additional permission under section 7 of the AGPL:
+LICENSE file ends with an additional permission under section 7 of the AGPL:
 a program that loads this plugin into its own process to run it — Signal K
 server does, and so does any distribution or disk image that ships the two
 together — does not become subject to the AGPL by doing so. Installing it,
