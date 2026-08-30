@@ -736,6 +736,22 @@ describe('collapsed storm notification', () => {
     expect(deltas[0].value.method).toEqual(['visual', 'sound'])
   })
 
+  it('a cancellation never counts as the storm still running', () => {
+    // A real CANCEL WARNING under WARK07, from the July 2026 capture. It stays
+    // in the in-force set at `normal` -- that is how it stands the per-code
+    // path down -- and reading its code as a live G3 kept the storm raised on
+    // the strength of the message that ended it.
+    const payload = fixtureJson('alerts.2026_08_01.json')
+    const cancel = payload.find((a: any) =>
+      /CANCEL WARNING: Geomagnetic K-index of 7/.test(a.message)
+    )
+    expect(cancel).toBeDefined()
+    const now = new Date(Date.parse(cancel.issue_datetime + 'Z') + HOUR_MS)
+    const { inForce } = currentAlertNotifications(asOf(payload, now), { now })
+    expect(inForce.some((a) => a.code === 'WARK07')).toBe(true)
+    expect(stormLevelInForce(inForce).level).toBe(0)
+  })
+
   it('steps the state machine exactly on transitions', () => {
     const t0 = new Date('2024-05-10T17:00:00Z')
     const raise = stormTransition(null, 3, t0)

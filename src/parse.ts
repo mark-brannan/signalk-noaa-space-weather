@@ -803,6 +803,11 @@ export interface StormState {
  * K-index alert/warning ladder. Watches (`WATA`) are multi-day forecasts, not
  * a storm in progress, and every other G-scale message either has no level or
  * duplicates these. 0 when nothing G3+ is in force.
+ *
+ * A `normal` entry is skipped even though its code is on the ladder: a
+ * cancellation stays in the in-force set at `normal` — that is how it stands
+ * the per-code path down — and reading its code as a live level would keep
+ * the storm raised on the strength of the message that ended it.
  */
 export function stormLevelInForce(inForce: AlertNotification[]): {
   level: number
@@ -811,6 +816,7 @@ export function stormLevelInForce(inForce: AlertNotification[]): {
   let level = 0
   let driver: AlertNotification | null = null
   for (const alert of inForce) {
+    if (alert.state === NotificationStates.NORMAL) continue
     const rung = ladderRung(alert.code)
     if (!rung || rung.family === 'WATA') continue
     const g = gScaleForKp(rung.level)
