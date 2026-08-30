@@ -124,7 +124,8 @@
      justify-content:space-between on .statusbar has nothing left to space
      between a single item, so the countdown pins itself to the far edge
      with margin-left:auto instead. */
-  .statusbar-lead { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; }
+  .statusbar-lead { display: flex; flex: 0 1 auto; align-items: center; gap: 12px; min-width: 0; }
+  .statusbar-tail { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; margin-left: auto; }
   .statusbar-sep { width: 1px; align-self: stretch; min-height: 1.4em; background: var(--grid); }
   /* The same element and the same renderTimer as the old hero clock, at bar
      scale: digits and label share one baseline instead of stacking. */
@@ -858,13 +859,17 @@
   .topbar-inner { max-width: 1180px; margin: 0 auto; padding: 14px 20px 0; }
   .topbar .statusbar { margin-bottom: 0; }
   .topbar .auth-banner { margin-top: 12px; }
-  .viewnav { display: flex; gap: 2px; margin-top: 12px; overflow-x: auto; scrollbar-width: none; }
+  /* In the bar, not under it. A row of four words does not earn a band of its
+     own across the top of every view -- and on the map, where the bar is the
+     only thing above a full-bleed picture, that band was pixels taken straight
+     off the picture. */
+  .viewnav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; align-self: stretch; }
   .viewnav::-webkit-scrollbar { display: none; }
   .viewnav button {
     appearance: none; background: none; border: 0; border-bottom: 2px solid transparent;
     color: var(--text-dim); cursor: pointer; white-space: nowrap;
     font-family: var(--font-display); font-size: 0.7rem;
-    letter-spacing: 0.09em; text-transform: uppercase; padding: 9px 14px;
+    letter-spacing: 0.09em; text-transform: uppercase; padding: 4px 13px;
   }
   .viewnav button:hover { color: var(--text); }
   .viewnav button[aria-selected="true"] { color: var(--amber); border-bottom-color: var(--amber); }
@@ -914,69 +919,67 @@
   .map-view .map-footer { gap: 8px; }
   .map-view .map-footer .drap-probe:empty { display: none; }
 
-  /* Variant A -- strips. Controls edge to edge along the top, readout along
-     the bottom: both read as chrome, and the picture keeps its whole middle. */
-  body[data-map-variant="strip"] .map-view .map-toolbar {
-    top: 0; left: 0; right: 0; border-width: 0 0 1px;
+  /* Wide viewports: one gutter down the left edge, holding the controls and
+     the per-layer readout together, and the picture takes everything else.
+     A plain flex row -- the rail declares its width, the canvas row is what is
+     left -- so nothing here measures anything and nothing floats over the map.
+     Two gutters on opposite edges spent two margins to say the same thing. */
+  .map-view .map-body { flex-direction: row; }
+  .map-rail {
+    flex: 0 0 17rem; min-width: 0; display: flex; flex-direction: column; gap: 14px;
+    overflow-y: auto; overscroll-behavior: contain;
+    background: color-mix(in srgb, var(--panel) 78%, transparent);
+    border-right: 1px solid color-mix(in srgb, var(--grid) 70%, transparent);
+    padding: 10px 14px;
   }
-  body[data-map-variant="strip"] .map-view .map-footer {
-    bottom: 0; left: 0; right: 0; border-width: 1px 0 0;
-    flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 22px;
+  .map-view .map-toolbar,
+  .map-view .map-footer {
+    position: static; background: none; border: 0; backdrop-filter: none;
+    padding: 0; display: flex; flex-direction: column; align-items: stretch; gap: 14px;
   }
-  body[data-map-variant="strip"] .map-view .map-section { flex: 1 1 24rem; }
-  body[data-map-variant="strip"] .map-view .drap-probe { flex: 1 1 100%; }
+  .map-view .map-toolbar .group { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .map-view .map-section { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+  .diag-teaser { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .diag-verdict { color: var(--text-dim); font-size: 0.86rem; }
+  .diag-verdict.warn { color: var(--amber); }
+  .diag-detail { margin-top: 14px; border-top: 1px solid var(--grid); padding-top: 14px; }
+  .advisory-tile .advisory-teaser { margin-top: 8px; max-width: 78ch; }
+  .map-rail .aurora-rail .tile,
+  .map-rail .aurora-rail .aurora-body { padding: 0; background: none; border: 0; }
 
-  /* Variant B -- corner cards. Every edge of the picture is clear; the
-     controls are one card the reader can look past. */
-  body[data-map-variant="corner"] .map-view .map-toolbar {
-    top: 14px; left: 14px; border-radius: 6px;
-    width: min(21rem, calc(100% - 28px));
-    flex-direction: column; align-items: flex-start; gap: 10px;
+  /* Narrow enough that a gutter would be most of the width. The rail stops
+     being a box at all -- `display: contents` hands its two children straight
+     back to .map-body -- and they go back to floating as strips, where the
+     dimension they spend is the one a wide-and-short picture can spare. */
+  @media (max-width: 1100px) {
+    .map-view .map-body { flex-direction: column; }
+    .map-rail { display: contents; }
+    .map-view .map-toolbar,
+    .map-view .map-footer {
+      position: absolute; z-index: 2; left: 0; right: 0; padding: 8px 14px;
+      background: color-mix(in srgb, var(--panel) 78%, transparent);
+      backdrop-filter: blur(10px);
+      border: 1px solid color-mix(in srgb, var(--grid) 70%, transparent);
+      flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 22px;
+    }
+    .map-view .map-toolbar { top: 0; border-width: 0 0 1px; }
+    .map-view .map-footer { bottom: 0; border-width: 1px 0 0; }
+    .map-view .map-toolbar .group { flex-direction: row; align-items: center; gap: 8px; }
+    .map-view .map-section { flex-direction: row; align-items: center; flex: 1 1 24rem; gap: 8px; }
+    .map-view .drap-probe { flex: 1 1 100%; }
+    .map-view .aurora-rail { flex: 1 1 100%; }
+    /* The two strips will happily take half the screen between them, and what
+       they would take it from is the map. Bounded and scrolled instead -- a
+       control that has to be scrolled to is still reachable; a map squeezed to
+       a letterbox is not a map. */
+    .map-view .map-toolbar { max-height: 26%; overflow-y: auto; overscroll-behavior: contain; }
+    .map-view .map-footer { max-height: 32%; overflow-y: auto; overscroll-behavior: contain; }
   }
-  body[data-map-variant="corner"] .map-view .map-footer {
-    bottom: 14px; right: 14px; border-radius: 6px;
-    width: min(27rem, calc(100% - 28px));
-  }
-
-  /* Variant C -- a rail. The controls stand down the left edge the way a
-     chartplotter's do, and the whole width of the picture stays legible. */
-  body[data-map-variant="rail"] .map-view .map-toolbar {
-    top: 0; bottom: 0; left: 0; width: 13rem; border-width: 0 1px 0 0;
-    flex-direction: column; align-items: flex-start; gap: 14px;
-    overflow-y: auto; align-content: flex-start;
-  }
-  body[data-map-variant="rail"] .map-view .map-toolbar .group {
-    flex-direction: column; align-items: flex-start; gap: 6px;
-  }
-  body[data-map-variant="rail"] .map-view .map-footer {
-    bottom: 0; left: 13rem; right: 0; border-width: 1px 0 0 0;
-    flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 22px;
-  }
-  body[data-map-variant="rail"] .map-view .map-section { flex: 1 1 24rem; }
-  body[data-map-variant="rail"] .map-view .drap-probe { flex: 1 1 100%; }
 
   @media (max-width: 760px) {
     .topbar-inner { padding: 10px 12px 0; }
-    .viewnav button { padding: 8px 10px; font-size: 0.64rem; letter-spacing: 0.06em; }
+    .viewnav button { padding: 4px 9px; font-size: 0.64rem; letter-spacing: 0.06em; }
     .map-view .map-toolbar, .map-view .map-footer { padding: 6px 10px; }
-    /* Neither a corner card nor a rail has room to be one at phone width, so
-       both fall back to the strips -- the layout that never needed the room. */
-    body[data-map-variant="corner"] .map-view .map-toolbar,
-    body[data-map-variant="rail"] .map-view .map-toolbar {
-      top: 0; left: 0; right: 0; bottom: auto; width: auto; border-radius: 0;
-      border-width: 0 0 1px; flex-direction: row; align-items: center; gap: 8px 18px;
-    }
-    body[data-map-variant="rail"] .map-view .map-toolbar .group { flex-direction: row; align-items: center; gap: 8px; }
-    body[data-map-variant="corner"] .map-view .map-footer,
-    body[data-map-variant="rail"] .map-view .map-footer {
-      bottom: 0; left: 0; right: 0; width: auto; border-radius: 0; border-width: 1px 0 0;
-    }
-    /* At phone width the two strips will happily take half the screen between
-       them, and what they would take it from is the map. Bounded and scrolled
-       instead -- a control that has to be scrolled to is still reachable; a
-       map squeezed to a letterbox is not a map. */
-    .map-view .map-toolbar { max-height: 30%; overflow-y: auto; }
-    .map-view .map-footer { max-height: 36%; overflow-y: auto; }
   }
 </style>
 
@@ -993,6 +996,22 @@
       <div class="statusbar-lead">
         <h1>NOAA Space Weather</h1>
         <span class="chip sev-0" id="heroChip">Loading</span>
+      </div>
+      <!-- Four questions, not a partition of the data: a reading belongs in
+             every view that answers with it, which is why the renderers below
+             take a container instead of an id. One page, one poll, one state --
+             the tabs choose what is drawn, never what is fetched. -->
+        <nav class="viewnav" role="tablist" aria-label="Views">
+          <button type="button" role="tab" id="tab-dashboard" data-view="dashboard"
+            aria-controls="view-dashboard" aria-selected="true">Dashboard</button>
+          <button type="button" role="tab" id="tab-kpview" data-view="kpview"
+            aria-controls="view-kpview" aria-selected="false" tabindex="-1">Kp Index</button>
+          <button type="button" role="tab" id="tab-map" data-view="map"
+            aria-controls="view-map" aria-selected="false" tabindex="-1">Map</button>
+          <button type="button" role="tab" id="tab-hf" data-view="hf"
+            aria-controls="view-hf" aria-selected="false" tabindex="-1">HF Radio</button>
+        </nav>
+      <div class="statusbar-tail">
         <span class="statusbar-sep" aria-hidden="true"></span>
         <div class="bar-countdown" id="heroCountdown">&mdash;<span class="unit" id="heroCountdownLabel">&nbsp;</span></div>
       </div>
@@ -1003,20 +1022,6 @@
       <a href="/admin/#/login">Log in</a>
     </div>
 
-    <!-- Four questions, not a partition of the data: a reading belongs in
-         every view that answers with it, which is why the renderers below
-         take a container instead of an id. One page, one poll, one state --
-         the tabs choose what is drawn, never what is fetched. -->
-    <nav class="viewnav" role="tablist" aria-label="Views">
-      <button type="button" role="tab" id="tab-dashboard" data-view="dashboard"
-        aria-controls="view-dashboard" aria-selected="true">Dashboard</button>
-      <button type="button" role="tab" id="tab-timeline" data-view="timeline"
-        aria-controls="view-timeline" aria-selected="false" tabindex="-1">Timeline</button>
-      <button type="button" role="tab" id="tab-map" data-view="map"
-        aria-controls="view-map" aria-selected="false" tabindex="-1">Map</button>
-      <button type="button" role="tab" id="tab-hf" data-view="hf"
-        aria-controls="view-hf" aria-selected="false" tabindex="-1">HF Radio</button>
-    </nav>
   </div>
 </header>
 
@@ -1027,29 +1032,36 @@
         <div class="hero-verdict">
           <div class="headline" data-part="headline">Reading current conditions&hellip;</div>
           <div class="sub" data-part="sub"></div>
-          <!-- Sits at the end of the hero text rather than in a tile of its
-               own: the banner's one clause is a summary of these messages, so
-               the way to more of them is from where the summary ends. -->
-          <button type="button" data-part="messages-open" class="link-more" hidden></button>
-        </div>
-        <div class="hero-rule" aria-hidden="true"></div>
-        <div class="hero-advisory" data-slot="advisory">
-          <span class="label">Advisory &middot; NOAA SWPC &middot; Weekly outlook</span>
-          <div class="advisory-teaser" data-part="teaser">Waiting for data&hellip;</div>
-          <button type="button" data-part="advisory-open" class="btn-outline" disabled style="margin-top:10px;">Read full outlook</button>
         </div>
       </div>
 
+      <!-- Promoted out of the hero's right-hand column into a tile of its own.
+           Squeezed beside the verdict it was two clipped lines of a bulletin
+           written in paragraphs -- the one piece of prose on the page, and the
+           only thing here that says what the week ahead looks like, reading
+           like a caption. It gets the width now. -->
+      <div class="tile span-12 advisory-tile" data-slot="advisory">
+        <span class="label">Advisory &middot; NOAA SWPC &middot; Weekly outlook</span>
+        <div class="advisory-teaser" data-part="teaser">Waiting for data&hellip;</div>
+        <button type="button" data-part="advisory-open" class="btn-outline" disabled style="margin-top:12px;">Read full outlook</button>
+      </div>
+
+      <!-- Always on the page, never behind a link. What NOAA has said is in
+           force is the one thing on this dashboard the reader is meant to act
+           on, and it was reachable only by noticing a clause at the end of the
+           hero and clicking it. A modal for the same list would now be a
+           second copy of it, so there is no longer one. -->
       <div class="tile span-12">
         <div class="tile-head">
-          <h2>Planetary K-Index</h2>
-          <a class="info" href="https://www.swpc.noaa.gov/products/planetary-k-index"
-            target="_blank" rel="noopener">i<span class="bubble">How disturbed Earth&rsquo;s magnetic
-            field is, on a 0&ndash;9 scale. It&rsquo;s what NOAA&rsquo;s G-scale below is built from
-            &mdash; the higher the number, the stronger the geomagnetic storm and the further from the
-            poles the aurora can be seen.</span></a>
+          <h2 data-part="messages-title">Messages in force</h2>
+          <a class="info" href="https://www.swpc.noaa.gov/noaa-scales-explanation"
+            target="_blank" rel="noopener">i<span class="bubble">NOAA issues a <strong>watch</strong>
+            when a storm is expected days out, a <strong>warning</strong> when it is expected within
+            hours, an <strong>alert</strong> when it is observed, and a <strong>summary</strong> once
+            it is over. This lists what is in force now, plus anything stood down in the last two
+            days that this plugin saw &mdash; it is not NOAA&rsquo;s archive.</span></a>
         </div>
-        <div data-slot="kp">
+        <div data-slot="messages">
           <div class="empty-state">Waiting for data&hellip;</div>
         </div>
       </div>
@@ -1068,28 +1080,25 @@
         </div>
       </div>
 
-      <div class="tile span-6 aurora-tile">
-        <div class="map-header">
-          <div>
-            <h2>Aurora at Your Position</h2>
-          </div>
-          <button type="button" id="auroraRefresh" class="btn-outline">Refresh</button>
-        </div>
-        <div data-slot="aurora">
-          <div class="empty-state">Waiting for data&hellip;</div>
-        </div>
-      </div>
-
-      <div class="tile span-6">
+      <!-- The fetch diagnostics, promoted out of a link in the footstrip. What
+           this plugin costs the boat's connection is not a developer's
+           curiosity -- it is the one figure a user on a satellite plan needs --
+           and it was a grey word at the bottom of the page. Folded rather than
+           expanded, because the verdict is one line and the table behind it is
+           long. -->
+      <div class="tile span-12">
         <div class="tile-head">
-          <h2>Solar Activity</h2>
-          <a class="info" href="https://www.swpc.noaa.gov/products/real-time-solar-wind"
-            target="_blank" rel="noopener">i<span class="bubble">What the Sun is doing and what has
-            reached us. Bz pointing south (a negative number) is what actually triggers geomagnetic
-            storms and aurora &mdash; north mostly does nothing. The flare is the most recent one,
-            and the A-index and sunspot number are daily figures.</span></a>
+          <h2>Fetch diagnostics</h2>
+          <a class="info" href="https://www.swpc.noaa.gov" target="_blank" rel="noopener">i<span
+            class="bubble">Every endpoint this plugin fetches declares its measured size, and the
+            configuration screen prices your settings out of those declarations. This is the other
+            half: what the last 24 hours actually cost, against what was predicted. A declared size
+            goes stale when NOAA changes a payload, and a stale one makes the configuration screen
+            quietly wrong &mdash; which is what these figures are here to catch. Sizes are
+            compressed transfer sizes, which is what a fetch really costs, not the size of the
+            parsed document.</span></a>
         </div>
-        <div data-slot="solar">
+        <div data-slot="diagnostics">
           <div class="empty-state">Waiting for data&hellip;</div>
         </div>
       </div>
@@ -1108,17 +1117,40 @@
     </div>
   </section>
 
-  <!-- An empty frame on purpose: what goes in it is a separate piece of work,
-       and a placeholder that guesses at the content would have to be argued
-       with rather than filled. -->
-  <section class="view" id="view-timeline" role="tabpanel" aria-labelledby="tab-timeline" tabindex="0" hidden>
+  <!-- Kp and the solar wind behind it. The chart is the reader's history of
+       the same number the hero states once, and the wind readings are why it
+       is moving: speed, field strength and -- the one that actually decides
+       whether a storm happens -- which way Bz is pointing. Both answer "how
+       did we get here and where is it going", which is the question this tab
+       is. -->
+  <section class="view" id="view-kpview" role="tabpanel" aria-labelledby="tab-kpview" tabindex="0" hidden>
     <div class="grid">
-      <div class="tile span-12 view-placeholder">
+      <div class="tile span-12">
         <div class="tile-head">
-          <h2>Timeline</h2>
+          <h2>Planetary K-Index</h2>
+          <a class="info" href="https://www.swpc.noaa.gov/products/planetary-k-index"
+            target="_blank" rel="noopener">i<span class="bubble">How disturbed Earth&rsquo;s magnetic
+            field is, on a 0&ndash;9 scale. It&rsquo;s what NOAA&rsquo;s G-scale is built from
+            &mdash; the higher the number, the stronger the geomagnetic storm and the further from the
+            poles the aurora can be seen.</span></a>
         </div>
-        <div class="empty-state">Nothing is drawn here yet. This frame is where the
-          timeline goes; its content is carded separately.</div>
+        <div data-slot="kp">
+          <div class="empty-state">Waiting for data&hellip;</div>
+        </div>
+      </div>
+
+      <div class="tile span-12">
+        <div class="tile-head">
+          <h2>Solar Activity</h2>
+          <a class="info" href="https://www.swpc.noaa.gov/products/real-time-solar-wind"
+            target="_blank" rel="noopener">i<span class="bubble">What the Sun is doing and what has
+            reached us. Bz pointing south (a negative number) is what actually triggers geomagnetic
+            storms and aurora &mdash; north mostly does nothing. The flare is the most recent one,
+            and the A-index and sunspot number are daily figures.</span></a>
+        </div>
+        <div data-slot="solar">
+          <div class="empty-state">Waiting for data&hellip;</div>
+        </div>
       </div>
     </div>
   </section>
@@ -1152,8 +1184,6 @@
     <span>Scales updated <span class="v" id="tsScales">&ndash;</span></span>
     <span>Aurora updated <span class="v" id="tsAurora">&ndash;</span></span>
     <span>Kp forecast updated <span class="v" id="tsKp">&ndash;</span></span>
-    <span><button type="button" id="diagnosticsOpen" class="footstrip-link">Fetch diagnostics</button><span
-      class="diag-note" id="diagnosticsNote" hidden></span></span>
   </div>
 </div>
 
@@ -1173,36 +1203,6 @@
     <h2 id="advisoryOverlayTitle">&mdash;</h2>
     <pre class="advisory-text" id="advisoryOverlayText"></pre>
     <p class="overlay-explainer">A plain-language recap of last week and the week ahead, published Monday mornings.</p>
-  </div>
-</div>
-
-<div class="overlay" id="messagesOverlay" hidden>
-  <div class="overlay-backdrop" id="messagesBackdrop"></div>
-  <div class="overlay-panel" role="dialog" aria-modal="true" aria-labelledby="messagesOverlayTitle">
-    <button type="button" class="overlay-close" id="messagesClose" aria-label="Close">&times;</button>
-    <span class="label">NOAA SWPC &middot; Space weather messages</span>
-    <h2 id="messagesOverlayTitle">Messages in force</h2>
-    <div id="messagesList"></div>
-    <p class="overlay-explainer">NOAA issues a <strong>watch</strong> when a storm is expected days out, a
-      <strong>warning</strong> when it is expected within hours, an <strong>alert</strong> when it is
-      observed, and a <strong>summary</strong> once it is over. This lists what is in force now, plus
-      anything stood down in the last two days that this plugin saw &mdash; it is not NOAA&rsquo;s archive.</p>
-  </div>
-</div>
-
-<div class="overlay" id="diagnosticsOverlay" hidden>
-  <div class="overlay-backdrop" id="diagnosticsBackdrop"></div>
-  <div class="overlay-panel wide" role="dialog" aria-modal="true" aria-labelledby="diagnosticsOverlayTitle">
-    <button type="button" class="overlay-close" id="diagnosticsClose" aria-label="Close">&times;</button>
-    <span class="label">This plugin &middot; What it fetches from NOAA</span>
-    <h2 id="diagnosticsOverlayTitle">Fetch diagnostics</h2>
-    <div id="diagnosticsBody"><div class="empty-state">Waiting for data&hellip;</div></div>
-    <p class="overlay-explainer">Every endpoint this plugin fetches declares its measured size, and
-      the configuration screen prices your settings out of those declarations. This is the other
-      half: what the last 24 hours actually cost, against what was predicted. A declared size goes
-      stale when NOAA changes a payload, and a stale one makes the configuration screen quietly
-      wrong &mdash; which is what these figures are here to catch. Sizes are compressed
-      transfer sizes, which is what a fetch really costs, not the size of the parsed document.</p>
   </div>
 </div>
 
@@ -1232,11 +1232,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // that answers with it, so everything below renders into a container it is
   // handed rather than one it looks up by id. An id would let the second
   // appearance of a datum drift from the first.
-  const VIEWS = ['dashboard', 'timeline', 'map', 'hf'];
-  // The three map layouts under comparison. Deliberately not a setting: a
-  // query parameter, so the three can be looked at before one of them becomes
-  // the map view and the other two are deleted.
-  const MAP_VARIANTS = ['strip', 'corner', 'rail'];
+  const VIEWS = ['dashboard', 'kpview', 'map', 'hf'];
   let currentView = null;
 
   /** Every container for a slot that is on screen. A hidden view has none. */
@@ -1311,10 +1307,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     setTimestamp(document.getElementById('tsAurora'), leafTime(data.aurora?.probability));
     setTimestamp(document.getElementById('tsKp'), leafTime(kp?.observed));
 
-    for (const el of visibleSlots('hero')) {
-      renderHero(el, said);
-      renderMessagesLink(el);
+    for (const el of visibleSlots('hero')) renderHero(el, said);
+    for (const el of visibleSlots('messages')) {
+      renderMessagesTitle(el.closest('.tile') || el);
+      drawMessages(el);
     }
+    for (const el of visibleSlots('diagnostics')) drawDiagnostics(el);
     for (const el of visibleSlots('advisory')) renderAdvisory(el, data.advisory);
     for (const el of visibleSlots('scales')) renderScales(el, card);
     for (const el of visibleSlots('aurora')) {
@@ -2147,7 +2145,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // more than one of it.
   document.addEventListener('click', (e) => {
     if (e.target.closest('[data-part="advisory-open"]')) openAdvisoryOverlay();
-    else if (e.target.closest('[data-part="messages-open"]')) openMessagesOverlay();
   });
   document.getElementById('advisoryClose').addEventListener('click', closeAdvisoryOverlay);
   document.getElementById('advisoryBackdrop').addEventListener('click', closeAdvisoryOverlay);
@@ -2158,15 +2155,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // failure this whole branch is about, one surface further on.
   function renderMessages(alerts) {
     messageRows = messagesInForce(alerts, Date.now());
-    if (!document.getElementById('messagesOverlay').hidden) drawMessages();
   }
 
-  /** The one-clause summary, written into whichever hero is on screen. */
-  function renderMessagesLink(root) {
-    const link = root.querySelector('[data-part="messages-open"]');
-    const summary = messagesSummary(messageRows);
-    link.hidden = !summary;
-    if (summary) link.textContent = summary;
+  /** The tile's own heading, which counts what is in force. */
+  function renderMessagesTitle(root) {
+    const el = root.querySelector('[data-part="messages-title"]');
+    if (el) el.textContent = messagesTitle(messageRows);
   }
 
   // Which bodies the reader has unfolded, by message code. The list is
@@ -2174,9 +2168,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // fold itself back up under the reader once a minute.
   const expandedMessages = new Set();
 
-  function drawMessages() {
-    const list = document.getElementById('messagesList');
-    document.getElementById('messagesOverlayTitle').textContent = messagesTitle(messageRows);
+  function drawMessages(list) {
     const markup = messageRows.length === 0
       ? '<div class="empty-state">No NOAA messages in force.</div>'
       : messageRows.map(messageMarkup).join('');
@@ -2228,15 +2220,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       </div>`;
   }
 
-  function openMessagesOverlay() {
-    drawMessages();
-    document.getElementById('messagesOverlay').hidden = false;
-  }
-  function closeMessagesOverlay() {
-    document.getElementById('messagesOverlay').hidden = true;
-  }
-  document.getElementById('messagesClose').addEventListener('click', closeMessagesOverlay);
-  document.getElementById('messagesBackdrop').addEventListener('click', closeMessagesOverlay);
 
   // --- Fetch diagnostics ----------------------------------------------------
   //
@@ -2250,7 +2233,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   let telemetryData = null;
   let telemetryReadAt = 0;
 
-  const diagnosticsOpen = () => !document.getElementById('diagnosticsOverlay').hidden;
+  // Folded or not, by the reader's own click. The verdict is one line and is
+  // always drawn; the table behind it is long, and rebuilding it is a full
+  // markup regeneration on a 60-second poll, so it is only built when it is
+  // actually on screen.
+  let diagnosticsExpanded = false;
 
   async function readTelemetry(force) {
     if (!force && Date.now() - telemetryReadAt < TELEMETRY_MS) return;
@@ -2271,43 +2258,38 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   function renderDiagnostics() {
+    for (const el of visibleSlots('diagnostics')) drawDiagnostics(el);
+  }
+
+  /**
+   * The teaser and, once asked for, the table. The teaser is the same sentence
+   * that used to be a grey aside in the footstrip -- whether what this plugin
+   * actually fetched matches what the configuration screen priced. That is the
+   * figure a reader on a metered connection came for, so it is a card on the
+   * dashboard now rather than a word at the bottom of it.
+   */
+  function drawDiagnostics(body) {
     const view = diagnosticsView(telemetryData, Date.now());
     const note = footstripNote(view);
-    const noteEl = document.getElementById('diagnosticsNote');
-    noteEl.textContent = note ? `\u00b7 ${note.text}` : '';
-    noteEl.hidden = !note;
-    // Only when it is on screen: the markup is a full table rebuild, and this
-    // runs on the page's own poll.
-    if (diagnosticsOpen()) {
-      document.getElementById('diagnosticsBody').innerHTML = diagnosticsMarkup(view);
-    }
+    const verdict = note ? note.text : 'Traffic is tracking what the configuration screen predicted.';
+    body.innerHTML = `<div class="diag-teaser">
+        <span class="diag-verdict${note ? ' warn' : ''}">${escapeHtml(verdict)}</span>
+        <button type="button" class="btn-outline" data-part="diag-toggle"
+          aria-expanded="${diagnosticsExpanded}">${diagnosticsExpanded ? 'Hide the detail' : 'Show the detail'}</button>
+      </div>
+      ${diagnosticsExpanded ? `<div class="diag-detail">${diagnosticsMarkup(view)}</div>` : ''}`;
+    body.querySelector('[data-part="diag-toggle"]').addEventListener('click', () => {
+      diagnosticsExpanded = !diagnosticsExpanded;
+      // Unfolding is the one moment the reader is actually looking, so it is
+      // also the moment worth spending a fresh read on.
+      if (diagnosticsExpanded) readTelemetry(true).catch(() => {});
+      renderDiagnostics();
+    });
   }
-
-  function openDiagnosticsOverlay() {
-    document.getElementById('diagnosticsOverlay').hidden = false;
-    // Draw whatever is already held first, so the panel opens with content
-    // rather than blank while the request is in flight.
-    renderDiagnostics();
-    readTelemetry(true).catch(() => {});
-  }
-  function closeDiagnosticsOverlay() {
-    document.getElementById('diagnosticsOverlay').hidden = true;
-  }
-  document.getElementById('diagnosticsOpen').addEventListener('click', openDiagnosticsOverlay);
-  document.getElementById('diagnosticsClose').addEventListener('click', closeDiagnosticsOverlay);
-  document.getElementById('diagnosticsBackdrop').addEventListener('click', closeDiagnosticsOverlay);
 
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !document.getElementById('messagesOverlay').hidden) {
-      closeMessagesOverlay();
-      return;
-    }
     if (e.key === 'Escape' && !document.getElementById('advisoryOverlay').hidden) {
       closeAdvisoryOverlay();
-      return;
-    }
-    if (e.key === 'Escape' && diagnosticsOpen()) {
-      closeDiagnosticsOverlay();
       return;
     }
     handleMapKey(e);
@@ -2363,8 +2345,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const canvas = mapCanvas();
     if (!canvas) return;
     if (!document.getElementById('advisoryOverlay').hidden) return;
-    if (!document.getElementById('messagesOverlay').hidden) return;
-    if (diagnosticsOpen()) return;
     const activeTag = document.activeElement && document.activeElement.tagName;
     if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
     if (e.key === 'Escape') {
@@ -2548,14 +2528,21 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // checkbox's to switch off.
     const shown = legendMhzTicks()
     const chrome =
+      // A mark at every one of NOAA's 5 MHz steps, but not a number at every
+      // mark: eight labels need about 300px of bar to stay apart, and this
+      // legend now lives in a gutter narrower than that -- where "30" and
+      // "35 MHz" ran into each other and the axis read as one wrong number.
+      // Every 20 MHz, plus the top of the scale carrying the unit.
       tickMarksHtml(shown) +
       scaleTicksHtml(
-        // Unit on the last only -- it reads as the axis's unit rather than
-        // needing to repeat it at every tick.
-        shown.map((tick, i) => ({
-          fraction: tick.fraction,
-          label: i === shown.length - 1 ? `${tick.mhz} MHz` : String(tick.mhz)
-        }))
+        shown
+          .filter((tick, i) => tick.mhz % 20 === 0 || i === shown.length - 1)
+          .map((tick, i, kept) => ({
+            fraction: tick.fraction,
+            // Unit on the last only -- it reads as the axis's unit rather than
+            // needing to repeat it at every tick.
+            label: i === kept.length - 1 ? `${tick.mhz} MHz` : String(tick.mhz)
+          }))
       )
     return `<div class="map-legend drap-legend"><span class="bar"><span class="ink"
       style="background:linear-gradient(90deg, ${gradient})"></span></span>${chrome}</div>`
@@ -2714,7 +2701,15 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         <span class="sec-label">${meta.label}</span>${button}${status}${scale}
       </div>`
     }).join('')
-    return `<div class="map-footer"><div id="mapProbe"></div>${sections}</div>`
+    // The aurora reading at the vessel sits with the layer it comes out of,
+    // rather than in a tile on a dashboard that draws no map. It is a value
+    // sampled from this grid at this position; the grid is right here.
+    return `<div class="map-footer"><div id="mapProbe"></div>${sections}
+      <div class="map-section aurora-rail">
+        <span class="sec-label">Aurora at your position</span>
+        <div data-slot="aurora"><div class="empty-state">Waiting for data&hellip;</div></div>
+      </div>
+    </div>`
   }
 
   // Rebuilt whole rather than patched: it is a few hundred bytes of DOM, and
@@ -2727,15 +2722,24 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // No special case for zero layers: an empty map (ground, coastline,
     // graticule, the vessel) is still a map, and hiding the canvas here used
     // to make "untick everything" read as "the map is gone".
-    body.innerHTML = `${toolbarHtml()}
-      <div class="map-canvas-row"><canvas id="spaceMapCanvas" tabindex="0"></canvas></div>
-      ${footerHtml()}`
+    // One gutter, not two. The controls and the per-layer readout are the same
+    // kind of thing -- chrome about the picture -- and splitting them across
+    // opposite edges spent two margins to say so. Wrapped together here so the
+    // wide layout can be a plain flex row (rail, then canvas) with nothing
+    // measuring anything: the rail is `display: contents` at narrow widths, and
+    // the two fall back to being separate strips over the picture.
+    body.innerHTML = `<div class="map-rail">${toolbarHtml()}${footerHtml()}</div>
+      <div class="map-canvas-row"><canvas id="spaceMapCanvas" tabindex="0"></canvas></div>`
     wireToolbar(body)
     // The observer draws it: observing a row is what asks for the first
     // callback, so there is no separate first paint to keep in step with it.
     mapResize.disconnect()
     mapResize.observe(body.querySelector('.map-canvas-row'))
     drawProbeReadout()
+    // The rail is rebuilt whole, which throws away the slots paint() last drew
+    // into. Repainting is what fills them back in -- and paint draws no map, so
+    // this cannot come back round.
+    paint()
 
     const canvas = mapCanvas()
     canvas.addEventListener('click', (event) => {
@@ -2944,7 +2948,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // disclosure. (`mapRefresh` was one button when the map was one product;
   // it is now one per layer.)
   function labelAuroraButtons() {
-    labelAuroraButton(document.getElementById('auroraRefresh'))
     for (const id of LAYER_IDS) {
       const button = document.getElementById(`mapRefresh-${id}`)
       // With no entry yet, renderMap has it saying "Fetch now" -- a different
@@ -2989,17 +2992,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     button.disabled = false
     relabel(button)
   }
-
-  function handleAuroraRefreshClick(button) {
-    return handleRefreshClick(button, 'aurora', async () => {
-      await refresh() // re-polls everything, so the ring tile picks up the fresh value right away
-      await refetchLayer('aurora')
-    }, labelAuroraButton)
-  }
-
-  document.getElementById('auroraRefresh').addEventListener('click', () =>
-    handleAuroraRefreshClick(document.getElementById('auroraRefresh'))
-  )
 
   document.getElementById('hfRefresh').addEventListener('click', () => {
     const button = document.getElementById('hfRefresh')
@@ -3073,7 +3065,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // readings on the page. Forced while the panel is open, so what a reader
     // is looking at keeps up with the poll; on its own ten-minute cadence
     // otherwise, which is plenty for a figure measured over 24 hours.
-    readTelemetry(diagnosticsOpen()).catch(() => {});
+    readTelemetry(diagnosticsExpanded).catch(() => {});
 
     // A single failed/empty poll (e.g. the position source hasn't published
     // yet right after a server restart) must not erase a good position the
@@ -3101,12 +3093,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     }
   }
 
-  // The variant is chosen before the first view is shown, so the map never
-  // paints under one layout and reflows into another.
-  const wantedVariant = new URLSearchParams(location.search).get('map');
-  document.body.dataset.mapVariant = MAP_VARIANTS.includes(wantedVariant)
-    ? wantedVariant
-    : MAP_VARIANTS[0];
   showView(viewFromHash());
   refresh();
   setInterval(refresh, REFRESH_MS);
