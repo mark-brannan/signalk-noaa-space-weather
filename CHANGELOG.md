@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 as read in [AGENTS.md](AGENTS.md): the version tracks what a boat owner can
 observe, so internal plumbing lands in a patch even when it adds something.
 
+## [0.30.8](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.30.7...v0.30.8) (2026-08-30)
+
+
+### Added
+
+* **alerts:** collapsed G3+ geomagnetic storm notification ([#300](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/300)) ([#309](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/309)) ([6c057dc](https://github.com/mark-brannan/signalk-noaa-space-weather/commit/6c057dc252ede0ad5e4247fb931f87d7d655b665))
+
 ## [0.30.7](https://github.com/mark-brannan/signalk-noaa-space-weather/compare/v0.30.6...v0.30.7) (2026-08-30)
 
 
