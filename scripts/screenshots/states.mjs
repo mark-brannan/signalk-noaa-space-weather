@@ -84,7 +84,8 @@ async function main() {
           // The page fills its placeholders in from several independent
           // fetches; the hero is written last of the three the mock answers.
           await page.waitForFunction(() => {
-            const t = document.getElementById('heroHeadline')?.textContent || ''
+            const t =
+              document.querySelector('[data-part="headline"]')?.textContent || ''
             return t.trim() !== '' && !t.includes('Reading current conditions')
           })
           await page.evaluate(() => document.fonts.ready)
