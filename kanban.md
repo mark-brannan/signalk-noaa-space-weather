@@ -429,3 +429,15 @@ what it is blocked by. Delete it when it is done.
       confident as the 3-day one. Blocked on the four-view shell landing
       first.
       https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/src/products/outlook27.ts
+- [ ] Put an `SPDX-License-Identifier: AGPL-3.0-or-later` header and a pointer
+      to the section 7 permission on every source file in `src/` and `public/`
+      (47 files). The permission is stated once, at the end of LICENSE, which
+      covers the package and the repo — but GPL §7 talks about placing the
+      additional terms, or a notice saying where to find them, in the relevant
+      source files, and Classpath-style exceptions are conventionally repeated
+      per file so a lifted fragment carries its own grant. Only bites if
+      someone copies files out rather than installing the package, which is
+      why it was scoped out of the licence PR rather than forgotten. Decide
+      first whether a one-line SPDX tag plus "see LICENSE" is enough or the
+      full paragraph belongs in each header; then it is a mechanical sweep.
+      https://github.com/mark-brannan/signalk-noaa-space-weather/pull/303
