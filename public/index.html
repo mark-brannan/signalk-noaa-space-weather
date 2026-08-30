@@ -997,20 +997,18 @@
         <h1>NOAA Space Weather</h1>
         <span class="chip sev-0" id="heroChip">Loading</span>
       </div>
-      <!-- Four questions, not a partition of the data: a reading belongs in
-             every view that answers with it, which is why the renderers below
-             take a container instead of an id. One page, one poll, one state --
-             the tabs choose what is drawn, never what is fetched. -->
-        <nav class="viewnav" role="tablist" aria-label="Views">
-          <button type="button" role="tab" id="tab-dashboard" data-view="dashboard"
-            aria-controls="view-dashboard" aria-selected="true">Dashboard</button>
-          <button type="button" role="tab" id="tab-kpview" data-view="kpview"
-            aria-controls="view-kpview" aria-selected="false" tabindex="-1">Kp Index</button>
-          <button type="button" role="tab" id="tab-map" data-view="map"
-            aria-controls="view-map" aria-selected="false" tabindex="-1">Map</button>
-          <button type="button" role="tab" id="tab-hf" data-view="hf"
-            aria-controls="view-hf" aria-selected="false" tabindex="-1">HF Radio</button>
-        </nav>
+      <!-- Three questions, not a partition of the data: a reading belongs in
+           every view that answers with it, which is why the renderers below
+           take a container instead of an id. One page, one poll, one state --
+           the tabs choose what is drawn, never what is fetched. -->
+      <nav class="viewnav" role="tablist" aria-label="Views">
+        <button type="button" role="tab" id="tab-dashboard" data-view="dashboard"
+          aria-controls="view-dashboard" aria-selected="true">Dashboard</button>
+        <button type="button" role="tab" id="tab-kpview" data-view="kpview"
+          aria-controls="view-kpview" aria-selected="false" tabindex="-1">Conditions</button>
+        <button type="button" role="tab" id="tab-map" data-view="map"
+          aria-controls="view-map" aria-selected="false" tabindex="-1">Map</button>
+      </nav>
       <div class="statusbar-tail">
         <span class="statusbar-sep" aria-hidden="true"></span>
         <div class="bar-countdown" id="heroCountdown">&mdash;<span class="unit" id="heroCountdownLabel">&nbsp;</span></div>
@@ -1117,12 +1115,17 @@
     </div>
   </section>
 
-  <!-- Kp and the solar wind behind it. The chart is the reader's history of
-       the same number the hero states once, and the wind readings are why it
-       is moving: speed, field strength and -- the one that actually decides
-       whether a storm happens -- which way Bz is pointing. Both answer "how
-       did we get here and where is it going", which is the question this tab
-       is. -->
+  <!-- Every measured reading on one page, which is what "Conditions" means to
+       a mariner already: geomagnetic, solar, radio. They are one tab rather
+       than three because they are one question asked at three removes -- the
+       Sun is doing something (solar wind, flux, flares), the field responds
+       (Kp), and the band you were about to use opens or closes (HF). Reading
+       any of them alone leaves the reader guessing at the other two, and each
+       on its own left most of a page empty.
+
+       Not "Timeline" -- that named a widget, not a subject, and only one of
+       these three is a chart. Not "Details" -- a tab named for how much there
+       is of something collects whatever nobody placed. -->
   <section class="view" id="view-kpview" role="tabpanel" aria-labelledby="tab-kpview" tabindex="0" hidden>
     <div class="grid">
       <div class="tile span-12">
@@ -1139,7 +1142,7 @@
         </div>
       </div>
 
-      <div class="tile span-12">
+      <div class="tile span-4">
         <div class="tile-head">
           <h2>Solar Activity</h2>
           <a class="info" href="https://www.swpc.noaa.gov/products/real-time-solar-wind"
@@ -1152,12 +1155,8 @@
           <div class="empty-state">Waiting for data&hellip;</div>
         </div>
       </div>
-    </div>
-  </section>
 
-  <section class="view" id="view-hf" role="tabpanel" aria-labelledby="tab-hf" tabindex="0" hidden>
-    <div class="grid">
-      <div class="tile span-12" id="hfTile">
+      <div class="tile span-8" id="hfTile">
         <div class="tile-head">
           <h2>HF Radio</h2>
           <button type="button" id="hfRefresh" class="btn-outline">Refresh</button>
@@ -1232,7 +1231,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // that answers with it, so everything below renders into a container it is
   // handed rather than one it looks up by id. An id would let the second
   // appearance of a datum drift from the first.
-  const VIEWS = ['dashboard', 'kpview', 'map', 'hf'];
+  const VIEWS = ['dashboard', 'kpview', 'map'];
   let currentView = null;
 
   /** Every container for a slot that is on screen. A hidden view has none. */

@@ -127,7 +127,10 @@ const SHOTS = {
     theme: 'dark',
     height: 700,
     full: true,
-    run: (page) => openWebapp(page, 'hf')
+    // The HF tile shares the Conditions tab with Kp and Solar Activity now;
+    // there is no 'hf' view to open. The file keeps its name until the README
+    // is regenerated, which is what renames the shot.
+    run: (page) => openWebapp(page, 'kpview')
   },
   'plugin-configuration': {
     file: 'plugin-configuration.png',
