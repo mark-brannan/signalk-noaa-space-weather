@@ -176,8 +176,9 @@ verdict waits for a full 24 hours.** `src/telemetry.ts` serves the two halves
 of the cross-check keyed by the same `subPath` and compares nothing; where the
 line falls is a presentation decision, and `public/diagnostics.js` owns it.
 There are two thresholds and they are not interchangeable: **±50% on one
-endpoint's bytes-per-fetch** (valid from the first fetches, set loose because
-the flares and alerts payloads genuinely track the weather) and **±25% on the
+endpoint's bytes-per-fetch** (no 24-hour gate, but three successful fetches
+required before a row is judged; set loose because the flares and alerts
+payloads genuinely track the weather) and **±25% on the
 total** (set tight, because the total's only real movers are structural).
 **The total is not judged until `hoursCovered` reads 24** — the meter starts
 empty at every plugin start and the aurora grid arrives in 147 KB lumps, so

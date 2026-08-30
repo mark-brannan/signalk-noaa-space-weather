@@ -172,10 +172,11 @@ All read `meter.ts`. None of them compute anything.
 
 **1. JSON route.** `GET /plugins/signalk-noaa-space-weather/telemetry`,
 alongside the existing routes in `signalKApiRoutes`. Full detail: the ring, the
-24h buckets, the totals, the predicted-vs-measured comparison, and
-`{startedAt, settings}` as `/status` already returns. Stable shape, versioned
-with a `schema` field, safe to scrape. This is the primary surface — the other
-three are views of it.
+24h buckets, the totals, both halves of the predicted-vs-measured comparison,
+and `{startedAt, settings}` as `/status` already returns. The route serves the
+inputs and computes no verdict — `public/diagnostics.js` is what compares
+them. Stable shape, versioned with a `schema` field, safe to scrape. This is
+the primary surface — the other three are views of it.
 
 **Shipped in phase 1.** The totals joined in phase 4, and the predicted half
 landed in **phase 3b** as `src/telemetry.ts`: `predicted.endpoints` keyed by
