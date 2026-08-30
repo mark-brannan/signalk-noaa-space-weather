@@ -117,8 +117,20 @@ const SHOTS = {
     file: 'space-map.png',
     theme: 'dark',
     height: 1000,
-    full: true,
+    // The map view is exactly one viewport tall by construction, so there is
+    // nothing below the fold for a full-page shot to reach.
+    full: false,
     run: shotSpaceMap
+  },
+  'hf-radio': {
+    file: 'hf-radio.png',
+    theme: 'dark',
+    height: 700,
+    full: true,
+    // The HF tile shares the Conditions tab with Kp and Solar Activity now;
+    // there is no 'hf' view to open. The file keeps its name until the README
+    // is regenerated, which is what renames the shot.
+    run: (page) => openWebapp(page, 'kpview')
   },
   'plugin-configuration': {
     file: 'plugin-configuration.png',
@@ -264,16 +276,21 @@ async function login(context, username, password) {
 
 // --- the plugin's own webapp -----------------------------------------------
 
-async function openWebapp(page) {
-  await page.goto(`${BASE}/${PLUGIN_ID}/`, { waitUntil: 'networkidle' })
+// The webapp is four views behind one segmented nav, and only the one on
+// screen renders -- so a shot names the view it wants and gets there through
+// the hash, the same way the back button does. The default is the dashboard,
+// which is what an unqualified `/` shows.
+async function openWebapp(page, view = 'dashboard') {
+  await page.goto(`${BASE}/${PLUGIN_ID}/#${view}`, { waitUntil: 'networkidle' })
   if (await page.locator('#authBanner.show').count()) {
     throw new Error(
       'the webapp is showing its "not logged in" banner — the session cookie did not reach it'
     )
   }
   // The page paints placeholders first and fills them in from several
-  // independent fetches. The footer timestamps are the last thing written, so
-  // they are the honest "everything arrived" signal.
+  // independent fetches. The footer timestamps are written on every poll
+  // whatever view is up -- they are page chrome, not a view's own output --
+  // so they stay the honest "everything arrived" signal for any of the four.
   await page.waitForFunction(
     () => {
       const stamped = (id) => {
@@ -321,15 +338,14 @@ async function shotHero(page, state) {
 }
 
 async function shotSpaceMap(page) {
-  await openWebapp(page)
-  await page.click('#mapToggle')
+  await openWebapp(page, 'map')
   // The grids come from the plugin's cache over one more fetch each, then
   // paint to a canvas; the footer only exists once at least one succeeded.
   await page.waitForSelector('#spaceMapCanvas', {
     state: 'visible',
     timeout: 30000
   })
-  await page.waitForSelector('#mapBody .map-footer', { timeout: 30000 })
+  await page.waitForSelector('.map-view .map-footer', { timeout: 30000 })
   // Zoomed out, with a path scored across it: the close-up is the duller
   // picture and the straight-line great circle is the thing a reader has to
   // see to understand what the projection is for.

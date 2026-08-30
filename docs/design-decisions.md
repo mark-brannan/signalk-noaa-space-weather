@@ -1128,3 +1128,67 @@ not.
 compares nothing. Where the line falls is a presentation decision, and a
 scraper reading the same route — the Signal K paths from phase 3a are there for
 exactly that — is free to draw its own.
+
+## The Kp chart is one time axis at two spans, not two charts
+
+The Conditions tab draws Kp at two horizons: NOAA's 3-day forecast at
+three-hourly resolution, and the 27-day outlook at one daily maximum per UTC
+day. They are one chart — 72 hours by default, expanding to the whole solar
+rotation — and not two charts stacked, and not two series spliced onto one
+static axis.
+
+**Why not two series on one static axis.** Three days and twenty-seven share
+no horizontal scale: at a width where the 3-hourly stretch is legible the
+outlook is a smear, and at a width where the outlook fits the forecast is four
+points. Worse, the outlook is a daily *maximum* where the forecast is a
+3-hourly *sample*, so a daily maximum sits systematically above the samples
+that produced it and joining the two end-to-end draws a step up on a week
+where nothing is happening. `src/paths.ts` keeps the two `series` in separate
+subtrees for that reason and says so.
+
+**Why not two charts.** They were, for one round. Two charts is honest and it
+is also inert: the reader has to hold one picture in their head while looking
+at the other to answer the only question that spans them — is what is coming
+worse than what is here. A zoom answers it by construction, because there is
+only ever one picture.
+
+**What makes the single axis honest is the mark, not the scale.** The outlook
+draws as bars and the forecast as a line over them. Bars because a daily
+maximum is a per-bucket statistic: a line between two of them would assert a
+Kp at noon that NOAA never forecast, whereas a bar claims the bucket and
+nothing else. And because the two marks are different, the 3-hourly line can
+sit directly over the first three days of bars without the eye reading them as
+one series — which is what lets both horizons occupy the same axis at all.
+The bars a forecast day covers are ghosted: the line over them says the same
+thing at eight times the resolution and far higher skill.
+
+**Not a coloured strip per day**, which was the third option. A typical
+outlook spends twenty of its twenty-seven days between Kp 2 and Kp 4, all
+sub-G1 and all one colour on a severity palette, so the strip would be flat
+across the great majority of a window whose only content is that variation.
+
+**The x scale is therefore time, not index.** Index positions cannot animate
+between spans, cannot put a 3-hourly point at the right place inside a day,
+and cannot be shared by two series sampled differently. `padT` and the plot
+height do not change with the span, so the G ladder stays on the same screen
+rows and expanding moves the data under a fixed ladder rather than rescaling
+both.
+
+**The expansion is animated because the motion is the explanation.** The
+outlook's bars are already at their true times behind the near view; opening
+the window walks them into frame and shrinks the 3-day line into the first
+tenth of it, which is what says the two are one axis at two zooms. A cross-fade
+between two finished pictures would say they are two pictures. The bars fade in
+with the span (`reveal`) rather than being drawn at 72 hours, where a single
+day is a third of the chart wide and a slab that size behind the line is
+furniture, not data. `prefers-reduced-motion` jumps to the final frame.
+
+**The summary under the chart reports only what the outlook adds.**
+`outlookAhead` in `public/hero.js` takes the peak and the first G1 day over the
+stretch beyond the 3-day forecast — the same stretch the chart draws
+un-ghosted, so the sentence and the peak marker cannot name different days. It
+deliberately does *not* read `…outlook27.maxKp` and `…outlook27.nextStormTime`,
+which the plugin publishes over all twenty-seven rows because it has no view to
+answer to. NOAA fixes the window when it issues the table and the product polls
+it daily, so those two can name a storm day that has already been and gone —
+and in the mock's `storm` state, six days gone.
