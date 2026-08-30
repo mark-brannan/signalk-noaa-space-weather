@@ -1,0 +1,257 @@
+<title>Gannon Storm Replay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Dark-first, wearing the plugin webapp's own tokens. */
+  :root {
+    --ink: #0a0f14; --panel: #111a22; --panel-2: #16212a; --grid: #223038;
+    --text: #e8dfc8; --text-dim: #92a29f; --amber: #ffb238;
+    --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-3: #e0c53e; --sev-4: #e2703a; --sev-5: #e2483f;
+    --font-display: 'Oswald', 'Arial Narrow', sans-serif;
+    --font-mono: 'Space Mono', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --ink: #eef1ea; --panel: #ffffff; --panel-2: #f4f6f0; --grid: #cfd6cb;
+      --text: #14211d; --text-dim: #55645d; --amber: #a9660a;
+      --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-3: #a99015; --sev-4: #b3501f; --sev-5: #b3312a;
+    }
+  }
+  :root[data-theme="light"] {
+    --ink: #eef1ea; --panel: #ffffff; --panel-2: #f4f6f0; --grid: #cfd6cb;
+    --text: #14211d; --text-dim: #55645d; --amber: #a9660a;
+    --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-3: #a99015; --sev-4: #b3501f; --sev-5: #b3312a;
+  }
+  body {
+    background: var(--ink); color: var(--text); font-family: var(--font-mono);
+    margin: 0; padding: 1.25rem; font-size: 0.85rem; line-height: 1.55;
+  }
+  main { max-width: 62rem; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; }
+  h1, h2 {
+    font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.07em;
+    font-weight: 500; margin: 0; text-wrap: balance;
+  }
+  h1 { font-size: 1.55rem; }
+  h2 { font-size: 0.95rem; color: var(--text-dim); }
+  .eyebrow {
+    font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.14em;
+    font-size: 0.68rem; color: var(--amber); margin-bottom: 0.3rem;
+  }
+  p { margin: 0; max-width: 46rem; }
+  .dim { color: var(--text-dim); }
+  a { color: var(--amber); }
+  .panel { background: var(--panel); border: 1px solid var(--grid); border-radius: 6px; padding: 0.9rem 1rem; }
+
+  .stats { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .stat { flex: 1 1 10rem; background: var(--panel); border: 1px solid var(--grid); border-radius: 6px; padding: 0.7rem 0.9rem; }
+  .stat b { display: block; font-size: 1.7rem; font-family: var(--font-display); font-weight: 500; letter-spacing: 0.02em; }
+  .stat span { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .chartwrap { overflow-x: auto; }
+  svg text { font-family: var(--font-mono); }
+
+  .scrub { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+  .scrub input { flex: 1 1 16rem; accent-color: var(--amber); }
+  .scrub output { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .scrub input:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+
+  .panes { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 0.9rem; }
+  .pane h2 { margin-bottom: 0.5rem; }
+  .notif {
+    display: flex; align-items: baseline; gap: 0.55rem; padding: 0.35rem 0.5rem;
+    border-left: 3px solid var(--sev-0); background: var(--panel-2); border-radius: 3px;
+    margin-bottom: 0.35rem;
+  }
+  .notif .lvl { font-weight: 700; min-width: 2.1em; }
+  .notif .code { color: var(--text-dim); font-size: 0.75rem; min-width: 5.5em; }
+  .notif .how { margin-left: auto; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); white-space: nowrap; }
+  .notif.interrupt .how { color: var(--text); }
+  .empty { color: var(--text-dim); font-style: italic; padding: 0.35rem 0.1rem; }
+  .tally { margin-top: 0.6rem; font-size: 0.75rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .tally b { color: var(--text); }
+
+  table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 0.25rem 1.1rem 0.25rem 0; border-bottom: 1px solid var(--grid); }
+  th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); font-weight: 400; }
+  td:nth-child(n+2), th:nth-child(n+2) { text-align: right; padding-right: 0; padding-left: 1.1rem; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<main>
+  <header>
+    <div class="eyebrow">signalk-noaa-space-weather · test rig · replayed through the shipped code</div>
+    <h1>Gannon Storm Replay</h1>
+    <p class="dim">NOAA's real May 2024 message archive, polled hourly through the parser and the
+      new collapsed-storm state machine from
+      <a href="https://github.com/mark-brannan/signalk-noaa-space-weather/pull/300">PR #300</a>.
+      Drag the clock; the two panes show what a notification client presents at that hour.
+      Loudness shown at the default thresholds (alarm = Extreme, popup = Severe).</p>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="panel scrub">
+    <label for="t" class="dim">Clock (UTC)</label>
+    <input type="range" id="t" min="0" max="144" step="1" value="66">
+    <output id="tOut" for="t"></output>
+  </div>
+
+  <div class="panes">
+    <div class="panel pane">
+      <h2>Today · one path per message code</h2>
+      <div id="before"></div>
+      <div class="tally" id="beforeTally"></div>
+    </div>
+    <div class="panel pane">
+      <h2>PR #300 · the collapsed storm path</h2>
+      <div id="after"></div>
+      <div class="tally" id="afterTally"></div>
+    </div>
+  </div>
+
+  <div class="panel chartwrap">
+    <h2 style="margin-bottom:0.5rem">Storm level, and every delta each scheme publishes</h2>
+    <div id="chart"></div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-bottom:0.5rem">The felt difference, May 9–15</h2>
+    <table id="counts"></table>
+    <p class="dim" style="margin-top:0.7rem;font-size:0.75rem">
+      Per-code counts cover the geomagnetic family (ALTK/WARK/WATA) only; the collapsed path
+      suppresses same-level re-triggers and rides a six-hour hold before standing down.
+      Still open in <a href="https://github.com/mark-brannan/signalk-noaa-space-weather/issues/298">#298</a>:
+      the path name (currently a placeholder) and whether loudness stays on the shared thresholds.</p>
+  </div>
+</main>
+<script>
+const DATA = {"perCode":[{"t":1715212800000,"code":"WATA30","state":"normal","scale":"","kind":"raise"},{"t":1715245200000,"code":"WATA50","state":"normal","scale":"","kind":"raise"},{"t":1715277600000,"code":"WATA99","state":"normal","scale":"","kind":"raise"},{"t":1715360400000,"code":"WARK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715360400000,"code":"WARK04","state":"normal","scale":"","kind":"raise"},{"t":1715364000000,"code":"ALTK08","state":"warn","scale":"G4","kind":"raise"},{"t":1715364000000,"code":"ALTK07","state":"alert","scale":"G3","kind":"raise"},{"t":1715364000000,"code":"WARK07","state":"alert","scale":"G3 or greater","kind":"raise"},{"t":1715364000000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715364000000,"code":"WARK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715364000000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715364000000,"code":"ALTK04","state":"normal","scale":"","kind":"raise"},{"t":1715367600000,"code":"ALTK07","state":"alert","scale":"G3","kind":"retrigger"},{"t":1715367600000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715367600000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715367600000,"code":"ALTK08","state":"normal","kind":"stand-down"},{"t":1715371200000,"code":"ALTK08","state":"warn","scale":"G4","kind":"raise"},{"t":1715378400000,"code":"ALTK08","state":"warn","scale":"G4","kind":"retrigger"},{"t":1715378400000,"code":"ALTK07","state":"alert","scale":"G3","kind":"retrigger"},{"t":1715378400000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715378400000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715385600000,"code":"ALTK09","state":"alarm","scale":"G5","kind":"raise"},{"t":1715385600000,"code":"WARK04","state":"normal","scale":"","kind":"raise"},{"t":1715385600000,"code":"WARK05","state":"normal","scale":"","kind":"raise"},{"t":1715385600000,"code":"WARK06","state":"normal","scale":"","kind":"raise"},{"t":1715385600000,"code":"WARK07","state":"normal","kind":"stand-down"},{"t":1715389200000,"code":"ALTK07","state":"alert","scale":"G3","kind":"retrigger"},{"t":1715389200000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715389200000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715389200000,"code":"ALTK08","state":"normal","kind":"stand-down"},{"t":1715389200000,"code":"ALTK09","state":"normal","kind":"stand-down"},{"t":1715392800000,"code":"ALTK08","state":"warn","scale":"G4","kind":"raise"},{"t":1715396400000,"code":"ALTK09","state":"alarm","scale":"G5","kind":"raise"},{"t":1715400000000,"code":"ALTK08","state":"warn","scale":"G4","kind":"retrigger"},{"t":1715400000000,"code":"ALTK07","state":"alert","scale":"G3","kind":"retrigger"},{"t":1715400000000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715400000000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715400000000,"code":"ALTK09","state":"normal","kind":"stand-down"},{"t":1715410800000,"code":"ALTK07","state":"alert","scale":"G3","kind":"retrigger"},{"t":1715410800000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715410800000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715410800000,"code":"ALTK08","state":"normal","kind":"stand-down"},{"t":1715414400000,"code":"ALTK08","state":"warn","scale":"G4","kind":"raise"},{"t":1715421600000,"code":"ALTK08","state":"warn","scale":"G4","kind":"retrigger"},{"t":1715421600000,"code":"ALTK07","state":"alert","scale":"G3","kind":"retrigger"},{"t":1715421600000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715421600000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715428800000,"code":"ALTK09","state":"alarm","scale":"G5","kind":"raise"},{"t":1715428800000,"code":"WATA50","state":"normal","scale":"","kind":"raise"},{"t":1715428800000,"code":"WARK04","state":"normal","scale":"","kind":"raise"},{"t":1715428800000,"code":"WARK05","state":"normal","scale":"","kind":"raise"},{"t":1715428800000,"code":"WARK07","state":"normal","scale":"","kind":"raise"},{"t":1715428800000,"code":"WARK06","state":"normal","scale":"","kind":"raise"},{"t":1715432400000,"code":"ALTK08","state":"warn","scale":"G4","kind":"retrigger"},{"t":1715432400000,"code":"ALTK07","state":"alert","scale":"G3","kind":"retrigger"},{"t":1715432400000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715432400000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715432400000,"code":"ALTK09","state":"normal","kind":"stand-down"},{"t":1715443200000,"code":"ALTK07","state":"alert","scale":"G3","kind":"retrigger"},{"t":1715443200000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715443200000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715443200000,"code":"ALTK08","state":"normal","kind":"stand-down"},{"t":1715446800000,"code":"ALTK08","state":"warn","scale":"G4","kind":"raise"},{"t":1715450400000,"code":"WARK05","state":"normal","scale":"","kind":"raise"},{"t":1715450400000,"code":"WARK06","state":"normal","scale":"","kind":"raise"},{"t":1715450400000,"code":"WARK07","state":"normal","scale":"","kind":"raise"},{"t":1715450400000,"code":"WATA99","state":"normal","scale":"","kind":"raise"},{"t":1715454000000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715454000000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715454000000,"code":"ALTK08","state":"normal","kind":"stand-down"},{"t":1715454000000,"code":"ALTK07","state":"normal","kind":"stand-down"},{"t":1715457600000,"code":"ALTK07","state":"alert","scale":"G3","kind":"raise"},{"t":1715464800000,"code":"ALTK07","state":"alert","scale":"G3","kind":"retrigger"},{"t":1715464800000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715464800000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715479200000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715479200000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715479200000,"code":"ALTK07","state":"normal","kind":"stand-down"},{"t":1715486400000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715490000000,"code":"ALTK07","state":"alert","scale":"G3","kind":"raise"},{"t":1715490000000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715554800000,"code":"WARK07","state":"normal","scale":"","kind":"raise"},{"t":1715554800000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715554800000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715554800000,"code":"ALTK07","state":"normal","kind":"stand-down"},{"t":1715565600000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715569200000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715572800000,"code":"ALTK05","state":"normal","scale":"G1","kind":"raise"},{"t":1715576400000,"code":"ALTK06","state":"normal","scale":"G2","kind":"raise"},{"t":1715612400000,"code":"WARK05","state":"normal","scale":"","kind":"raise"},{"t":1715637600000,"code":"WATA30","state":"normal","scale":"","kind":"raise"},{"t":1715644800000,"code":"WARK04","state":"normal","scale":"","kind":"raise"}],"collapsed":[{"t":1715364000000,"level":4,"state":"warn","method":["visual"],"msg":"ALERT: Geomagnetic K-index of 8, 9-"},{"t":1715367600000,"level":3,"state":"alert","method":[],"msg":"ALERT: Geomagnetic K-index of 7"},{"t":1715371200000,"level":4,"state":"warn","method":["visual"],"msg":"ALERT: Geomagnetic K-index of 8, 9-"},{"t":1715385600000,"level":5,"state":"alarm","method":["visual","sound"],"msg":"ALERT: Geomagnetic K-index of 9o"},{"t":1715389200000,"level":3,"state":"alert","method":[],"msg":"ALERT: Geomagnetic K-index of 7"},{"t":1715392800000,"level":4,"state":"warn","method":["visual"],"msg":"ALERT: Geomagnetic K-index of 8, 9-"},{"t":1715396400000,"level":5,"state":"alarm","method":["visual","sound"],"msg":"ALERT: Geomagnetic K-index of 9o"},{"t":1715400000000,"level":4,"state":"warn","method":["visual"],"msg":"ALERT: Geomagnetic K-index of 8, 9-"},{"t":1715410800000,"level":3,"state":"alert","method":[],"msg":"ALERT: Geomagnetic K-index of 7"},{"t":1715414400000,"level":4,"state":"warn","method":["visual"],"msg":"ALERT: Geomagnetic K-index of 8, 9-"},{"t":1715428800000,"level":5,"state":"alarm","method":["visual","sound"],"msg":"ALERT: Geomagnetic K-index of 9o"},{"t":1715432400000,"level":4,"state":"warn","method":["visual"],"msg":"ALERT: Geomagnetic K-index of 8, 9-"},{"t":1715443200000,"level":3,"state":"alert","method":[],"msg":"ALERT: Geomagnetic K-index of 7"},{"t":1715446800000,"level":4,"state":"warn","method":["visual"],"msg":"ALERT: Geomagnetic K-index of 8, 9-"},{"t":1715454000000,"level":3,"state":"alert","method":[],"msg":"EXTENDED WARNING: Geomagnetic K-index of 7 or greater expected"},{"t":1715601600000,"level":0,"state":"normal","method":[],"msg":""}],"levelSteps":[{"t":1715212800000,"inForce":0,"published":0},{"t":1715216400000,"inForce":0,"published":0},{"t":1715220000000,"inForce":0,"published":0},{"t":1715223600000,"inForce":0,"published":0},{"t":1715227200000,"inForce":0,"published":0},{"t":1715230800000,"inForce":0,"published":0},{"t":1715234400000,"inForce":0,"published":0},{"t":1715238000000,"inForce":0,"published":0},{"t":1715241600000,"inForce":0,"published":0},{"t":1715245200000,"inForce":0,"published":0},{"t":1715248800000,"inForce":0,"published":0},{"t":1715252400000,"inForce":0,"published":0},{"t":1715256000000,"inForce":0,"published":0},{"t":1715259600000,"inForce":0,"published":0},{"t":1715263200000,"inForce":0,"published":0},{"t":1715266800000,"inForce":0,"published":0},{"t":1715270400000,"inForce":0,"published":0},{"t":1715274000000,"inForce":0,"published":0},{"t":1715277600000,"inForce":0,"published":0},{"t":1715281200000,"inForce":0,"published":0},{"t":1715284800000,"inForce":0,"published":0},{"t":1715288400000,"inForce":0,"published":0},{"t":1715292000000,"inForce":0,"published":0},{"t":1715295600000,"inForce":0,"published":0},{"t":1715299200000,"inForce":0,"published":0},{"t":1715302800000,"inForce":0,"published":0},{"t":1715306400000,"inForce":0,"published":0},{"t":1715310000000,"inForce":0,"published":0},{"t":1715313600000,"inForce":0,"published":0},{"t":1715317200000,"inForce":0,"published":0},{"t":1715320800000,"inForce":0,"published":0},{"t":1715324400000,"inForce":0,"published":0},{"t":1715328000000,"inForce":0,"published":0},{"t":1715331600000,"inForce":0,"published":0},{"t":1715335200000,"inForce":0,"published":0},{"t":1715338800000,"inForce":0,"published":0},{"t":1715342400000,"inForce":0,"published":0},{"t":1715346000000,"inForce":0,"published":0},{"t":1715349600000,"inForce":0,"published":0},{"t":1715353200000,"inForce":0,"published":0},{"t":1715356800000,"inForce":0,"published":0},{"t":1715360400000,"inForce":0,"published":0},{"t":1715364000000,"inForce":4,"published":4},{"t":1715367600000,"inForce":3,"published":3},{"t":1715371200000,"inForce":4,"published":4},{"t":1715374800000,"inForce":4,"published":4},{"t":1715378400000,"inForce":4,"published":4},{"t":1715382000000,"inForce":4,"published":4},{"t":1715385600000,"inForce":5,"published":5},{"t":1715389200000,"inForce":3,"published":3},{"t":1715392800000,"inForce":4,"published":4},{"t":1715396400000,"inForce":5,"published":5},{"t":1715400000000,"inForce":4,"published":4},{"t":1715403600000,"inForce":4,"published":4},{"t":1715407200000,"inForce":4,"published":4},{"t":1715410800000,"inForce":3,"published":3},{"t":1715414400000,"inForce":4,"published":4},{"t":1715418000000,"inForce":4,"published":4},{"t":1715421600000,"inForce":4,"published":4},{"t":1715425200000,"inForce":4,"published":4},{"t":1715428800000,"inForce":5,"published":5},{"t":1715432400000,"inForce":4,"published":4},{"t":1715436000000,"inForce":4,"published":4},{"t":1715439600000,"inForce":4,"published":4},{"t":1715443200000,"inForce":3,"published":3},{"t":1715446800000,"inForce":4,"published":4},{"t":1715450400000,"inForce":4,"published":4},{"t":1715454000000,"inForce":3,"published":3},{"t":1715457600000,"inForce":3,"published":3},{"t":1715461200000,"inForce":3,"published":3},{"t":1715464800000,"inForce":3,"published":3},{"t":1715468400000,"inForce":3,"published":3},{"t":1715472000000,"inForce":3,"published":3},{"t":1715475600000,"inForce":3,"published":3},{"t":1715479200000,"inForce":3,"published":3},{"t":1715482800000,"inForce":3,"published":3},{"t":1715486400000,"inForce":3,"published":3},{"t":1715490000000,"inForce":3,"published":3},{"t":1715493600000,"inForce":3,"published":3},{"t":1715497200000,"inForce":3,"published":3},{"t":1715500800000,"inForce":3,"published":3},{"t":1715504400000,"inForce":3,"published":3},{"t":1715508000000,"inForce":3,"published":3},{"t":1715511600000,"inForce":3,"published":3},{"t":1715515200000,"inForce":3,"published":3},{"t":1715518800000,"inForce":3,"published":3},{"t":1715522400000,"inForce":3,"published":3},{"t":1715526000000,"inForce":3,"published":3},{"t":1715529600000,"inForce":3,"published":3},{"t":1715533200000,"inForce":3,"published":3},{"t":1715536800000,"inForce":3,"published":3},{"t":1715540400000,"inForce":3,"published":3},{"t":1715544000000,"inForce":3,"published":3},{"t":1715547600000,"inForce":3,"published":3},{"t":1715551200000,"inForce":3,"published":3},{"t":1715554800000,"inForce":3,"published":3},{"t":1715558400000,"inForce":3,"published":3},{"t":1715562000000,"inForce":3,"published":3},{"t":1715565600000,"inForce":3,"published":3},{"t":1715569200000,"inForce":3,"published":3},{"t":1715572800000,"inForce":3,"published":3},{"t":1715576400000,"inForce":3,"published":3},{"t":1715580000000,"inForce":0,"published":3},{"t":1715583600000,"inForce":0,"published":3},{"t":1715587200000,"inForce":0,"published":3},{"t":1715590800000,"inForce":0,"published":3},{"t":1715594400000,"inForce":0,"published":3},{"t":1715598000000,"inForce":0,"published":3},{"t":1715601600000,"inForce":0,"published":0},{"t":1715605200000,"inForce":0,"published":0},{"t":1715608800000,"inForce":0,"published":0},{"t":1715612400000,"inForce":0,"published":0},{"t":1715616000000,"inForce":0,"published":0},{"t":1715619600000,"inForce":0,"published":0},{"t":1715623200000,"inForce":0,"published":0},{"t":1715626800000,"inForce":0,"published":0},{"t":1715630400000,"inForce":0,"published":0},{"t":1715634000000,"inForce":0,"published":0},{"t":1715637600000,"inForce":0,"published":0},{"t":1715641200000,"inForce":0,"published":0},{"t":1715644800000,"inForce":0,"published":0},{"t":1715648400000,"inForce":0,"published":0},{"t":1715652000000,"inForce":0,"published":0},{"t":1715655600000,"inForce":0,"published":0},{"t":1715659200000,"inForce":0,"published":0},{"t":1715662800000,"inForce":0,"published":0},{"t":1715666400000,"inForce":0,"published":0},{"t":1715670000000,"inForce":0,"published":0},{"t":1715673600000,"inForce":0,"published":0},{"t":1715677200000,"inForce":0,"published":0},{"t":1715680800000,"inForce":0,"published":0},{"t":1715684400000,"inForce":0,"published":0},{"t":1715688000000,"inForce":0,"published":0},{"t":1715691600000,"inForce":0,"published":0},{"t":1715695200000,"inForce":0,"published":0},{"t":1715698800000,"inForce":0,"published":0},{"t":1715702400000,"inForce":0,"published":0},{"t":1715706000000,"inForce":0,"published":0},{"t":1715709600000,"inForce":0,"published":0},{"t":1715713200000,"inForce":0,"published":0},{"t":1715716800000,"inForce":0,"published":0},{"t":1715720400000,"inForce":0,"published":0},{"t":1715724000000,"inForce":0,"published":0},{"t":1715727600000,"inForce":0,"published":0},{"t":1715731200000,"inForce":0,"published":0}]}
+const START = Date.UTC(2024, 4, 9)
+const HOUR = 3600e3
+const SEV = { 0: 'var(--sev-0)', 3: 'var(--sev-3)', 4: 'var(--sev-4)', 5: 'var(--sev-5)' }
+const gOf = (s) => { const m = /G([0-5])/.exec(s || ''); return m ? +m[1] : null }
+const HOW = { alarm: 'sound + popup', warn: 'popup', alert: 'listed, silent', normal: 'quiet' }
+
+function fmt(t) {
+  const d = new Date(t)
+  return `May ${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, '0')}:00`
+}
+
+// ---- stat tiles
+const interrupting = (evts, key) => evts.filter((e) => e.state === 'warn' || e.state === 'alarm').length
+document.getElementById('stats').innerHTML = [
+  [DATA.perCode.length, 'deltas today, per-code'],
+  [DATA.collapsed.length, 'deltas, collapsed path'],
+  [interrupting(DATA.perCode), 'interruptions today'],
+  [interrupting(DATA.collapsed), 'interruptions, collapsed']
+].map(([n, l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('')
+
+// ---- the two panes at time T
+function stateAt(evts, t, keyOf) {
+  const held = new Map()
+  for (const e of evts) { if (e.t <= t) held.set(keyOf(e), e) }
+  return held
+}
+function notifRow(lvl, code, state, extra) {
+  const color = SEV[lvl ?? 0] || 'var(--sev-0)'
+  const interrupt = state === 'warn' || state === 'alarm'
+  const label = lvl ? 'G' + lvl : '—'
+  return `<div class="notif ${interrupt ? 'interrupt' : ''}" style="border-left-color:${color}">
+    <span class="lvl" style="color:${color}">${label}</span>
+    <span class="code">${code}</span><span>${extra}</span>
+    <span class="how">${HOW[state] || state}</span></div>`
+}
+function render(t) {
+  document.getElementById('tOut').textContent = fmt(t)
+  const before = stateAt(DATA.perCode, t, (e) => e.code)
+  const rows = [...before.values()]
+    .filter((e) => e.state !== 'normal')
+    .sort((a, b) => (gOf(b.scale) ?? 0) - (gOf(a.scale) ?? 0))
+    .map((e) => notifRow(gOf(e.scale), e.code, e.state, e.code.startsWith('WATA') ? 'watch' : e.code.startsWith('WARK') ? 'warning' : 'observed'))
+  document.getElementById('before').innerHTML = rows.join('') || '<div class="empty">nothing raised</div>'
+  const bSoFar = DATA.perCode.filter((e) => e.t <= t)
+  document.getElementById('beforeTally').innerHTML =
+    `<b>${bSoFar.length}</b> deltas so far · <b>${interrupting(bSoFar)}</b> interruptions`
+
+  const storm = [...stateAt(DATA.collapsed, t, () => 'storm').values()][0]
+  document.getElementById('after').innerHTML =
+    storm && storm.level > 0
+      ? notifRow(storm.level, 'storm', storm.state, 'in force')
+      : '<div class="empty">stood down</div>'
+  const aSoFar = DATA.collapsed.filter((e) => e.t <= t)
+  document.getElementById('afterTally').innerHTML =
+    `<b>${aSoFar.length}</b> deltas so far · <b>${interrupting(aSoFar)}</b> interruptions`
+  drawChart(t)
+}
+
+// ---- timeline chart
+const W = 920, H = 300, L = 44, R = 12, TOP = 16, PLOT_H = 170
+const x = (t) => L + ((t - START) / (144 * HOUR)) * (W - L - R)
+const y = (g) => TOP + PLOT_H - (g / 5) * PLOT_H
+function step(points, val) {
+  let d = ''
+  points.forEach((p, i) => {
+    const px = x(p.t).toFixed(1), py = y(val(p)).toFixed(1)
+    d += i === 0 ? `M${px},${py}` : `H${px}`
+    d += `V${py}`
+  })
+  return d + `H${x(START + 144 * HOUR).toFixed(1)}`
+}
+function drawChart(t) {
+  const marks = []
+  for (const e of DATA.perCode) {
+    const g = gOf(e.scale)
+    marks.push({ t: e.t, row: 0, g, state: e.state })
+  }
+  for (const e of DATA.collapsed) marks.push({ t: e.t, row: 1, g: e.level, state: e.state })
+  const rowY = [TOP + PLOT_H + 34, TOP + PLOT_H + 72]
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:640px" role="img"
+    aria-label="Storm level over six days with each scheme's published deltas">`
+  for (let g = 0; g <= 5; g++) {
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}" stroke="var(--grid)" stroke-width="1"/>` +
+      `<text x="${L - 8}" y="${y(g) + 3}" text-anchor="end" font-size="10" fill="var(--text-dim)">G${g}</text>`
+  }
+  for (let d = 0; d <= 6; d++) {
+    const tx = x(START + d * 24 * HOUR)
+    const anchor = d === 6 ? 'end' : 'start'
+    s += `<text x="${tx}" y="${H - 4}" text-anchor="${anchor}" font-size="10" fill="var(--text-dim)">May ${9 + d}</text>`
+  }
+  s += `<path d="${step(DATA.levelSteps, (p) => p.inForce)}" fill="none" stroke="var(--text-dim)" stroke-width="1.5" opacity="0.55"/>`
+  s += `<path d="${step(DATA.levelSteps, (p) => p.published)}" fill="none" stroke="var(--amber)" stroke-width="2"/>`
+  s += `<text x="${W - R}" y="${TOP - 4}" text-anchor="end" font-size="10" fill="var(--amber)">published level</text>` +
+    `<text x="${W - R - 110}" y="${TOP - 4}" text-anchor="end" font-size="10" fill="var(--text-dim)">in force</text>`
+  const rowLabel = ['per-code path deltas (today)', 'collapsed path deltas (PR #300)']
+  rowY.forEach((ry, i) => {
+    s += `<text x="${L}" y="${ry - 11}" font-size="9" fill="var(--text-dim)">${rowLabel[i]}</text>`
+  })
+  for (const m of marks) {
+    const c = SEV[m.g ?? 0] || 'var(--sev-0)'
+    const cy = rowY[m.row]
+    const interrupt = m.state === 'warn' || m.state === 'alarm'
+    s += interrupt
+      ? `<circle cx="${x(m.t)}" cy="${cy}" r="4.5" fill="${c}" stroke="var(--panel)" stroke-width="1.5"/>`
+      : `<circle cx="${x(m.t)}" cy="${cy}" r="3.5" fill="none" stroke="${c}" stroke-width="1.6"/>`
+  }
+  s += `<line x1="${x(t)}" x2="${x(t)}" y1="${TOP}" y2="${rowY[1] + 10}" stroke="var(--amber)" stroke-width="1" stroke-dasharray="3 3"/>`
+  s += `<text x="${L}" y="${rowY[1] + 26}" font-size="9" fill="var(--text-dim)">filled dot = interrupts (popup or sound) · ring = silent · color and label = G level</text>`
+  s += '</svg>'
+  document.getElementById('chart').innerHTML = s
+}
+
+// ---- counts table
+function tally(evts) {
+  return {
+    deltas: evts.length,
+    popups: evts.filter((e) => e.state === 'warn').length,
+    alarms: evts.filter((e) => e.state === 'alarm').length
+  }
+}
+const b = tally(DATA.perCode), a = tally(DATA.collapsed)
+document.getElementById('counts').innerHTML =
+  `<tr><th></th><th>Deltas</th><th>Popups</th><th>Alarms</th></tr>
+   <tr><td>Per-code paths (today)</td><td>${b.deltas}</td><td>${b.popups}</td><td>${b.alarms}</td></tr>
+   <tr><td>Collapsed storm path</td><td>${a.deltas}</td><td>${a.popups}</td><td>${a.alarms}</td></tr>`
+
+const slider = document.getElementById('t')
+slider.addEventListener('input', () => render(START + slider.value * HOUR))
+render(START + slider.value * HOUR)
+</script>
