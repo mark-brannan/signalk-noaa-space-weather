@@ -122,7 +122,29 @@ what it is blocked by. Delete it when it is done.
       ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170),
       [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191))
 
+- [ ] Rule on the app forcing three products on. `APP_PROPS` in
+      `app/signalk.js` sets `auroraEnabled`, `drapEnabled` and
+      `goesFluxEnabled` all true; the plugin's schema defaults are aurora
+      **false**, drap **true**, goesFlux **false**. The argument is that the
+      bandwidth case in those descriptions is a metered boat link polled
+      unattended, not a reader who opened an app — but it means the app is the
+      plugin with a different *configuration*, not just a different data
+      source, and two products draw there that a fresh plugin install would
+      not have
+      ([#307](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/307))
+
 ## Claude's
+- [ ] Give a refused location prompt a way back. The app's banner carried the
+      only "Use my location" button and went with it (Mark's call, 2026-09-01);
+      `signalk.js` still asks on load, but a reader who says no is now on
+      global maps until they change the browser's own site settings. The map
+      view is where position matters, so its gutter is the natural home
+      ([#307](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/307))
+- [ ] The app cannot honour a distance-unit preference — `distanceUnitPreference()`
+      returns null unconditionally, so it is permanently on nmi where the
+      plugin's webapp reads the server's setting. Decide whether the app gets
+      its own unit control or stays nmi-only
+      ([#307](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/307))
 - [ ] Take the standalone app out of this repo. `app/` + `scripts/build-app.mjs`
       ship an installable PWA off `public/index.html` today, but it is built
       from a Signal K plugin's repo, versioned with the plugin, and deployed
