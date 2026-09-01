@@ -7,6 +7,14 @@ what it is blocked by. Delete it when it is done.
 
 ## Yours
 
+- [ ] **Fast follow to the core extraction.** Decide the demo's fate now that
+      `app/` is leaving for its own repo — your read is that the demo should
+      *be* the webapp in the long run, and you are close to killing it outright.
+      Before that: confirm nothing in `demo/` is worth keeping over the webapp
+      itself (the captured snapshot, the `?live` path through `src/browser/`,
+      the clock shift in `demo/signalk.js`, `chrome.js`'s framing). Bound up
+      with the test-rig decision being taken separately
+
 - [ ] Pick which of the eight follow-ups in
       [docs/hf-email-transport.md](docs/hf-email-transport.md#follow-up-issues)
       to file for
@@ -134,6 +142,24 @@ what it is blocked by. Delete it when it is done.
       ([#307](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/307))
 
 ## Claude's
+- [ ] **Fast follow to the core extraction.** Split `src/config.ts`: the
+      `Settings` type and `settingsFrom` normalisation belong in the
+      `space-weather` core, the Signal K plugin JSON schema does not. It moved
+      whole so the extraction stayed mechanical against a green suite, which
+      leaves a package named `space-weather` shipping plugin form descriptions.
+      Five product modules import `../config.js` for `Settings` only
+      (`alerts`, `kp`, `scales`, plus `products/types.ts` and `noaa/client.ts`
+      transitively); `public/config-panel.js` and `config-panel.test.ts` pin the
+      panel against the schema, so they follow whichever side the schema lands on
+- [ ] **Fast follow to the core extraction.** Make `src/tiles.ts` import the
+      D-RAP colorbar and the aurora ramp from the core package instead of
+      keeping its own copies, and delete the mirror assertions that exist only
+      to police the duplication (the third `describe` in `drap-colors.test.ts`,
+      the `NOAA_RAMP` import in `aurora-webapp.test.ts`, and the
+      `colorbar-mirror.test.ts` the extraction adds to replace them). The
+      tables are copied because "a browser cannot import the TypeScript" —
+      after the extraction both copies live in the same package, so the reason
+      is gone
 - [ ] Give a refused location prompt a way back. The app's banner carried the
       only "Use my location" button and went with it (Mark's call, 2026-09-01);
       `signalk.js` still asks on load, but a reader who says no is now on
