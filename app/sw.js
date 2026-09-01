@@ -14,7 +14,8 @@
 const VERSION = '__VERSION__'
 const SHELL = __SHELL__
 
-const CACHE = `noaa-space-weather-shell-${VERSION}`
+const CACHE_PREFIX = 'noaa-space-weather-shell-'
+const CACHE = `${CACHE_PREFIX}${VERSION}`
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -33,7 +34,12 @@ self.addEventListener('activate', (event) => {
       .keys()
       .then((keys) =>
         Promise.all(
-          keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))
+          // Our own prefix only. A worker's scope is a path but the Cache API
+          // is origin-wide, and this app may well be served from a path under
+          // a site that has its own.
+          keys
+            .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE)
+            .map((key) => caches.delete(key))
         )
       )
       .then(() => self.clients.claim())

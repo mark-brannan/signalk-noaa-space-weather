@@ -155,6 +155,13 @@ describe('the service worker', () => {
 
   // The list is the site's, so a module added to index.html cannot go missing
   // from the offline shell -- the same rule the file copy follows.
+  // A worker's scope is a path but the Cache API is origin-wide, so an
+  // unprefixed sweep would evict a neighbouring app served from the same host.
+  it('sweeps only its own caches on activate', () => {
+    expect(template).toMatch(/startsWith\(CACHE_PREFIX\)/)
+    expect(template).not.toMatch(/keys\.filter\(\(key\) => key !== CACHE\)/)
+  })
+
   it('precaches the whole site but not itself', () => {
     expect(SHELL).toContain('./index.html')
     expect(SHELL).toContain('./signalk.js')
@@ -191,6 +198,21 @@ describe('the app cache store', () => {
     expect(store.persistent).toBe(true)
     store.writeCache('drap.json', 'payload')
     expect(store.readCache('drap.json')).toBe('payload')
+    vi.unstubAllGlobals()
+  })
+
+  // A store that is full is still a store. Selecting the backend with a probe
+  // *write* would fail here and strand grids that are sitting right there.
+  it('keeps a readable store that can no longer be written to', () => {
+    const backing = new Map([['noaa-space-weather:cache:aurora.json', 'grid']])
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => backing.get(k) ?? null,
+      setItem: () => {
+        throw new Error('QuotaExceededError')
+      },
+      removeItem: (k: string) => void backing.delete(k)
+    })
+    expect(createLocalStore().readCache('aurora.json')).toBe('grid')
     vi.unstubAllGlobals()
   })
 

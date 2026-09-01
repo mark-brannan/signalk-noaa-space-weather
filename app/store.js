@@ -11,16 +11,20 @@
 const PREFIX = 'noaa-space-weather:cache:'
 
 /**
- * Whether we can use it at all. Private browsing, a blocked-cookies setting
- * and an iframe with no storage access all make the *getter* throw, not just
- * the call -- so this has to be a try/catch around the access itself, and the
- * answer is "no store", never an exception on the way to the first fetch.
+ * Whether we can use it at all.
+ *
+ * Private browsing, a blocked-cookies setting and an iframe with no storage
+ * access all make the *getter* throw, not just the call -- so this has to be a
+ * try/catch around the access itself, and the answer is "no store", never an
+ * exception on the way to the first fetch.
+ *
+ * A read, not a write: a store that is full is still readable, and a probe
+ * write would throw there and drop us to memory with the grids we already have
+ * sitting unreachable. Running out of room is `writeCache`'s to handle.
  */
 function available() {
   try {
-    const probe = `${PREFIX}probe`
-    localStorage.setItem(probe, '1')
-    localStorage.removeItem(probe)
+    localStorage.getItem(`${PREFIX}probe`)
     return true
   } catch {
     return false
