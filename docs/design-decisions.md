@@ -1224,22 +1224,18 @@ none of them is a fork:**
   always had. `setPosition` republishes and redraws out of the cached grids and
   **never reaches NOAA** — which is what stops a jittering fix becoming polling.
 - **The fix is coarsened to a tenth of a degree before anything holds it.**
-  CodeQL flags the stored position as cleartext sensitive data and it is right
-  to. The fix it names is not encryption: a browser app has nowhere to put a
-  key that the code reading the value cannot also reach, so ciphertext in
-  `localStorage` moves the plaintext one call away and protects it from
-  nobody. Precision is the mitigation that is real. Nothing here can tell the
-  difference — the aurora grid is 1 degree square and sampled bilinearly,
-  D-RAP is 2 by 4, and the device is asked for a fix with
-  `enableHighAccuracy: false` — so a tenth is already finer than the coarsest
-  input and far finer than the grid it indexes, while what a phone carries
-  between sessions goes from a doorstep to an 11 km box. It is applied once,
-  at `adopt` in `app/signalk.js`, so the drawn position and the stored one
-  cannot become two answers. **The plugin does not do this and should not.**
-  There the position is the *vessel's*, on a server its owner runs, from a
-  hull already broadcasting AIS; here it is the reader's own, on a device this
-  project does not own. Same two numbers, different subject — which is the
-  clearest thing yet about what changes when this leaves the plugin.
+  CodeQL flags the stored position as cleartext sensitive data, and is right
+  to. Encryption is not the answer: a browser app has nowhere to put a key the
+  code reading the value cannot also reach, so ciphertext moves the plaintext
+  one call away and protects it from nobody. Precision is the mitigation that
+  is real, and it is free here — aurora is 1 degree square and sampled
+  bilinearly, D-RAP is 2 by 4, and the device is asked with
+  `enableHighAccuracy: false`, so a tenth is already coarser than any input
+  and finer than any grid, while what a phone carries between sessions goes
+  from a doorstep to an 11 km box. **The plugin keeps full precision and
+  should.** There the position is the *vessel's*, on a server its owner runs,
+  from a hull already broadcasting AIS; here it is the reader's own, on a
+  device this project does not own. Same two numbers, different subject.
 - **The store outlives the tab.** `CacheStore` has been a parameter since #272,
   so `app/store.js` is a localStorage implementation of two synchronous string
   methods and nothing above it knows. A write that will not fit is dropped, not

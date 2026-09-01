@@ -79,36 +79,13 @@ export function createLocalStore() {
 
 const POSITION_KEY = 'noaa-space-weather:position'
 
-/** Decimal places kept in a stored fix: one, so a tenth of a degree, ~11 km. */
+/** One place is a tenth of a degree: ~11 km, coarser than any grid we index. */
 const POSITION_PLACES = 1
 
-/**
- * The fix, rounded to a tenth of a degree.
- *
- * Nothing this app draws can tell the difference. The aurora grid is 1 degree
- * square and sampled bilinearly, D-RAP is 2 by 4, and the device is asked for
- * a fix with `enableHighAccuracy: false` in the first place -- so a tenth is
- * already finer than the coarsest input and far finer than the grid it
- * indexes. What it does change is what a phone is carrying between sessions:
- * an 11 km box rather than a doorstep.
- *
- * That distinction is the whole difference between this app and the plugin it
- * came from. On a boat the position is the *vessel's*, on a server its owner
- * runs, from a hull that is broadcasting AIS anyway. Here it is the reader's
- * own, persisted on a device this project does not own, in an origin-scoped
- * store any script on the origin can read. Same two numbers, different
- * subject.
- *
- * Coarsening rather than encrypting, because a browser app has nowhere to put
- * a key that the code reading the value cannot also reach: ciphertext in
- * `localStorage` moves the plaintext one call away and protects it from
- * nobody. Less precision is the only mitigation here that is not theatre.
- */
+/** Why coarsening rather than encryption: docs/design-decisions.md. */
 export function coarsenPosition(position) {
   if (!position) return null
-  // Through `toFixed` rather than multiply-round-divide: the latter leaves
-  // binary-float dust (-122.30000000000001) in a value that gets stored and
-  // read by a human looking at what the app kept.
+  // toFixed, not multiply-round-divide: the latter leaves binary-float dust.
   const round = (v) => Number(v.toFixed(POSITION_PLACES))
   return {
     latitude: round(position.latitude),
