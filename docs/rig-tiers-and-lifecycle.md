@@ -158,6 +158,22 @@ desktop environment" and there is no `wslview`; it does nothing. The working
 opener would be `explorer.exe <url>`, which takes over the desktop unasked --
 not worth it. Print the URL.
 
+## After the core extraction
+
+The `space-weather` core extraction moves `public/` and the mock rig
+(`mock-webapp.mjs`, `webapp-ctl.mjs`) out of this repo. The Signal K rig
+stays: it runs `index.ts` in a server through the symlink in
+`~/.signalk/node_modules/`, and `index.ts` stays here.
+
+That splits the dirty-detection above. In this repo `public/` becomes
+generated and gitignored, so `src/**` is the only watch set and a webapp
+change is not visible here at all -- it is made in the core checkout. The rig
+therefore has to be able to follow a **linked** core (`npm link` or a `file:`
+dependency), rebuild both, and restart. Until it can, a core-repo session can
+offer the mock rig but no real Signal K URL, which breaks the standing rule
+that both are handed over every cycle; say so plainly rather than offering
+the mock alone.
+
 ## Open
 
 - Which of the three link renderings (bare, markdown, labelled) is actually
