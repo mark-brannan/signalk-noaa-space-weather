@@ -162,6 +162,14 @@ describe('the service worker', () => {
     expect(template).not.toMatch(/keys\.filter\(\(key\) => key !== CACHE\)/)
   })
 
+  it('holds the event open for the runtime cache write', () => {
+    expect(template).toMatch(/event\.waitUntil\(\s*caches\.open\(CACHE\)/)
+  })
+
+  it('fails a navigation deliberately rather than with undefined', () => {
+    expect(template).toMatch(/\?\? Response\.error\(\)/)
+  })
+
   it('precaches the whole site but not itself', () => {
     expect(SHELL).toContain('./index.html')
     expect(SHELL).toContain('./signalk.js')
@@ -213,6 +221,27 @@ describe('the app cache store', () => {
       removeItem: (k: string) => void backing.delete(k)
     })
     expect(createLocalStore().readCache('aurora.json')).toBe('grid')
+    vi.unstubAllGlobals()
+  })
+
+  it('evicts its own stale copy before the sibling grid', () => {
+    const backing = new Map([
+      ['noaa-space-weather:cache:aurora.json', 'old-aurora'],
+      ['noaa-space-weather:cache:drap.json', 'drap']
+    ])
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => backing.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        if (backing.has(k)) throw new Error('QuotaExceededError')
+        backing.set(k, v)
+      },
+      removeItem: (k: string) => void backing.delete(k)
+    })
+    createLocalStore().writeCache('aurora.json', 'new-aurora')
+    expect(backing.get('noaa-space-weather:cache:aurora.json')).toBe(
+      'new-aurora'
+    )
+    expect(backing.get('noaa-space-weather:cache:drap.json')).toBe('drap')
     vi.unstubAllGlobals()
   })
 
@@ -281,5 +310,19 @@ describe('the persisted position is coarsened', () => {
     )
     expect(source).not.toMatch(/writeLastPosition\(fix\)/)
     expect(source).not.toMatch(/setPosition\(fix\)/)
+  })
+
+  it('returns early when the coarsened fix has not moved', () => {
+    const source = readFileSync(join(ROOT, 'app', 'signalk.js'), 'utf8')
+    expect(source).toMatch(
+      /next\.latitude === current\.latitude[\s\S]*?\n\s*\)?\s*return/
+    )
+  })
+
+  it('catches a failed plugin load on every fix, not just the first', () => {
+    const source = readFileSync(join(ROOT, 'app', 'signalk.js'), 'utf8')
+    expect(source).toMatch(
+      /setPosition\(next\)\)\s*\n\s*\.catch\(\(\) => \{\}\)/
+    )
   })
 })

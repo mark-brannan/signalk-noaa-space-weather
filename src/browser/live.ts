@@ -284,9 +284,15 @@ export function startLivePlugin(options: LiveOptions = {}): LivePlugin {
     document: () => ({
       values: publisher.published,
       tree: publisher.tree,
+      // Getters: `readAll` calls `document()` once per path, and only
+      // `fetchGridCache` reads these -- each one a ~900 KB `JSON.parse`.
       grids: {
-        aurora: readAuroraCache(publisher),
-        drap: readDrapCache(publisher)
+        get aurora() {
+          return readAuroraCache(publisher)
+        },
+        get drap() {
+          return readDrapCache(publisher)
+        }
       },
       routes: {
         advisory: readAdvisoryCache(publisher),

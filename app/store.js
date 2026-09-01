@@ -60,21 +60,29 @@ export function createLocalStore() {
       }
     },
     writeCache(name, text) {
+      const key = PREFIX + name
+      const write = () => localStorage.setItem(key, text)
       try {
-        localStorage.setItem(PREFIX + name, text)
+        return void write()
       } catch {
-        // Out of quota, most likely the aurora grid. Clear this plugin's own
-        // entries -- never the whole store, which is not ours -- and try the
-        // one write again. A second failure means the payload alone does not
-        // fit, and there is nothing further to try.
-        try {
-          for (const key of Object.keys(localStorage)) {
-            if (key.startsWith(PREFIX)) localStorage.removeItem(key)
-          }
-          localStorage.setItem(PREFIX + name, text)
-        } catch {
-          // Dropped on purpose; the next refresh re-fetches.
+        // Out of quota.
+      }
+      // The stale copy of this same entry first: going straight to the full
+      // clear makes the two grids evict each other turn about, so the store
+      // converges on holding one of them.
+      try {
+        localStorage.removeItem(key)
+        return void write()
+      } catch {
+        // Still out of quota.
+      }
+      try {
+        for (const other of Object.keys(localStorage)) {
+          if (other.startsWith(PREFIX)) localStorage.removeItem(other)
         }
+        write()
+      } catch {
+        // Dropped on purpose; the next refresh re-fetches.
       }
     },
     persistent: true

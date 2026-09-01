@@ -63,7 +63,9 @@ self.addEventListener('fetch', (event) => {
       caches
         .match('./index.html')
         .then((hit) => hit ?? fetch(request))
-        .catch(() => caches.match('./index.html'))
+        .catch(() =>
+          caches.match('./index.html').then((hit) => hit ?? Response.error())
+        )
     )
     return
   }
@@ -79,7 +81,11 @@ self.addEventListener('fetch', (event) => {
           // read: a response can be consumed exactly once.
           if (response.ok && response.type === 'basic') {
             const copy = response.clone()
-            caches.open(CACHE).then((cache) => cache.put(request, copy))
+            // Held open: the worker may be killed the moment `respondWith`
+            // settles, which is before a bare `.then` would have run.
+            event.waitUntil(
+              caches.open(CACHE).then((cache) => cache.put(request, copy))
+            )
           }
           return response
         })

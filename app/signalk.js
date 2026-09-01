@@ -71,10 +71,20 @@ export function onPosition(listener) {
 // cannot be two answers.
 function adopt(fix) {
   const next = coarsenPosition(fix)
-  current = next
   denied = false
+  // `watchPosition` fires about once a second while moving and coarsening
+  // makes most of those identical; each one re-parses both cached grids.
+  if (
+    current &&
+    next.latitude === current.latitude &&
+    next.longitude === current.longitude
+  )
+    return
+  current = next
   writeLastPosition(next)
-  plugin().then((p) => p.setPosition(next))
+  plugin()
+    .then((p) => p.setPosition(next))
+    .catch(() => {})
   for (const listener of listeners) listener(next)
 }
 
