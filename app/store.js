@@ -1,26 +1,14 @@
-// The app's CacheStore: the grids and the advisory bulletin, kept in
-// localStorage so a cold start paints from the last fetch instead of buying
-// another one.
-//
-// This is the same `CacheStore` the products have taken since #272 -- two
-// synchronous string methods -- so nothing about a product knows or cares that
-// the store is a browser's rather than a data directory. On a phone it is the
-// difference between opening the app and waiting on a ~900 KB aurora grid, and
-// opening it to yesterday's map while today's lands behind it.
+// The app's CacheStore: the same two synchronous string methods the products
+// have taken since #272, over localStorage, so a cold start paints from the
+// last fetch rather than waiting on a ~900 KB grid.
 
 const PREFIX = 'noaa-space-weather:cache:'
 
 /**
- * Whether we can use it at all.
- *
- * Private browsing, a blocked-cookies setting and an iframe with no storage
- * access all make the *getter* throw, not just the call -- so this has to be a
- * try/catch around the access itself, and the answer is "no store", never an
- * exception on the way to the first fetch.
- *
- * A read, not a write: a store that is full is still readable, and a probe
- * write would throw there and drop us to memory with the grids we already have
- * sitting unreachable. Running out of room is `writeCache`'s to handle.
+ * Private browsing and blocked cookies make the `localStorage` *getter* throw,
+ * not just the call, so the try/catch has to wrap the access itself. A read
+ * probe, not a write: a full store is still readable, and running out of room
+ * is `writeCache`'s to handle.
  */
 function available() {
   try {
@@ -32,14 +20,8 @@ function available() {
 }
 
 /**
- * A CacheStore over localStorage, or an in-memory one where that is not
- * usable.
- *
- * A write that will not fit is dropped rather than raised. The products treat
- * a cache miss as "fetch it again", which is exactly the right degradation:
- * the app costs one more fetch, and nothing above here has to learn a new
- * failure mode. Raising instead would abort a refresh that had already
- * succeeded -- the payload is in hand by the time it is written.
+ * A write that will not fit is dropped, not raised: the products treat a miss
+ * as "fetch it again", where raising would abort a refresh already in hand.
  */
 export function createLocalStore() {
   if (!available()) {
@@ -105,14 +87,7 @@ export function coarsenPosition(position) {
   }
 }
 
-/**
- * The last fix, so a cold start has somewhere to index the grids before the
- * device answers -- and somewhere to stay if it never does.
- *
- * Stored separately from the cache above because it survives a quota clear:
- * it is two numbers, and losing it costs the app its whole reason to draw a
- * value at a place rather than a global map.
- */
+/** Outside PREFIX so a quota clear cannot take it: it is two numbers. */
 export function readLastPosition() {
   try {
     const saved = JSON.parse(localStorage.getItem(POSITION_KEY) || 'null')

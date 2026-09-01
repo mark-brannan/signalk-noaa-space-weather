@@ -1,16 +1,7 @@
-// The standalone app's data layer -- the third thing to sit behind the page's
-// one seam, after a Signal K server (public/signalk.js) and the demo's saved
-// capture (demo/signalk.js).
-//
-// There is no server here and no snapshot: the page IS the plugin, running its
-// own product modules against NOAA from this tab, indexed at wherever the
-// device says it is. Everything document-backed comes from the shared seam, so
-// what is written here is only what makes this the app rather than the demo:
-// the device's own position, a store that outlives the tab, and a real clock.
-//
-// The page above is public/index.html, unchanged and unaware -- the same file
-// a boat gets. That is the whole point of the seam, and test/app.test.ts holds
-// this file to the same surface public/signalk.js exposes.
+// The standalone app's data layer: no server and no snapshot, the plugin's own
+// products running against NOAA from this tab at the device's position.
+// public/index.html above is unchanged and unaware; test/app.test.ts holds this
+// file to the same surface public/signalk.js exposes.
 import { createDocumentSeam } from './plugin/browser/seam.js'
 import {
   createLocalStore,
@@ -30,14 +21,8 @@ export {
   retryAfterSeconds
 } from './plugin/browser/seam.js'
 
-/**
- * How the app runs the plugin: the two grids and the GOES flux pair on.
- *
- * All three default off in the plugin on bandwidth grounds, because there the
- * decision is being made on someone's metered boat link for a process that
- * polls unattended. Here the reader opened an app to look at exactly these
- * surfaces, and closes it when they are done.
- */
+// On, where the plugin defaults them off: the bandwidth argument there is a
+// metered boat link polled unattended, not a reader who opened an app to look.
 const APP_PROPS = {
   auroraEnabled: true,
   drapEnabled: true,
@@ -46,16 +31,8 @@ const APP_PROPS = {
 
 // --- the position ---------------------------------------------------------
 
-/**
- * Where the reader is, and how that gets better over time.
- *
- * Three states, in the order they arrive: the last known fix (instant, from
- * the previous run), the device's own (a permission prompt away), and none at
- * all (permission refused on a first run). The last is not an error state --
- * the grids are global and still draw; it is only the readings *at a place*
- * that wait, which is exactly the `awaiting-position` branch the plugin
- * already takes on a boat with no GPS fix yet.
- */
+// No fix is not an error: the grids are global and still draw, and the plugin
+// already has that branch as `awaiting-position`.
 const listeners = new Set()
 let current = readLastPosition()
 let denied = false
@@ -88,14 +65,8 @@ function adopt(fix) {
   for (const listener of listeners) listener(next)
 }
 
-/**
- * Ask the device. Safe to call more than once -- the button in the app's
- * chrome calls it again after a refusal, which is the only way back from one.
- *
- * `watchPosition` rather than a single read: this is an app someone opens
- * while moving, and a fix that updates costs nothing extra -- `setPosition`
- * redraws out of the cached grids and never reaches NOAA.
- */
+// Safe to call again: the chrome's button is the only way back from a refusal.
+// `watchPosition` because `setPosition` redraws out of cache, never from NOAA.
 let watch = null
 export function requestPosition() {
   if (!('geolocation' in navigator)) {
@@ -107,9 +78,7 @@ export function requestPosition() {
     ({ coords }) =>
       adopt({ latitude: coords.latitude, longitude: coords.longitude }),
     () => {
-      // Refused, or unavailable. Keep whatever the last run knew -- a stale
-      // fix a reader can see and correct beats a blank map -- and let the
-      // chrome offer the prompt again.
+      // Keep the last run's fix: one a reader can see and correct beats none.
       denied = true
       for (const listener of listeners) listener(current)
     },
@@ -120,16 +89,8 @@ export function requestPosition() {
 // --- the plugin -----------------------------------------------------------
 
 let started = null
-/**
- * The product modules, compiled to dist/ and copied into the site under
- * plugin/, running here with no server and no bundler.
- *
- * Imported dynamically for one reason only: the service worker precaches the
- * app shell, and a shell that pulled the whole product closure in before first
- * paint would trade the thing the reader is waiting for against the thing that
- * fills it in. Started on load below, so the fetching begins with the app
- * rather than with whichever surface reads first.
- */
+// Dynamic import so the precached shell does not carry the whole product
+// closure before first paint. Started on load below, not by the first reader.
 function plugin() {
   if (!started)
     started = import('./plugin/browser/live.js')
@@ -163,12 +124,8 @@ async function document_() {
 
 const seam = createDocumentSeam({
   document: document_,
-  /**
-   * The map's "fetch now" buttons. This page is the plugin, so a press really
-   * does fetch -- and its refusals are the plugin's own cooldown and its
-   * "nothing new came back" 502, which is what `refreshFailure` in
-   * public/aurora.js already knows how to label.
-   */
+  // A press really does fetch here, and its refusals are the plugin's own
+  // cooldown and 502 -- which `refreshFailure` already labels.
   forceRefresh: async (which) => (await plugin()).refresh(which)
 })
 
@@ -178,10 +135,7 @@ export const fetchTelemetry = () => seam.fetchTelemetry()
 export const fetchGridCache = (which) => seam.fetchGridCache(which)
 export const forceRefresh = (which) => seam.forceRefresh(which)
 
-/**
- * No server, so no unit preference to read: null leaves the page on the nmi it
- * already defaults to, which is the right unit for something aimed at boats.
- */
+// No server to hold a preference; null leaves the page on its nmi default.
 export async function distanceUnitPreference() {
   return null
 }

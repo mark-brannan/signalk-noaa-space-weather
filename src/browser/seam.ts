@@ -148,12 +148,8 @@ export interface SeamOptions {
 export function createDocumentSeam(options: SeamOptions) {
   const { document, forceRefresh } = options
 
-  // Built once per document, not per read: the page polls every path on a
-  // timer, and rebuilding the whole tree each time would walk the values for
-  // every one of them. Keyed on the parsed object rather than memoised on its
-  // own, so a document that had to be re-fetched gets a tree of its own
-  // values. A live layer keeps its tree as it publishes and hands that one
-  // over, so there is nothing to rebuild or memoise on that side.
+  // Once per document, not per read: the page polls every path on a timer.
+  // Keyed on the parsed object, so a re-fetched document gets its own tree.
   let built: { data: SeamDocument; tree: Record<string, any> } | null = null
   async function valueTree() {
     const data = await document()

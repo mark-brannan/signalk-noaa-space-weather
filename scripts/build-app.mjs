@@ -3,15 +3,10 @@
 //   npm install && npm run build && npm run app:build
 //   npx http-server app-dist        # or any static server, to preview
 //
-// The app is the shipping webapp page with no Signal K server under it: the
-// plugin's own product modules fetch NOAA from the reader's tab, indexed at
-// the position their device reports, and the whole thing installs to a home
-// screen. Same one substitution the demo turns on -- app/signalk.js lands as
-// signalk.js -- so public/index.html is copied verbatim and stays unforked.
-//
-// What makes it an app rather than the demo's ?live mode is here and in app/:
-// the device's position instead of a stated viewpoint, a store that outlives
-// the tab, a manifest, and a service worker that precaches the shell.
+// The shipping page with no Signal K server under it, via the same one
+// substitution the demo uses: app/signalk.js lands as signalk.js. What makes
+// it an app rather than the demo's ?live mode lives in app/ -- the device's
+// position, a store that outlives the tab, a manifest and a service worker.
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { createHash } from 'node:crypto'

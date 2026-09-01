@@ -1,16 +1,9 @@
-// The app's service worker: makes it installable, and makes the shell open
-// without the network.
-//
-// The shell only. NOAA's own responses are deliberately never cached here --
-// the products already cache what they need through the CacheStore in
-// app/store.js, and a second copy of a ~900 KB aurora grid in the Cache API
-// would double what the app costs a phone to hold while making neither copy
-// the authority on how old it is.
+// The shell only. NOAA's responses stay out of the Cache API: the products
+// already cache them through app/store.js, and a second copy of a ~900 KB grid
+// would double what a phone holds with neither copy authoritative on its age.
 //
 // SHELL and VERSION are written by scripts/build-app.mjs from the site's own
-// file list, never by hand: the app is public/index.html's transitive import
-// closure, and a hand-kept list here would be a second, quietly wrong answer
-// to the question of what the app is made of.
+// file list -- a hand-kept list would be a second, quietly wrong answer.
 const VERSION = '__VERSION__'
 const SHELL = __SHELL__
 
@@ -22,8 +15,7 @@ self.addEventListener('install', (event) => {
     caches
       .open(CACHE)
       .then((cache) => cache.addAll(SHELL))
-      // Don't sit in `waiting` behind a tab the reader has already left: the
-      // shell that just downloaded is the one they should get on next open.
+      // Don't sit in `waiting` behind a tab the reader has already left.
       .then(() => self.skipWaiting())
   )
 })
@@ -55,9 +47,7 @@ self.addEventListener('fetch', (event) => {
   // thing here that must always be the live answer.
   if (url.origin !== self.location.origin) return
 
-  // A navigation is the shell, whatever path it was opened at -- an installed
-  // app restores to its own start URL and must not depend on the network to
-  // find it.
+  // Any path is the shell: an installed app restores to its own start URL.
   if (request.mode === 'navigate') {
     event.respondWith(
       caches
@@ -70,15 +60,13 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Cache-first for the shell: these are content-addressed by the cache
-  // version above, so a hit is never stale -- a new build is a new cache.
+  // Cache-first: a new build is a new cache, so a hit is never stale.
   event.respondWith(
     caches.match(request).then(
       (hit) =>
         hit ??
         fetch(request).then((response) => {
-          // Only same-origin, only successful, and cloned before the body is
-          // read: a response can be consumed exactly once.
+          // Cloned before the body is read: a response is consumed once.
           if (response.ok && response.type === 'basic') {
             const copy = response.clone()
             // Held open: the worker may be killed the moment `respondWith`

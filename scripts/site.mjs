@@ -1,21 +1,12 @@
-// Assembling a static site out of public/, dist/ and one directory of
-// substitutions. Two sites are built this way and neither is a copy of the
-// page: the GitHub Pages demo (scripts/build-demo.mjs) and the standalone app
-// (scripts/build-app.mjs).
+// One assembler for both sites -- the Pages demo (build-demo.mjs) and the
+// standalone app (build-app.mjs). Neither forks the page: index.html and every
+// module it reaches import './signalk.js', so dropping a different one into
+// the site re-points the whole page. The file list is the page's transitive
+// import closure, never hand-written, so a module added to index.html cannot
+// go missing from either site.
 //
-// The trick both turn on is one substitution. public/index.html imports
-// './signalk.js' and so does every module it reaches; drop a different
-// signalk.js into the site and the whole page resolves to it, unchanged. What
-// sits behind that seam is the only thing that differs -- a Signal K server, a
-// saved capture, or the plugin's own product modules fetching NOAA from the
-// tab. The page is never forked and the file list is never hand-written: the
-// site is the page's transitive import closure, so a module added to
-// index.html cannot go missing from either site.
-//
-// The live data layer is the compiled product modules, copied out of dist/
-// under plugin/ and loaded unbundled -- `tsc` already emits ES modules whose
-// relative imports carry the `.js` extension a browser resolves, and this
-// package has no runtime dependencies. So `npm run build` has to have run.
+// Products are copied out of dist/ under plugin/ and loaded unbundled, so
+// `npm run build` has to have run first.
 import fssync from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
