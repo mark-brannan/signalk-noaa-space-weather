@@ -70,6 +70,21 @@ Signal K `app` object.
 **Proves:** start/stop, the refresh routes, scheduling, `refreshOnce`
 coalescing, and that a manual refresh never creates a schedule of its own.
 
+### 4.5 · Plugin integration, against a real server
+
+Supplied by SignalK's reusable `plugin-ci.yml@master`, not by this repo's
+own `ci.yml` -- which is why it is easy to overlook. Across **signalk-server
+2.23.0 and latest, Node 22 and 24**, it packs the plugin, installs it into a
+real server, writes `plugin-config-data/<id>.json` to enable it, boots the
+server with sample NMEA 0183 and N2K data, waits for the API, and asserts the
+plugin appears in `/skServer/plugins`. It also validates package metadata,
+the CommonJS entry point, the config schema, the plugin lifecycle and the
+_format_ of emitted delta paths against a stub app.
+
+**Proves:** the plugin loads, starts and stops inside a real signalk-server
+on two versions and two Node majors. It asserts nothing about _this_
+plugin's published values, metadata or notifications.
+
 ### 5 · Live NOAA
 
 `noaa-drift.yml` (Mondays 07:17 UTC) running `check-noaa-live.mjs`, plus
@@ -99,10 +114,11 @@ behaves. Entirely manual.
 
 ### CI
 
-`ci.yml` gates a merge on levels 0-4, behind a change-detection job so a
+`ci.yml` gates a merge on levels 0-4.5, behind a change-detection job so a
 docs-only change does not pay for the ~4 minute armv7 QEMU leg.
 `claude-review.yml`, `pages.yml`, `release-please.yml` and `publish.yml` are
-the rest. **Levels 5, 6 and 7 gate nothing.**
+the rest. **Levels 5, 6 and 7 gate nothing.** Level 4.5 arrives from an upstream
+reusable workflow, so its coverage can change without a commit here.
 
 ## Critique
 
@@ -110,11 +126,14 @@ The strategy is strong up to the process boundary and absent past it.
 Everything that needs a real server or a real pixel is done by a person, on
 demand, ungated. Five problems, worst first.
 
-**1. There is no level between a fake `app` object and a human clicking a
-rig.** `plugin.test.ts` asserts against a harness, not signalk-server, so
-"does the real server publish these paths" is verified only by someone
-looking. That gap is why per-branch rigs have been improvised by hand at
-least twice with no name or writeup. #121 Tier 2 was designed for this and
+**1. The real-server level asserts only that the plugin loads.** Level 4.5
+does the hard plumbing already -- pack, install, enable, boot, two server
+versions, two Node majors -- and then checks one thing: that the package
+appears in `/skServer/plugins`. Nothing asserts that _this_ plugin published
+`environment.noaa.swpc.*`, that the values are right, or that the metadata
+arrived. So "does the real server publish these paths" is still verified only
+by someone looking, which is why per-branch rigs have been improvised by hand
+at least twice with no name or writeup. #121 Tier 2 was designed for this and
 never built.
 
 **2. The highest-risk path has the weakest coverage.** `meta.zones` becoming
@@ -144,14 +163,17 @@ onto a published path is exactly this failure.
 
 ## The one addition worth making
 
-A **real headless signalk-server, scratch config, this plugin only, asserted
-against over the REST API**: `npm run test:server`, outside `npm test` so the
-offline cap is untouched. Boot the server, wait for the paths, assert the
-published values and metadata, and assert that a zone crossing actually
-raises `notifications.*`.
+**Extend level 4.5 rather than build a parallel rig.** `plugin-ci`'s
+integration job already packs, installs, enables and boots a real server with
+sample data; the only thing missing is a post-boot assertion step of our own.
+It accepts a plugin-supplied integration command, so the addition is a
+`npm run test:server` script that curls `/signalk/v1/api/` and asserts the
+published paths, their values and their metadata -- and, for gap 2, that a
+zone crossing actually raises `notifications.*`.
 
-That closes gap 1 and most of gap 2, and it needs no browser. It is #121's
-Tier 2 minus Playwright, which is the part that made Tier 2 look expensive.
+It lives outside `npm test`, so the registry's offline 60-second cap is
+untouched, and it needs no browser. This is #121's Tier 2 minus Playwright --
+and minus the server plumbing, which already exists and is already paid for.
 
 With it in place, level 7 stops carrying weight it should not: the tiered
 rigs become pre-release validation against beta and gamma, not the mechanism
