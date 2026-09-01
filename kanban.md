@@ -122,7 +122,51 @@ what it is blocked by. Delete it when it is done.
       ([#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170),
       [#191](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/191))
 
+- [ ] Rule on the app forcing three products on. `APP_PROPS` in
+      `app/signalk.js` sets `auroraEnabled`, `drapEnabled` and
+      `goesFluxEnabled` all true; the plugin's schema defaults are aurora
+      **false**, drap **true**, goesFlux **false**. The argument is that the
+      bandwidth case in those descriptions is a metered boat link polled
+      unattended, not a reader who opened an app — but it means the app is the
+      plugin with a different *configuration*, not just a different data
+      source, and two products draw there that a fresh plugin install would
+      not have
+      ([#307](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/307))
+
 ## Claude's
+- [ ] Give a refused location prompt a way back. The app's banner carried the
+      only "Use my location" button and went with it (Mark's call, 2026-09-01);
+      `signalk.js` still asks on load, but a reader who says no is now on
+      global maps until they change the browser's own site settings. The map
+      view is where position matters, so its gutter is the natural home
+      ([#307](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/307))
+- [ ] The app cannot honour a distance-unit preference — `distanceUnitPreference()`
+      returns null unconditionally, so it is permanently on nmi where the
+      plugin's webapp reads the server's setting. Decide whether the app gets
+      its own unit control or stays nmi-only
+      ([#307](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/307))
+- [ ] Take the standalone app out of this repo. `app/` + `scripts/build-app.mjs`
+      ship an installable PWA off `public/index.html` today, but it is built
+      from a Signal K plugin's repo, versioned with the plugin, and deployed
+      by nothing. The pieces both consumers share are already named --
+      `src/browser/` (live.ts, seam.ts, publisher.ts), `src/parse.ts`,
+      `src/products/`, `src/noaa/`, `src/cache/`, `src/paths.ts`,
+      `src/endpoints.ts`, and the `public/` map stack -- and
+      `test/browser-closure.test.ts` already fails if any of them grows a Node
+      import, so the cut is enforced before it is made. Order that keeps a
+      working thing at every step: publish the shared core as a package, point
+      the plugin and the app at it, then move the app to its own repo with its
+      own Pages deploy. Decide first whether the map stack is one package with
+      the NOAA core or two -- `coastlines`/`coast-wright` say two.
+      https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/docs/design-decisions.md#the-standalone-app-is-the-fourth-thing-behind-the-same-seam
+- [ ] Give the app a deploy. `npm run app:build` writes `app-dist/` and nothing
+      publishes it, so the PWA cannot actually be installed on a phone or
+      shared with anyone -- geolocation and service workers are both
+      secure-context features, so a LAN address will not do. `pages.yml`
+      already deploys `demo-dist/`; the open question is whether the app gets
+      its own Pages site, a path under the demo's, or waits for the repo split
+      above. Until then it is verifiable only in a local browser.
+      https://github.com/mark-brannan/signalk-noaa-space-weather/blob/main/.github/workflows/pages.yml
 
 - [ ] Finish the G3+ storm redesign from
       [#298](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/298)

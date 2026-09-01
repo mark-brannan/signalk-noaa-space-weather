@@ -89,73 +89,24 @@ export function adoptCaptureClock(capturedAt) {
 // a URL for. Written out rather than imported from scales-source.js -- this
 // file also has to load from demo/, where that module isn't a sibling --
 // and the tests pin every path against the real ENDPOINTS' URLs.
-export const ENDPOINTS = {
-  scalesNow: 'environment/noaa/swpc/scales/observations/latest',
-  scalesObserved: 'environment/noaa/swpc/scales/observations/24_hours_maximums',
-  scalesForecast: 'environment/noaa/swpc/scales/forecast',
-  kp: 'environment/noaa/swpc/kp',
-  solarWind: 'environment/noaa/swpc/solar_wind',
-  aurora: 'environment/noaa/swpc/aurora',
-  xrayFlare: 'environment/noaa/swpc/xray_flare',
-  xrayFlux: 'environment/noaa/swpc/xray_flux',
-  protonFlux: 'environment/noaa/swpc/proton_flux',
-  drap: 'environment/noaa/swpc/drap',
-  f107: 'environment/noaa/swpc/f107',
-  aIndex: 'environment/noaa/swpc/a_index',
-  sunspotNumber: 'environment/noaa/swpc/sunspot_number',
-  alerts: 'notifications/noaa/swpc/alerts',
-  position: 'navigation/position',
-  // No snapshot carries this yet -- the MUF is issue #82 -- and nodeAt
-  // answers null, which is the same "not measured" the live webapp gets.
-  muf: 'environment/noaa/swpc/muf',
-  // The plugin's own two routes have no vessel path, and neither is
-  // reconstructable from one: the advisory route serves the bulletin `text`
-  // and `idLine` that no published path carries, and `status` describes a
-  // running plugin. They are answered out of the snapshot's saved route
-  // responses instead -- see ROUTE_OF below.
-  advisory: null,
-  status: null
-}
+// The vessel paths, the route map, the tree helpers and every document-backed
+// read now come from the shared seam -- src/browser/seam.ts, compiled into the
+// site under plugin/. The standalone app reads its own document through the
+// same module, so "what the page asks for" has one definition rather than one
+// per site. Re-exported here because the page imports them from './signalk.js'
+// and knows nothing about where they are written.
+import { createDocumentSeam } from './plugin/browser/seam.js'
 
-/**
- * The plugin routes, by the key their saved response is filed under in the
- * snapshot's `routes` -- the same idea as `grids`, one captured response
- * each, byte-identical to what the route serves. A route the capture did not
- * save reads null, which is what the live page gets from a 404 too.
- */
-const ROUTE_OF = {
-  advisory: 'advisory',
-  status: 'status'
-}
-
-/**
- * The snapshot's `values` map (dotted path -> {value, timestamp}) as the
- * nested tree the REST API would serve. A path can be both a leaf and a
- * parent -- xray_flux carries a trend child -- which is why leaves merge
- * into the node rather than replacing it, the same shape leafValue already
- * reads.
- */
-export function treeFromValues(values) {
-  const root = {}
-  for (const [dotted, leaf] of Object.entries(values || {})) {
-    let node = root
-    for (const key of dotted.split('.')) {
-      node = node[key] ?? (node[key] = {})
-    }
-    Object.assign(node, leaf)
-  }
-  return root
-}
-
-/** The subtree at a slash path, or null -- a 404 from a server that isn't there. */
-export function nodeAt(tree, slashPath) {
-  let node = tree
-  for (const key of slashPath.split('/')) {
-    node = node?.[key]
-    if (node === undefined) return null
-  }
-  return node
-}
+export {
+  ENDPOINTS,
+  AuthRequiredError,
+  treeFromValues,
+  nodeAt,
+  leafValue,
+  leafMeta,
+  leafTime,
+  retryAfterSeconds
+} from './plugin/browser/seam.js'
 
 // --- the live data layer --------------------------------------------------
 //
@@ -220,116 +171,26 @@ async function document_() {
   return plugin.document()
 }
 
-// Built once per snapshot, not per read: the page polls every path on a timer
-// and rebuilding the whole tree each time would walk the snapshot's values for
-// every one of them. Keyed on the parsed object rather than memoised on its
-// own, so a snapshot that had to be re-fetched gets a tree of its own values.
-// The live layer keeps its tree as it publishes and hands that one over, so
-// there is nothing to rebuild or memoise on that side.
-let built = null
-async function valueTree() {
-  const data = await document_()
-  if (data.tree) return data.tree
-  if (built?.data !== data) built = { data, tree: treeFromValues(data.values) }
-  return built.tree
-}
-
-// Exported for parity with public/signalk.js: the page catches it to tell
-// "you are not logged in" apart from "nothing published yet". Nothing here
-// ever throws it -- there is no server to be logged out of -- but the page's
-// `instanceof` checks need the class to exist.
-export class AuthRequiredError extends Error {}
+// The seam, bound to this page's document. Built on first use rather than at
+// module scope so it never depends on where in the file `document_` and
+// `forceRefresh` happen to be written.
+let seamInstance = null
+const seam = () =>
+  (seamInstance ??= createDocumentSeam({
+    document: document_,
+    forceRefresh: (which) => forceRefresh(which)
+  }))
 
 /**
- * One path out of the snapshot, in the shape the REST API answers with.
- *
- * A snapshot that will not load is this page's transport failure, and
- * `getJson` in public/signalk.js answers null for one rather than throwing --
- * the page's own no-data state is built on that. Rejecting here instead would
- * escape `refresh()` in index.html as an unhandled rejection and leave the
- * page frozen on whatever it last drew.
+ * The document-backed reads. Each one answers null rather than rejecting on a
+ * transport failure -- `getJson` in public/signalk.js does the same, and the
+ * page's own no-data state is built on it; a rejection would escape
+ * `refresh()` in index.html and freeze the page on whatever it last drew.
  */
-export async function getJson(path) {
-  if (!path) return null
-  try {
-    return nodeAt(await valueTree(), path)
-  } catch {
-    return null
-  }
-}
-
-/** One route response out of the document, saved or live, or null. */
-async function routeJson(route) {
-  try {
-    const { routes } = await document_()
-    return (routes && routes[route]) ?? null
-  } catch {
-    return null
-  }
-}
-
-// `read` defaults rather than being ignored, so the page's own
-// `readAll(getJson)` and a bare `readAll()` answer the same thing. It reads
-// vessel paths only: a plugin route is not a path, so `read` is not given one
-// to make a URL out of.
-export async function readAll(read = getJson) {
-  const ids = Object.keys(ENDPOINTS)
-  const values = await Promise.all(
-    ids.map((id) =>
-      ENDPOINTS[id] ? read(ENDPOINTS[id]) : routeJson(ROUTE_OF[id])
-    )
-  )
-  return Object.fromEntries(ids.map((id, i) => [id, values[i]]))
-}
-
-export const leafValue = (node) =>
-  node && typeof node === 'object'
-    ? 'value' in node
-      ? node.value
-      : null
-    : (node ?? null)
-
-export const leafMeta = (node) =>
-  node && typeof node === 'object' && node.meta && typeof node.meta === 'object'
-    ? node.meta
-    : null
-
-export const leafTime = (node) => (node && node.timestamp) || null
-
-/**
- * Seconds off a `Retry-After` header, or null. Exported for parity; the demo
- * never refuses with a cooldown, because a cooldown would promise that
- * pressing again later works.
- */
-export function retryAfterSeconds(header) {
-  const seconds = Number(header)
-  return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : null
-}
-
-/**
- * The telemetry route's body, saved or live. On a snapshot this is what the
- * capture's own client metered while it ran -- a handful of fetches, minutes
- * old, which is exactly the "the window has not filled yet" state the panel is
- * built to say honestly. On `?live` it is this tab's own meter, and the panel
- * fills as the visitor watches.
- */
-export async function fetchTelemetry() {
-  return routeJson('telemetry')
-}
-
-/** The grid this layer holds, in the shape the map's layer loader takes. */
-export async function fetchGridCache(which) {
-  const { grids } = await document_()
-  const entry = grids && grids[which]
-  if (!entry) {
-    // The same shape the plugin's 404 produces, so the map draws its own
-    // "nothing cached yet" wording rather than reporting an error.
-    const err = new Error('Nothing cached yet.')
-    err.notCached = true
-    throw err
-  }
-  return entry
-}
+export const getJson = (path) => seam().getJson(path)
+export const readAll = (read = getJson) => seam().readAll(read)
+export const fetchTelemetry = () => seam().fetchTelemetry()
+export const fetchGridCache = (which) => seam().fetchGridCache(which)
 
 /**
  * A manual fetch has to fail here, and it has to fail honestly.

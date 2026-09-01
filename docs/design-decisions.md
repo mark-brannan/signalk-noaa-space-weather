@@ -1192,3 +1192,78 @@ which the plugin publishes over all twenty-seven rows because it has no view to
 answer to. NOAA fixes the window when it issues the table and the product polls
 it daily, so those two can name a storm day that has already been and gone —
 and in the mock's `storm` state, six days gone.
+
+## The standalone app is the fourth thing behind the same seam
+
+`public/signalk.js` is the one module the webapp page reaches a server
+through. Three things already sat behind it: a Signal K server, the demo's
+saved capture, and — on `?live` — the plugin's own product modules fetching
+NOAA from the visitor's tab. The standalone app (`app/`,
+`scripts/build-app.mjs`, `npm run app:build`) is the fourth, and it is the
+`?live` layer made a product rather than a proof.
+
+**It is the same page, and that is the point.** `public/index.html` is copied
+verbatim into `app-dist/` with exactly one substitution — `app/signalk.js`
+lands as `signalk.js` — so a boat owner and a phone are looking at the same
+file. The app's own framing arrives as one appended script tag
+(`app/chrome.js`), never as an edit, for the same reason the demo's does.
+`test/app.test.ts` holds `app/signalk.js` to every name `public/signalk.js`
+exports, so a surface added to the server layer cannot silently go missing
+here.
+
+**What makes it an app rather than the demo's `?live` is four things, and
+none of them is a fork:**
+
+- **The position is the device's**, not a stated viewpoint. `BrowserPublisher`
+  now takes a `PositionSource` — a value *or* a function — and `startLivePlugin`
+  owns one mutable cell behind it with `setPosition` as the only way to move it.
+  The `undefined` that function may answer is not an error: it is the same "no
+  fix yet" a server with no GPS gives, which is already the branch that sends
+  the grid products down `awaiting-position` to `publishFromCache`. So a phone
+  that has not answered the permission prompt takes a path the plugin has
+  always had. `setPosition` republishes and redraws out of the cached grids and
+  **never reaches NOAA** — which is what stops a jittering fix becoming polling.
+- **The fix is coarsened to a tenth of a degree before anything holds it.**
+  CodeQL flags the stored position as cleartext sensitive data, and is right
+  to. Encryption is not the answer: a browser app has nowhere to put a key the
+  code reading the value cannot also reach, so ciphertext moves the plaintext
+  one call away and protects it from nobody. Precision is the mitigation that
+  is real, and it is free here — aurora is 1 degree square and sampled
+  bilinearly, D-RAP is 2 by 4, and the device is asked with
+  `enableHighAccuracy: false`, so a tenth is already coarser than any input
+  and finer than any grid, while what a phone carries between sessions goes
+  from a doorstep to an 11 km box. **The plugin keeps full precision and
+  should.** There the position is the *vessel's*, on a server its owner runs,
+  from a hull already broadcasting AIS; here it is the reader's own, on a
+  device this project does not own. Same two numbers, different subject.
+- **The store outlives the tab.** `CacheStore` has been a parameter since #272,
+  so `app/store.js` is a localStorage implementation of two synchronous string
+  methods and nothing above it knows. A write that will not fit is dropped, not
+  raised: the products treat a miss as "fetch it again", so the cost is one
+  fetch rather than an aborted refresh whose payload was already in hand.
+- **The clock is real.** The demo shifts `Date.now()` onto the captured instant
+  or the page brands itself STALE DATA; live data is current and needs no such
+  thing.
+- **It installs.** A manifest and a service worker that precaches the shell —
+  and *only* the shell. NOAA's own responses are never put in the Cache API: the
+  products already cache what they need through the store above, and a second
+  copy of a ~900 KB aurora grid would double what the app costs a phone to hold
+  while making neither copy the authority on how old it is.
+
+**Two sites, one assembler.** `scripts/site.mjs` owns the closure walk, the
+`dist/` copy and the outside-the-site guard; `build-demo.mjs` and
+`build-app.mjs` are each a spec and a call. The file list stays derived from
+`index.html`'s transitive imports in both, and the service worker's precache
+list is derived from that same list rather than written — a hand-kept list
+would be a second, quietly wrong answer to what the app is made of, and its
+failure mode is offline-only and silent.
+
+**The document-backed reads are shared, in `src/browser/seam.ts`.** The demo
+and the app answer the page out of the same `{values, tree, grids, routes}`
+shape, so `getJson`, `readAll`, `fetchGridCache` and the tree helpers have one
+implementation. It lives in `src/browser/` because a site copies `dist/` in
+already and `test/browser-closure.test.ts` walks that directory — a Node import
+added to it fails a test rather than a page. The one cost is that a built site
+is flat while the repo is not, so `demo/signalk.js` names it
+`./plugin/browser/seam.js` and `vitest.config.ts` carries the single alias that
+makes the two layouts agree.
