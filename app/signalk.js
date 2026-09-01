@@ -14,6 +14,7 @@
 import { createDocumentSeam } from './plugin/browser/seam.js'
 import {
   createLocalStore,
+  coarsenPosition,
   readLastPosition,
   writeLastPosition
 } from './store.js'
@@ -66,7 +67,18 @@ export function onPosition(listener) {
   return () => listeners.delete(listener)
 }
 
-function adopt(next) {
+/**
+ * Take a fix, coarsened once, here.
+ *
+ * The rounding is at this boundary and nowhere else so that the whole app --
+ * the cell above, the store, the products, the mark on the map -- holds one
+ * answer to where the reader is. Coarsening inside `writeLastPosition`
+ * instead would leave the drawn position finer than the stored one, which is
+ * two answers and an invitation for the fine one to leak somewhere later.
+ * `coarsenPosition` says why a tenth of a degree costs this app nothing.
+ */
+function adopt(fix) {
+  const next = coarsenPosition(fix)
   current = next
   denied = false
   writeLastPosition(next)

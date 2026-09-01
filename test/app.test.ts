@@ -12,7 +12,11 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import * as real from '../public/signalk.js'
 import * as seam from '../src/browser/seam.js'
-import { createLocalStore, readLastPosition } from '../app/store.js'
+import {
+  coarsenPosition,
+  createLocalStore,
+  readLastPosition
+} from '../app/store.js'
 import {
   SHELL,
   SITE_FILES,
@@ -223,5 +227,50 @@ describe('the app cache store', () => {
     // did fit is not claimed to be there when it is not.
     expect(store.readCache('aurora.json')).toBeNull()
     vi.unstubAllGlobals()
+  })
+})
+
+// The device's fix is the one piece of a reader's own data this app holds, and
+// `localStorage` has no at-rest protection a browser app can add -- a key would
+// have to live where the code that reads the value can reach it. Less precision
+// is the mitigation, so what is worth pinning is that it is applied and that it
+// is coarse enough to matter.
+describe('the persisted position is coarsened', () => {
+  it('rounds to a tenth of a degree', () => {
+    const fix = coarsenPosition({ latitude: 47.60621, longitude: -122.33207 })
+    expect(fix?.latitude).toBeCloseTo(47.6, 10)
+    expect(fix?.longitude).toBeCloseTo(-122.3, 10)
+  })
+
+  it('keeps every fix within about 11 km of where it came from', () => {
+    // A tenth of a degree of latitude is ~11.1 km, so the worst case a round
+    // can move a fix is half of that on each axis. Anything looser than this
+    // stops being the mitigation; anything tighter than the grid it indexes
+    // (1 degree for aurora, 2 by 4 for D-RAP) buys nothing back.
+    for (const latitude of [-89.97, -12.34, 0.04, 47.60621, 89.99]) {
+      for (const longitude of [-179.96, -122.33207, -0.02, 88.881, 179.99]) {
+        const fix = coarsenPosition({ latitude, longitude })!
+        expect(Math.abs(fix.latitude - latitude)).toBeLessThanOrEqual(0.05001)
+        expect(Math.abs(fix.longitude - longitude)).toBeLessThanOrEqual(0.05001)
+      }
+    }
+  })
+
+  it('answers null for no fix, the way the rest of the app spells one', () => {
+    expect(coarsenPosition(null)).toBeNull()
+  })
+
+  // The rounding is at `adopt` in app/signalk.js, not inside the store, so
+  // that the drawn position and the stored one cannot be two different
+  // answers. Read off the source: importing the module would run a
+  // geolocation watch and a dynamic plugin import.
+  it('is applied once, at the boundary in app/signalk.js', () => {
+    const source = readFileSync(join(ROOT, 'app', 'signalk.js'), 'utf8')
+    expect(source).toMatch(
+      /function adopt\(fix\)[\s\S]*?coarsenPosition\(fix\)/
+    )
+    // Nothing downstream of adopt may be handed the raw fix.
+    expect(source).not.toMatch(/writeLastPosition\(fix\)/)
+    expect(source).not.toMatch(/setPosition\(fix\)/)
   })
 })
