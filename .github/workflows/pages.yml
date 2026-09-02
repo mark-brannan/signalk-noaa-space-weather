@@ -54,7 +54,7 @@ jobs:
       - run: npm run build
       - run: node scripts/build-demo.mjs
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: demo-dist
       - id: deployment
