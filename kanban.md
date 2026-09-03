@@ -1,7 +1,7 @@
 # Open loops
 
 Work in flight, and only that. Facts go to `docs/`, questions go to an issue,
-history goes to `git log` — see [AGENTS.md](AGENTS.md#open-loops-live-in-kanbanmd)
+history goes to `git log` — see [CLAUDE.md](CLAUDE.md#pull-requests)
 for the rules. A card carries a link, the action, and — when it applies —
 what it is blocked by. Delete it when it is done.
 
@@ -375,7 +375,7 @@ what it is blocked by. Delete it when it is done.
       `examples/27-day-outlook.2026_08_24_0259.txt` (corrupt) and
       `...1801.txt` (corrected)
       ([#144](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/144))
-- [ ] Add a `.coderabbit.yaml` scoping AGENTS.md's rules by path — with none in
+- [ ] Add a `.coderabbit.yaml` scoping CLAUDE.md's rules by path — with none in
       the repo it reads the whole file as coding guidelines and applied the
       commit-subject format to a CHANGELOG entry
       ([#119](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/119#discussion_r3857388486))

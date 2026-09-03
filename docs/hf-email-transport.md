@@ -589,9 +589,9 @@ wear — dropped into `examples/` with a dated name, exactly as
 file-in, delta-out, so it tests offline by construction and the no-network rule
 holds untouched.
 
-## The config surface, against AGENTS.md's bar
+## The config surface, against CLAUDE.md's bar
 
-[AGENTS.md](../AGENTS.md#configuration): a setting has to be "a decision only the
+[CLAUDE.md](../CLAUDE.md#conventions): a setting has to be "a decision only the
 boat owner can make — one where a sensible default would be wrong for someone,
 and where they can tell the difference."
 
