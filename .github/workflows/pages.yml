@@ -53,7 +53,7 @@ jobs:
       # demo can be assembled, and typescript is already a devDependency here.
       - run: npm run build
       - run: node scripts/build-demo.mjs
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
           path: demo-dist
