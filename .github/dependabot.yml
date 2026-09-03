@@ -1,16 +1,22 @@
 version: 2
 
 updates:
-  # The plugin has no runtime dependencies, so this only ever moves devDeps
-  # (typescript, vitest, the release tooling). Grouped into a single monthly PR
-  # to keep the noise proportional to the size of the project.
+  # One runtime dependency: the space-weather core, which is the parsers, the
+  # products and the webapp page this plugin serves. A bump of it is a release
+  # of this plugin in all but name, so it gets a PR of its own, weekly, that
+  # can be read and merged on its own terms. The devDeps (typescript, vitest,
+  # the release tooling) stay grouped into a single monthly PR to keep the
+  # noise proportional to the size of the project.
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: monthly
+      interval: weekly
     open-pull-requests-limit: 3
     groups:
+      space-weather:
+        patterns: ['space-weather']
       dev-dependencies:
+        dependency-type: development
         patterns: ['*']
 
   - package-ecosystem: github-actions

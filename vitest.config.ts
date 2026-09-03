@@ -1,20 +1,27 @@
-import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
+import { dirname, join } from 'node:path'
 import { configDefaults, defineConfig } from 'vitest/config'
+
+// The compiled core the sites copy under plugin/, found the way Node loads it.
+const CORE_DIST = join(
+  dirname(createRequire(import.meta.url).resolve('space-weather/package.json')),
+  'dist'
+)
 
 export default defineConfig({
   // A built site is one flat directory: demo/signalk.js lands as signalk.js
-  // next to the compiled plugin under plugin/, so it names its shared modules
+  // next to the compiled core under plugin/, so it names its shared modules
   // './plugin/...'. The tests import that same file out of the repo, where
-  // demo/ and dist/ are siblings and that specifier resolves nowhere. This is
-  // the one rule that makes the two layouts agree, and it points at exactly
-  // what the build copies -- scripts/site.mjs writes dist/ into the site under
-  // the same prefix. The suite already needs `npm run build` to have run:
-  // SITE_FILES reads dist/ through the build's own reader.
+  // that specifier resolves nowhere. This is the one rule that makes the two
+  // layouts agree, and it points at exactly what the build copies --
+  // scripts/site.mjs writes the space-weather package's dist/ into the site
+  // under the same prefix. The suite already needs `npm install` to have run:
+  // SITE_FILES reads that dist/ through the build's own reader.
   resolve: {
     alias: [
       {
         find: /^\.\/plugin\//,
-        replacement: fileURLToPath(new URL('./dist/', import.meta.url))
+        replacement: CORE_DIST + '/'
       }
     ]
   },

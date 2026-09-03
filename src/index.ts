@@ -6,18 +6,22 @@
  * is pure and lives in src/parse.ts, and all I/O goes through src/noaa/client
  * (in) and src/publisher (out).
  */
-import { Settings, schema, settingsFrom } from './config.js'
-import { createClient, Trigger } from './noaa/client.js'
-import { flushTotals, loadTotals, meterTotals } from './meter.js'
-import { predictedBytesPerDay } from './endpoints.js'
-import { telemetryBody } from './telemetry.js'
-import { CacheStore } from './cache/entryCache.js'
-import { readAuroraCache } from './cache/auroraCache.js'
-import { readDrapCache } from './cache/drapCache.js'
-import { readAdvisoryCache } from './cache/advisoryCache.js'
-import { createPublisher, Meta } from './publisher.js'
-import { PROTON_FLUX_BASE, TELEMETRY_BASE, XRAY_FLUX_BASE } from './paths.js'
-import { FORCE_REFRESH_COOLDOWN_MS } from './refreshPolicy.js'
+import { Settings, schema, settingsFrom } from 'space-weather/config'
+import { createClient, Trigger } from 'space-weather/noaa/client'
+import { flushTotals, loadTotals, meterTotals } from 'space-weather/meter'
+import { predictedBytesPerDay } from 'space-weather/endpoints'
+import { telemetryBody } from 'space-weather/telemetry'
+import { CacheStore } from 'space-weather/cache/entryCache'
+import { readAuroraCache } from 'space-weather/cache/auroraCache'
+import { readDrapCache } from 'space-weather/cache/drapCache'
+import { readAdvisoryCache } from 'space-weather/cache/advisoryCache'
+import { createPublisher, Meta } from 'space-weather/publisher'
+import {
+  PROTON_FLUX_BASE,
+  TELEMETRY_BASE,
+  XRAY_FLUX_BASE
+} from 'space-weather/paths'
+import { FORCE_REFRESH_COOLDOWN_MS } from 'space-weather/refreshPolicy'
 import {
   Lattice,
   MAX_ZOOM,
@@ -31,11 +35,11 @@ import {
 // Re-exported so `PRODUCTS` stays one list with one importable name: the
 // registry moved to src/products/registry.ts when the browser demo needed it
 // (#239), and this module's own closure reaches the filesystem.
-import { aurora } from './products/aurora.js'
-import { drap } from './products/drap.js'
-import { goesFlux } from './products/goesFlux.js'
-import { PRODUCTS } from './products/registry.js'
-import type { Product } from './products/types.js'
+import { aurora } from 'space-weather/products/aurora'
+import { drap } from 'space-weather/products/drap'
+import { goesFlux } from 'space-weather/products/goesFlux'
+import { PRODUCTS } from 'space-weather/products/registry'
+import type { Product } from 'space-weather/products/types'
 export { PRODUCTS }
 
 /**

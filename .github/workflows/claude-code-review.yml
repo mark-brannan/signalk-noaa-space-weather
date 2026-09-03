@@ -44,12 +44,15 @@ jobs:
         from the repo, the diff, or something you ran yourself.
 
         Check the diff against this repo's hard constraints ONLY:
-        tests that reach the network, anything that could publish NaN,
-        non-SI units or a `units` key on a dimensionless value, a
-        weakened gate (a deleted or loosened test, a skipped fixture),
-        version-bump handling per CLAUDE.md "Never touch version numbers", and `main`
-        staying in package.json. Run `npm ci`, `npm run build`,
-        `npm test` and `npm run format:check` yourself.
+        tests that reach the network, a weakened gate (a deleted or
+        loosened test, a skipped fixture), a second copy of anything the
+        `space-weather` package already ships (its parsers, products and
+        public/ are consumed, never vendored), a committed file under
+        public/ (it is generated), version-bump handling per CLAUDE.md
+        "Never touch version numbers", and `main` staying in
+        package.json. NaN and units are the core package's constraints,
+        not this repo's. Run `npm ci`, `npm run build`, `npm test` and
+        `npm run format:check` yourself.
 
         Report VIOLATIONS of those constraints, and nothing else. No
         style opinions, no questions, no requests for justification,

@@ -24,18 +24,15 @@
   },
   "scripts": {
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "prebuild": "node scripts/sync-icon.mjs && node scripts/sync-coastline.mjs",
+    "prebuild": "node scripts/sync-webapp.mjs && node scripts/sync-icon.mjs",
     "build": "tsc",
     "typecheck": "tsc -p tsconfig.test.json",
     "watch": "npm run build -- -w",
     "test": "vitest run",
-    "dev:webapp": "node scripts/mock-webapp.mjs",
-    "dev:webapp:stop": "node scripts/webapp-ctl.mjs stop",
-    "dev:webapp:list": "node scripts/webapp-ctl.mjs list",
     "demo:build": "node scripts/build-demo.mjs",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "prepublishOnly": "npm run build && npm test",
-    "prepare": "node scripts/sync-icon.mjs && node scripts/sync-coastline.mjs",
+    "prepare": "node scripts/sync-webapp.mjs && node scripts/sync-icon.mjs",
     "app:build": "node scripts/build-app.mjs"
   },
   "repository": {
@@ -61,10 +58,11 @@
   },
   "author": "mark-brannan",
   "license": "AGPL-3.0-or-later",
+  "dependencies": {
+    "space-weather": "^0.1.0"
+  },
   "devDependencies": {
     "@types/node": "^26.1.2",
-    "coast-wright": "^0.0.1-alpha.0",
-    "coastlines": "^0.0.1-alpha.0",
     "prettier": "^3.4.2",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"

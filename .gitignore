@@ -111,15 +111,12 @@ dist
 # commit a second copy of the tree.
 .claude/worktrees/
 
-# Generated from the root icon.svg by scripts/sync-icon.mjs, the same way
-# dist/ is generated: build output that ships (public/ is in package.json's
-# "files") but has no business being a second copy under version control.
-/public/icon.svg
-
-# Generated from the "coastlines" and "coast-wright" npm packages by
-# scripts/sync-coastline.mjs, same reasoning as public/icon.svg above.
-/public/coastline.js
-/public/vendor/
+# Generated: scripts/sync-webapp.mjs copies the space-weather package's
+# public/ (the page, its modules, the vendored coastline) here on prepare and
+# prebuild, and scripts/sync-icon.mjs drops the root icon.svg into that copy.
+# Build output that ships (public/ is in package.json's "files"), the same way
+# dist/ is, with no business being a second copy under version control.
+/public/
 
 # Contact sheets from scripts/screenshots/states.mjs. Review material for a
 # pull request that changes the webapp, not repo content: pinning one would

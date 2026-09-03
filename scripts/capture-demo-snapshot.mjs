@@ -4,12 +4,13 @@
 // this is run by hand when the snapshot is worth refreshing, never by the
 // page.
 //
-//   npm run build && node scripts/capture-demo-snapshot.mjs
+//   npm install && node scripts/capture-demo-snapshot.mjs
 //
-// Same pattern as loadRealProducts in mock-webapp.mjs: the products are
-// already decoupled from Signal K behind the Publisher interface, so this
-// runs the real ones from dist/ against a publisher that captures every
-// published value into a map instead of a delta. The two grids come back
+// Same pattern as loadRealProducts in the core's mock-webapp.mjs: the
+// products are already decoupled from Signal K behind the Publisher
+// interface, so this runs the real ones out of the installed space-weather
+// package against a publisher that captures every published value into a map
+// instead of a delta. The two grids come back
 // through the same on-disk cache the plugin itself writes.
 //
 // The vessel is a chosen viewpoint, not a real boat: the capture runs with a
@@ -33,60 +34,24 @@ import { fileURLToPath } from 'node:url'
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = path.join(REPO, 'demo', 'snapshot.json')
 
-const distIndex = path.join(REPO, 'dist', 'index.js')
-if (!fssync.existsSync(distIndex)) {
-  console.error('dist/ missing -- run `npm run build` first')
-  process.exit(1)
-}
-
-// A stale dist/ is the dangerous case, not a missing one: the capture runs the
-// compiled products, so it silently bakes whatever parser dist/ happens to hold
-// into a snapshot that then looks like fresh NOAA data. It happened -- a
-// snapshot captured before #254 published the day's predicted Kp peak as the
-// observation, exactly the bug that fix removed, and nothing about the file
-// said so.
-const newest = (dir, ext) => {
-  let latest = 0
-  for (const entry of fssync.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) latest = Math.max(latest, newest(full, ext))
-    else if (entry.name.endsWith(ext))
-      latest = Math.max(latest, fssync.statSync(full).mtimeMs)
-  }
-  return latest
-}
-if (newest(path.join(REPO, 'src'), '.ts') > newest(path.join(REPO, 'dist'), '.js')) {
-  console.error('dist/ is older than src/ -- run `npm run build` first')
-  process.exit(1)
-}
-
-// Driven off the plugin's own PRODUCTS registry rather than a list kept here:
-// a hand-maintained list is how the demo ended up with four values and a
+// Driven off the core's PRODUCTS registry rather than a list kept here: a
+// hand-maintained list is how the demo ended up with four values and a
 // half-empty page (issue #239). A product added to the registry lands in the
 // next capture with no edit to this file.
-// DEMO_POSITION and DEMO_PROPS come from dist/browser/live.js, which is where
-// the live demo reads them too: the two demos are the same page over two data
-// layers, and a capture claiming a different viewpoint or different settings
-// than the live one would make them disagree about their own numbers.
-const [
-  { PRODUCTS },
-  { settingsFrom },
-  auroraCache,
-  drapCache,
-  advisoryCache,
-  { createClient },
-  { telemetryBody },
-  { DEMO_POSITION, DEMO_PROPS }
-] = await Promise.all([
-  import(distIndex),
-  import(path.join(REPO, 'dist', 'config.js')),
-  import(path.join(REPO, 'dist', 'cache', 'auroraCache.js')),
-  import(path.join(REPO, 'dist', 'cache', 'drapCache.js')),
-  import(path.join(REPO, 'dist', 'cache', 'advisoryCache.js')),
-  import(path.join(REPO, 'dist', 'noaa', 'client.js')),
-  import(path.join(REPO, 'dist', 'telemetry.js')),
-  import(path.join(REPO, 'dist', 'browser', 'live.js'))
-])
+// DEMO_POSITION and DEMO_PROPS come from the package's browser/live, which is
+// where the live demo reads them too: the two demos are the same page over
+// two data layers, and a capture claiming a different viewpoint or different
+// settings than the live one would make them disagree about their own numbers.
+// The package is a published build, so there is no stale dist/ to guard
+// against here; the version captured is whatever `npm install` resolved.
+import { PRODUCTS } from 'space-weather/products/registry'
+import { settingsFrom } from 'space-weather/config'
+import * as auroraCache from 'space-weather/cache/auroraCache'
+import * as drapCache from 'space-weather/cache/drapCache'
+import * as advisoryCache from 'space-weather/cache/advisoryCache'
+import { createClient } from 'space-weather/noaa/client'
+import { telemetryBody } from 'space-weather/telemetry'
+import { DEMO_POSITION, DEMO_PROPS } from 'space-weather/browser/live'
 
 // One clock for the whole capture: the vessel is at this position as of the
 // same moment the snapshot claims to be from.
