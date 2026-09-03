@@ -96,23 +96,22 @@ jobs:
       # show up as noise in an unrelated diff.
       - run: npm run format:check
 
-  # The single required context, per docs/design-decisions.md's argument for
-  # why this exists. `always()` is what lets it evaluate when plugin-ci and
-  # typecheck were skipped rather than being skipped itself -- a required
-  # context that inherits a skip has the same "never reports" problem this
-  # whole job exists to avoid. No `name:` here, deliberately: the reported
-  # check context is the job id unless overridden, and the ruleset requires
-  # the context "ci-gate" -- a `name:` here made it wait on a context that
-  # never reports, the exact failure mode this job exists to avoid.
+  # The single required status check, shared across repositories: the
+  # `gate` job of mark-brannan/.github's reusable ci-gate workflow, which fails
+  # unless every result in `needs` is green. The reported context is
+  # "ci-gate / gate" -- GitHub names a reusable workflow's checks
+  # "<caller job> / <called job>" -- and that is what the ruleset requires, so
+  # this job's id is part of the contract. `always()` is what lets the gate
+  # evaluate when a dependency failed or was skipped, so it reports an explicit
+  # pass or fail of its own rather than inheriting the skip.
+  # `allow-skipped` because plugin-ci and typecheck deliberately skip a
+  # board-only pull request, and that skip is the gate's pass, not its fail.
   ci-gate:
     needs: [plugin-ci, typecheck]
     if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          if [ "${{ needs.plugin-ci.result }}" = "failure" ] || [ "${{ needs.plugin-ci.result }}" = "cancelled" ] || \
-             [ "${{ needs.typecheck.result }}" = "failure" ] || [ "${{ needs.typecheck.result }}" = "cancelled" ]; then
-            echo "plugin-ci: ${{ needs.plugin-ci.result }}"
-            echo "typecheck: ${{ needs.typecheck.result }}"
-            exit 1
-          fi
+    # It reads nothing and writes nothing; the results go in as an input.
+    permissions: {}
+    uses: mark-brannan/.github/.github/workflows/ci-gate.yml@main
+    with:
+      results: ${{ toJSON(needs) }}
+      allow-skipped: true
