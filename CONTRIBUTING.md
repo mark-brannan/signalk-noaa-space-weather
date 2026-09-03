@@ -99,7 +99,11 @@ number, the CHANGELOG and the tag: don't edit `package.json`'s version,
 `.release-please-manifest.json` or `CHANGELOG.md`, and don't create a tag
 locally. Your commit subject is the whole input — `fix` and `feat` earn a
 release, `chore`/`docs`/`test`/`refactor` ride along in the next one, and a
-`!` or a `BREAKING CHANGE:` footer is what escalates it.
+`!` or a `BREAKING CHANGE:` footer is what escalates it. The one exception is
+`CHANGELOG.md` on the standing `chore: release` pull request itself —
+release-please's own PR, not yours — which may be hand-edited before merging
+when a release deserves notes written rather than assembled (see CLAUDE.md's
+*Releasing* section).
 
 ## Code of Conduct
 
