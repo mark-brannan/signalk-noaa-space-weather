@@ -170,86 +170,28 @@ If the admin UI 500s on `/admin/`, npm has hoisted `@signalk/server-admin-ui`
 somewhere the server doesn't look; symlink it into
 `node_modules/signalk-server/node_modules/@signalk/`.
 
-## Working on the webapp ("rig") without a server
+## Working on the webapp without a server
 
-```shell
-npm run dev:webapp        # http://127.0.0.1:8731, or pass a port
-```
+The page, its modules and the mock rig that serves them with fabricated states
+live in the [space-weather](https://github.com/mark-brannan/space-weather)
+core now, and so does the procedure:
+[space-weather/docs/development.md](https://github.com/mark-brannan/space-weather/blob/main/docs/development.md).
+Run it from a checkout of that repo. What this plugin serves at
+`/signalk-noaa-space-weather/` is that package's `public/`, copied here by
+`scripts/sync-webapp.mjs` on `npm install` -- so a change to the page is made
+there, published, and arrives here as a dependency bump, never as an edit to
+`public/`.
 
-It binds every interface, and prints one URL per address it can be reached
-at — loopback, LAN, Tailscale. Showing a change on another device (per the
-note at the top of this file) is a matter of pasting the right line of that
-output; no proxy, and nothing to look up with `hostname -I`. To narrow it
-back to loopback on a network you don't trust, `npm run dev:webapp -- --host
-127.0.0.1` — the `--` is not optional, npm swallows the flag without it and
-leaves the server bound to every interface, which is the one mistake this
-option exists to prevent. Kill it when done; don't leave stray listeners
-behind.
-
-**In a sandboxed agent session, background it with `&` and `disown` in the
-same shell call, and don't use `pkill` to manage it.** `pkill` gets killed
-by the sandbox itself the instant it runs — even `pkill -f
-some-pattern-that-matches-nothing` dies with exit 144 — so any command chain
-that runs it can take the whole chain down, including a freshly backgrounded
-server. `pgrep -f mock-webapp` to find the pid and plain `kill` to stop it
-both work fine.
-
-`scripts/mock-webapp.mjs` serves `public/` with a state switcher appended and
-answers the Signal K paths it understands with fabricated data, so the real
-`heroState`/`renderTimer`/`renderKp` decide what renders. A strip at the
-bottom of the page switches between the states in `STATES`: quiet, an R2 in
-the past 24h, a G3 forecast, a G3 eased to G1 and still in force, a G4+S4 in
-force, stale data, and no-data-since-start. Most are impractical to reach
-against a live server -- a G4 happens a few times a solar cycle, and the last
-one means breaking the plugin on purpose -- which is the whole reason the
-file exists. **The switcher strip is part of this harness, not the product**
--- a synthetic click meant for the map can land on it instead (it's fixed at
-the bottom of the viewport and a tall expanded tile scrolls underneath it),
-which navigates the page and looks exactly like the app misbehaving. Verify
-a synthetic click's target with `elementFromPoint` before trusting what it
-did.
-
-Reach for it instead of hand-editing the DOM in devtools, and add a state
-there rather than faking one in the console.
-
-It has no dependencies and nothing imports it. Keep it that way — it has to
-stay invisible to the registry's offline `npm ci`, build and test run.
-
-The map's grids are the one thing here that is not fabricated: a made-up
-aurora or D-RAP grid would be mocking `tiles.ts` rather than the webapp. The
-four routes behind them -- `aurora-grid`, `drap-grid`, `aurora-refresh`,
-`drap-refresh` -- fall through to the real products, loaded out of `dist/`, so
-pressing **Fetch** on the map does a real NOAA request and caches a real grid
-on disk under the OS temp dir, with or without `--upstream`. Those buttons are
-therefore the one part of this that needs `npm run build` first and needs the
-network; everything else stays fabricated and offline. Until a real fetch has
-landed, the map renders its own empty state and the aurora and D-RAP readings
-come from `payload()` like every other path. A real `refresh()` also publishes
-the point value at the vessel, which the mock captures in place of an `app`
-object and serves back on those paths.
-
-`--upstream <base-url>` trades the fabricated states for a running
-server's real numbers: the same paths are proxied there verbatim instead of
-going through `payload()`, so a branch's `public/` -- a changed card, new
-copy -- can be checked against genuine data without repointing
-`~/.signalk/node_modules/signalk-noaa-space-weather` at this worktree, which
-would move every other session on that shared server onto this branch's
-build too.
-
-```shell
-node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3010
-```
-
-3010 is the shared dev server described above -- check
-`~/.signalk/locks/dev-server.lock` before relying on it being idle, same as
-any other use of that instance. `--upstream` and the state switcher are
-mutually exclusive; passing it replaces the switcher strip with one naming
-the upstream instead.
+The `--upstream` mode described there proxies a running Signal K server's
+real numbers into the mock: point it at the shared dev server (3010, see
+above -- check `~/.signalk/locks/dev-server.lock` first) to check a core
+branch's page against genuine data without repointing
+`~/.signalk/node_modules/signalk-noaa-space-weather` at anything.
 
 ## The browser demo
 
 ```shell
-npm install && npm run build           # the live layer is the compiled plugin
+npm install                            # the live layer is the space-weather package
 npm run demo:build                     # assembles demo-dist/
 npx http-server demo-dist              # any static server works
 ```
@@ -399,14 +341,19 @@ loads `/admin/` first.
 
 `scripts/screenshots/states.mjs` is the other half of that package, and the two
 answer different questions. `capture.mjs` shoots a live server and rewrites the
-five PNGs the README ships; `states.mjs` starts `scripts/mock-webapp.mjs`
-itself, walks every state it declares, and writes a gitignored
-`.hero-states/` with the PNGs and an `index.html` contact sheet. Nothing is
-committed — these are review material for one pull request, and pinning them
-would mean recapturing on every unrelated change to the page.
+five PNGs the README ships; `states.mjs` starts the core's mock rig itself,
+walks every state it declares, and writes a gitignored `.hero-states/` with
+the PNGs and an `index.html` contact sheet. Nothing is committed — these are
+review material for one pull request, and pinning them would mean recapturing
+on every unrelated change to the page.
+
+The mock is not in the published package, so `states.mjs` runs it from a
+checkout of the core: `--core <path>`, `SPACE_WEATHER_REPO`, or a
+`space-weather` directory beside this repo, built (`npm install && npm run
+build` there first).
 
 ```shell
-node scripts/screenshots/states.mjs        # --out, --port, --theme
+node scripts/screenshots/states.mjs        # --out, --port, --theme, --core
 ```
 
 Defaults to dark only, since that's the only rendering worth reviewing on a

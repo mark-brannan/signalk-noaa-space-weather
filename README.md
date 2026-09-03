@@ -148,6 +148,10 @@ and enable it under *Server → Plugin Config*. Or from a shell:
 `npm install signalk-noaa-space-weather` in `~/.signalk`, restart, then
 enable it the same way.
 
+The parsers, the products and the webapp page are the
+[space-weather](https://github.com/mark-brannan/space-weather) package; this
+plugin is the Signal K lifecycle, the HTTP routes and the chart tiles around it.
+
 ## Configuration
 
 Eleven settings, all optional, all with working defaults:

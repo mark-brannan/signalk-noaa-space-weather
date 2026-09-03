@@ -108,7 +108,7 @@ fixed by pushing, not by a hook.
 ## Ownership and reaping
 
 With per-alpha ports there is no shared resource and no lock. Ownership is
-**derived, never declared** -- the same principle `webapp-ctl.mjs` already
+**derived, never declared** -- the same principle the core's `webapp-ctl.mjs` already
 uses for the mock rig (`lsof` for who is listening, `ps comm` for what it
 actually is).
 
@@ -135,7 +135,7 @@ another config dir -- that is the failure that produced `~/.signalk/signalk/`.
 
 ## Manual control
 
-`scripts/rig-ctl.mjs`, beside `webapp-ctl.mjs`, same no-pidfile discipline
+`scripts/rig-ctl.mjs`, the core's `webapp-ctl.mjs` idiom, same no-pidfile discipline
 and the same no-dependency constraint as the rest of `scripts/`:
 
     rig status | start [tier] | stop | switch <branch> | reseed | reap
@@ -160,19 +160,21 @@ not worth it. Print the URL.
 
 ## After the core extraction
 
-The `space-weather` core extraction moves `public/` and the mock rig
-(`mock-webapp.mjs`, `webapp-ctl.mjs`) out of this repo. The Signal K rig
-stays: it runs `index.ts` in a server through the symlink in
-`~/.signalk/node_modules/`, and `index.ts` stays here.
+`public/` and the mock rig (`mock-webapp.mjs`, `webapp-ctl.mjs`) live in the
+`space-weather` core. The Signal K rig stays here: it runs `index.ts` in a
+server through the symlink in `~/.signalk/node_modules/`, and `index.ts` is
+this repo's.
 
-That splits the dirty-detection above. In this repo `public/` becomes
-generated and gitignored, so `src/**` is the only watch set and a webapp
-change is not visible here at all -- it is made in the core checkout. The rig
-therefore has to be able to follow a **linked** core (`npm link` or a `file:`
-dependency), rebuild both, and restart. Until it can, a core-repo session can
-offer the mock rig but no real Signal K URL, which breaks the standing rule
-that both are handed over every cycle; say so plainly rather than offering
-the mock alone.
+That splits the dirty-detection above. In this repo `public/` is generated
+and gitignored -- a copy of the installed package's, made by
+`scripts/sync-webapp.mjs` on `npm install` -- so `src/**` is the only watch
+set, and a webapp change is not visible here at all: it is made in the core
+checkout. The rig therefore has to be able to follow a **linked** core
+(`npm link` or a `file:` dependency), rebuild both, and restart. Until it
+can, a core-repo session can offer the mock rig but no real Signal K URL,
+which breaks the standing rule that both are handed over every cycle; say so
+plainly rather than offering the mock alone. The core's
+`docs/development.md` says the same from its side.
 
 ## Open
 

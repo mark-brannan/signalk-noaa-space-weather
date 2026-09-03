@@ -96,8 +96,9 @@ reports; it does not commit.
 
 ### 6 · Visual, manual
 
-`scripts/mock-webapp.mjs` with seven fabricated states, `--upstream` to
-proxy a real server, and `scripts/screenshots/` -- a **separate npm package**,
+The core's `scripts/mock-webapp.mjs` with seven fabricated states,
+`--upstream` to proxy a real server, and `scripts/screenshots/` -- a
+**separate npm package**,
 because Playwright would blow the registry's offline `npm ci` and its 60
 second cap. `capture.mjs` rewrites the README shots; `states.mjs` walks every
 mock state into a gitignored contact sheet.
