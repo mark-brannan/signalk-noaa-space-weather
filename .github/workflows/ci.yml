@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 jobs:
-  # A board-only PR (AGENTS.md, "Open loops") is a kanban.md edit and nothing
+  # A board-only PR (CLAUDE.md, "Board-only PRs merge themselves") is a kanban.md edit and nothing
   # else -- no source, no config, nothing the matrix below could catch. Three
   # such PRs cost 128 CI jobs in one day because every update-branch retriggers
   # the whole matrix, including the ~4 minute armv7 QEMU job. This job runs the
@@ -91,7 +91,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
 
-      # AGENTS.md orders `npm run format`; until now nothing enforced it, so a
+      # CLAUDE.md orders `npm run format`; until now nothing enforced it, so a
       # branch could land unformatted and the next person's format run would
       # show up as noise in an unrelated diff.
       - run: npm run format:check
