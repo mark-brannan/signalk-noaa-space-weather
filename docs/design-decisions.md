@@ -968,6 +968,15 @@ two never matched: every PR sat on "ci-gate — Expected — Waiting for status
 to be reported" forever, the exact failure this job exists to prevent, just
 moved one layer up. Caught live on #276 within minutes of applying the
 ruleset. Fixed by dropping the `name:` so the reported context is the job id.
+
+Since 2026-09-03 the gate is the shared reusable workflow in
+[mark-brannan/.github](https://github.com/mark-brannan/.github), called from
+a job still named `ci-gate`, and the same naming rule moves the context one
+more step: GitHub reports a reusable workflow's checks as
+"<caller job> / <called job>", so the context the ruleset and the shared
+Mergify config require is `ci-gate / gate`. The job id is therefore part of
+the contract, and `allow-skipped: true` on the call is what keeps a
+board-only PR's deliberate skip reading as a pass.
 ## The demo's third data layer is the plugin itself
 
 The demo page has always been the shipping page rather than a fork of it,
