@@ -97,10 +97,13 @@ jobs:
       - run: npm run format:check
 
   # The single required context, per docs/design-decisions.md's argument for
-  # why this exists. `always()` is what lets it evaluate when plugin-ci and
-  # typecheck were skipped rather than being skipped itself -- a required
-  # context that inherits a skip has the same "never reports" problem this
-  # whole job exists to avoid. No `name:` here, deliberately: the reported
+  # why this exists. `always()` is what lets it evaluate when plugin-ci or
+  # typecheck failed or were skipped, so this job reports an explicit pass or
+  # fail of its own. Without it the gate inherits the skip, and a skipped
+  # required check is not a dependable block: a job skipped by `if` reports
+  # `skipped`, while a whole workflow skipped by path or branch filters leaves
+  # the check pending forever. Neither is the verdict a ruleset needs.
+  # No `name:` here, deliberately: the reported
   # check context is the job id unless overridden, and the ruleset requires
   # the context "ci-gate" -- a `name:` here made it wait on a context that
   # never reports, the exact failure mode this job exists to avoid.
