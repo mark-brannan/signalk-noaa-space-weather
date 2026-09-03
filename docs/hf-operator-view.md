@@ -384,7 +384,7 @@ are scheduled.
   (and the ceiling, once one exists) turns "9.9 MHz absorbed" into "your
   8 MHz net is gone; the 12 MHz station clears", and it is the only severity
   a D-RAP zone ladder could carry honestly. A new setting has a bar to clear
-  (AGENTS.md); the case that this one clears it is that the list is a fact
+  ([CLAUDE.md](../CLAUDE.md#conventions)); the case that this one clears it is that the list is a fact
   about the vessel's installation, like position, not a preference about
   presentation. Raised in the #153 review, not decided.
 - **D-RAP and aurora as one charting product.** NOAA's own

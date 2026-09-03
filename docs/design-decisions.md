@@ -1202,6 +1202,49 @@ answer to. NOAA fixes the window when it issues the table and the product polls
 it daily, so those two can name a storm day that has already been and gone —
 and in the mock's `storm` state, six days gone.
 
+## Zone metadata is what turns a reading into a notification
+
+signalk-server's `src/zones.ts` watches any path carrying `meta.zones` and
+raises `notifications.<path>` on zone *transitions* — this plugin never calls
+a notification API directly for the levels it publishes as plain data. Its
+matcher is half-open, `value >= lower && value < upper`, and `Infinity` has
+no JSON representation, so a zone table that set the top zone's `upper` to
+`Infinity` would serialize it away and the highest value would fall through
+every zone and match nothing at all. The fix is omission: a top zone simply
+has no `upper` key. The metadata's `alertMethod` / `warnMethod` /
+`alarmMethod` set the notification's `method` array independently of its
+`state`, which is the mechanism `methodForState` in `parse.ts` relies on to
+put a level in the UI list without also sounding it.
+
+## The page is three views over one state object, not three copies of it
+
+Dashboard (the verdict, what NOAA has said is in force, and what the plugin
+costs), Conditions (Kp, the solar wind behind it, HF), Map — each a tabpanel
+that is either in the document or `hidden`, never a second page, a second
+poll, or a second copy of the map. The temptation with three views is to
+partition the data one reading per view; that would let a value's second
+appearance drift from its first; the fix already committed is the opposite: a
+reading belongs in every view that answers with it, so every renderer takes
+the container it draws into as a parameter rather than looking one up by id,
+and `paint()` walks whichever containers are currently on screen. An id would
+have let a second `#current-kp` somewhere quietly stop updating.
+
+## On the map, `radiusDeg` is honoured on the shorter axis; the clip is at the antipode
+
+Scaling an azimuthal disc off the viewport's longer axis and then cutting it
+at the requested radius agree only on a square viewport. Full-bleed they
+fight: the picture becomes a letterbox slice of a circle, with most of the
+requested radius thrown away vertically. The contract, in the docstring, is
+"arc from the centre to the *nearer* edge" — don't reintroduce scaling off
+the long axis.
+[#177](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/177)'s
+complaint about empty margins only comes back above `180 * short / long`,
+where a globe is genuinely round and the margin is telling the truth, not
+wasting space. The map's chrome is **one** gutter holding the controls and
+the per-layer readout together, falling back to strips over the picture below
+1100px via `display: contents` on the rail — so the wide layout is a plain
+flex row and nothing in it measures anything.
+
 ## The standalone app is the fourth thing behind the same seam
 
 `public/signalk.js` is the one module the webapp page reaches a server

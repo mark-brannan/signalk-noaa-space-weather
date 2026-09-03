@@ -96,11 +96,15 @@ list grows.
 
 This plugin is wired in by `~/.signalk/node_modules/signalk-noaa-space-weather`,
 a symlink to this repo — recreate it with `ln -s` if something has replaced it
-with a copy. `CLAUDE.md` carries the two rules that fall out of that (don't
-`npm install` in that directory, and the shared server runs whatever branch
-this repo has checked out) and
-[design-decisions.md](design-decisions.md#the-dev-server-finds-this-plugin-by-symlink)
-the reasoning.
+with a copy. Two rules fall out of that: **don't `npm install` in that
+directory** (it replaces the symlink with a copy and re-resolves every caret
+range in `~/.signalk`), and **the shared server runs whatever branch this repo
+has checked out**, from whatever is in `dist/` — gitignored, so a branch
+switch leaves the previous build in place until you rebuild. Leave the repo on
+`main` and rebuilt when you finish, do feature work on a branch knowing the
+shared server follows you onto it, and never leave it parked on a branch with
+a broken build. Reasoning in
+[design-decisions.md](design-decisions.md#the-dev-server-finds-this-plugin-by-symlink).
 
 Most of what this plugin does needs `navigation.position` to exist.
 `signalk-fixed-position` is enabled in `~/.signalk` and will contend with any
@@ -414,4 +418,39 @@ it, so a state added there appears here with no second edit. The clip is the
 statusbar and the hero tile together, never one without the other: the chip and
 the countdown live in the first and the words in the second, and #126 was
 precisely a disagreement between the two.
+
+## Releasing
+
+**No pull request carries a version.** `release-please` owns the number, the
+CHANGELOG and the tag, from `.github/workflows/release-please.yml` and
+`release-please-config.json`. Nothing else in the repo knows about releasing.
+Never edit `package.json`'s version, `.release-please-manifest.json` or
+`CHANGELOG.md` by hand, and never create a tag locally.
+
+A merge to `main` updates a standing `chore: release` pull request — the bump
+and the changelog entry, assembled from Conventional Commit subjects since the
+last tag. **Merging that pull request is the release.** Work batches into it
+until you do; there is no timer and nothing decides on your behalf. Edit its
+CHANGELOG diff before merging when a release deserves notes written rather
+than assembled.
+
+**Squash-merge it.** `main` requires signed commits and release-please's are
+unsigned; a squash replaces them with one commit signed by GitHub's key. A
+merge commit carries the unsigned originals through and is rejected.
+
+The version policy is two config keys, not prose:
+`bump-patch-for-minor-pre-major` keeps `feat` a patch and
+`bump-minor-pre-major` makes a breaking change a minor, for as long as this is
+pre-1.0 — the standing bias against minting minors, enforced instead of asked
+for. `feat`/`fix` are the only commit types release-please reads; write the
+type honestly or the changelog silently omits the change.
+
+Publishing is still npm OIDC trusted publishing with no token anywhere.
+release-please runs as a GitHub App (not the default `GITHUB_TOKEN`) so its
+own release pull request gets real CI, and its tag push therefore *does*
+trigger workflows — which is exactly why `publish.yml` has no `push: tags`
+listener of its own: one would race the explicit dispatch.
+`release-please.yml` creates the tag and the GitHub Release, then dispatches
+`publish.yml` explicitly, the same path a human uses by hand. Argument in
+[docs/design-decisions.md](design-decisions.md#release-please-owns-the-version-no-pull-request-does).
 

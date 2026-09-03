@@ -13,7 +13,7 @@ _Solar Activity & HF Propagation_.
 
 **Verification status matters here.** These notes were researched from
 published documentation and secondary sources; none of the endpoints below
-have been measured from this repo yet. Per [AGENTS.md](../AGENTS.md), every
+have been measured from this repo yet. Per [CLAUDE.md](../CLAUDE.md), every
 claim about an endpoint's size, cadence, or shape must be re-established with
 `scripts/measure-noaa.mjs` and a dated fixture in `examples/` before a parser
 is written — and those measurements belong in
