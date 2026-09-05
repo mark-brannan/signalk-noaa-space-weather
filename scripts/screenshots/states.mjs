@@ -8,22 +8,29 @@
 //   npx --prefix scripts/screenshots playwright install chromium
 //   node scripts/screenshots/states.mjs
 //   node scripts/screenshots/states.mjs --through '#hfTile'   # further down the page
+//   node scripts/screenshots/states.mjs --core ../space-weather
 //
-// This draws from `scripts/mock-webapp.mjs`, not from a server, and that is
-// the whole point: four of its states are impractical to reach against a live
-// one -- a G4 happens a few times a solar cycle, and "no data since start"
-// means breaking the plugin on purpose. The mock serves fixed payloads and the
-// real heroState/renderTimer decide what renders, so a shot here is the page's
-// own answer rather than a mock of it. `capture.mjs` is the other direction:
-// live data, and the five pictures the README ships.
+// This draws from the space-weather core's `scripts/mock-webapp.mjs`, not from
+// a server, and that is the whole point: four of its states are impractical to
+// reach against a live one -- a G4 happens a few times a solar cycle, and "no
+// data since start" means breaking the plugin on purpose. The mock serves fixed
+// payloads and the real heroState/renderTimer decide what renders, so a shot
+// here is the page's own answer rather than a mock of it. `capture.mjs` is the
+// other direction: live data, and the five pictures the README ships.
 //
-// A state is added in mock-webapp.mjs; this file enumerates whatever is there.
+// The mock is not in the published package (its `files` ship the page, not
+// the scripts), so it runs from a checkout of the core: `--core <path>`, the
+// SPACE_WEATHER_REPO environment variable, or a `space-weather` directory next
+// to this repo, in that order. It serves that checkout's public/ out of its
+// own dist/, so build the core first. A state is added there; this file
+// enumerates whatever it declares.
 //
 // Output is a gitignored directory -- these are review material, not repo
 // content, and pinning one would mean regenerating it on every unrelated
 // change to the page.
 
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -44,6 +51,11 @@ const THEMES = argv.theme ? [argv.theme] : ['dark']
 // change lower down the page passes its own selector so the pictures show what
 // it touched (`--through '#hfTile'` reaches the tile row).
 const THROUGH = argv.through || '.tile.hero'
+const CORE = path.resolve(
+  argv.core ||
+    process.env.SPACE_WEATHER_REPO ||
+    path.join(ROOT, '..', 'space-weather')
+)
 
 // Wide enough that the hero copy wraps the way it does on a laptop, and tall
 // enough that the whole banner is in the viewport before it is clipped.
@@ -85,7 +97,8 @@ async function main() {
           // fetches; the hero is written last of the three the mock answers.
           await page.waitForFunction(() => {
             const t =
-              document.querySelector('[data-part="headline"]')?.textContent || ''
+              document.querySelector('[data-part="headline"]')?.textContent ||
+              ''
             return t.trim() !== '' && !t.includes('Reading current conditions')
           })
           await page.evaluate(() => document.fonts.ready)
@@ -134,17 +147,23 @@ async function main() {
 // --- the mock server -------------------------------------------------------
 
 /**
- * Starts scripts/mock-webapp.mjs and waits for it to name its states, which
- * it prints on the line after the one carrying its URL. Reading them from
- * there rather than importing the module keeps this script's only contract
- * with the mock the one a person uses too.
+ * Starts the core checkout's scripts/mock-webapp.mjs and waits for it to name
+ * its states, which it prints on the line after the one carrying its URL.
+ * Reading them from there rather than importing the module keeps this script's
+ * only contract with the mock the one a person uses too.
  */
 async function startMock() {
-  const server = spawn(
-    process.execPath,
-    [path.join(ROOT, 'scripts', 'mock-webapp.mjs'), String(PORT)],
-    { stdio: ['ignore', 'pipe', 'inherit'] }
-  )
+  const mock = path.join(CORE, 'scripts', 'mock-webapp.mjs')
+  if (!existsSync(mock)) {
+    throw new Error(
+      `${mock} not found -- the mock rig lives in the space-weather core; ` +
+        'clone https://github.com/mark-brannan/space-weather and pass ' +
+        '--core <path> or set SPACE_WEATHER_REPO'
+    )
+  }
+  const server = spawn(process.execPath, [mock, String(PORT)], {
+    stdio: ['ignore', 'pipe', 'inherit']
+  })
   const states = await new Promise((resolve, reject) => {
     let buf = ''
     const onData = (chunk) => {
@@ -209,7 +228,7 @@ function contactSheet(shots) {
                margin-top: 6px; }
 </style>
 <h1>Hero states</h1>
-<p class="lede">Rendered from <code>scripts/mock-webapp.mjs</code>. Fixed
+<p class="lede">Rendered from the space-weather core's <code>scripts/mock-webapp.mjs</code>. Fixed
 payloads, the page's own rendering.</p>
 ${rows}
 `

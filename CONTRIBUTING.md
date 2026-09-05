@@ -37,9 +37,10 @@ as an issue.
 
 Use the feature form. Two things carry more weight than anything else in it:
 
-- **A new data source** is cheap here by design. One module under
-  `src/products/`, added to `PRODUCTS` in `src/index.ts`. Say which NOAA
-  endpoint and what it would mean to a skipper.
+- **A new data source** is cheap by design, and lives in the
+  [space-weather](https://github.com/mark-brannan/space-weather) core: one
+  module under its `src/products/`, added to its `PRODUCTS` registry. Say which
+  NOAA endpoint and what it would mean to a skipper.
 - **A new setting is expensive.** The bar is a decision only the boat owner can
   make, where a sensible default would be wrong for someone and they can tell
   the difference. CLAUDE.md's *Configuration* section explains what to measure
@@ -55,14 +56,11 @@ npm run build
 npm test
 ```
 
-Node 18 or newer. There are no runtime dependencies.
-
-To see the webapp without a Signal K server at all — including the states that
-are impractical to reproduce live, such as a G4 storm:
-
-```shell
-npm run dev:webapp
-```
+Node 18 or newer. The one runtime dependency is the
+[space-weather](https://github.com/mark-brannan/space-weather) core: the
+parsers, the products and the webapp page. A change to what the page shows or
+where a number comes from is made there; this repo is the Signal K lifecycle,
+the HTTP routes and the chart tiles around it.
 
 To run against a real server, symlink this checkout into your Signal K config
 directory's `node_modules/` (the server finds plugins by scanning that
@@ -85,8 +83,9 @@ All three must pass. Then:
 - **Tests must run with no network, inside 60 seconds.** The
   [plugin registry](https://github.com/SignalK/signalk-plugin-registry) scores
   this package under `firejail --net=none`, so a parser is tested against a
-  captured fixture in `examples/`, never the live service. Capture a dated
-  fixture before writing the parser.
+  captured fixture, never the live service. The parsers and their fixtures are
+  in the core; the handful this repo's own tests read are under
+  `test/fixtures/`.
 - **One logical change per pull request.** If it would produce two changelog
   entries, it is two pull requests.
 - **Commits are conventional**: `<type>(<scope>): <subject>`, imperative,

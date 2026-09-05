@@ -142,6 +142,14 @@ what it is blocked by. Delete it when it is done.
       ([#307](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/307))
 
 ## Claude's
+- [ ] **Fast follow to the core extraction.** Make the Signal K rig's
+      dirty-detection in
+      [docs/rig-tiers-and-lifecycle.md](docs/rig-tiers-and-lifecycle.md#after-the-core-extraction)
+      follow a linked `space-weather` checkout (`npm link` or a `file:`
+      dependency): watch both trees, rebuild both, restart. Since the plugin
+      consumes the published package, a webapp change is made in the core and
+      is invisible to a rig watching this repo; until this exists a core-repo
+      session can offer the mock rig but no Signal K URL
 - [ ] **Fast follow to the core extraction.** Split `src/config.ts`: the
       `Settings` type and `settingsFrom` normalisation belong in the
       `space-weather` core, the Signal K plugin JSON schema does not. It moved

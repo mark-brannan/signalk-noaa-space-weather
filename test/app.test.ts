@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import * as real from '../public/signalk.js'
-import * as seam from '../src/browser/seam.js'
+import * as seam from 'space-weather/browser/seam'
 import {
   coarsenPosition,
   createLocalStore,
@@ -50,14 +50,14 @@ describe('the assembled app site', () => {
     expect(sourceOf('signalk.js')).toBe(join(ROOT, 'app', 'signalk.js'))
   })
 
-  // index.ts owns the plugin lifecycle, the HTTP routes and the tile renderer,
-  // and reaches the filesystem through all three. The app is the products and
+  // The core's publisher reaches the filesystem, and this plugin's index.ts
+  // and tiles.ts are not in the package at all. The app is the products and
   // the layer that drives them, and nothing else.
   it('copies the product modules without the plugin around them', () => {
     expect(SITE_FILES).toContain('plugin/browser/live.js')
     expect(SITE_FILES).toContain('plugin/products/registry.js')
     expect(SITE_FILES).not.toContain('plugin/index.js')
-    expect(SITE_FILES).not.toContain('plugin/tiles.js')
+    expect(SITE_FILES).not.toContain('plugin/publisher.js')
   })
 })
 

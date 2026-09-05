@@ -3,28 +3,33 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import createPlugin, { retryDelayMs } from '../src/index'
-import { settingsFrom } from '../src/config'
+import { settingsFrom } from 'space-weather/config'
 import {
   AURORA,
   ENDPOINTS,
   SCALES,
   fetchesPerDay,
   predictedBytesPerDay
-} from '../src/endpoints'
+} from 'space-weather/endpoints'
 import {
   AURORA_BASE,
   DRAP_BASE,
   PROTON_FLUX_BASE,
   TELEMETRY_BASE,
   XRAY_FLUX_BASE
-} from '../src/paths'
-import { ValueUpdate, parseDrapGrid } from '../src/parse'
-import { Meta } from '../src/publisher'
-import { readAuroraCache, writeAuroraCache } from '../src/cache/auroraCache'
-import { readDrapCache, writeDrapCache } from '../src/cache/drapCache'
-import { writeAdvisoryCache } from '../src/cache/advisoryCache'
+} from 'space-weather/paths'
+import { ValueUpdate, parseDrapGrid } from 'space-weather/parse'
+import { Meta, createFileStore } from 'space-weather/publisher'
+import {
+  readAuroraCache,
+  writeAuroraCache
+} from 'space-weather/cache/auroraCache'
+import { readDrapCache, writeDrapCache } from 'space-weather/cache/drapCache'
+import { writeAdvisoryCache } from 'space-weather/cache/advisoryCache'
 import { fixture, fixtureJson } from './fixtures'
-import { fileStore } from './harness.js'
+
+/** The real file-backed store over a directory the test owns. */
+const fileStore = (dir: string) => createFileStore(() => dir)
 
 interface Delta {
   updates: any[]

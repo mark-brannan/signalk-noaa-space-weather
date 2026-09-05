@@ -10,7 +10,7 @@ import {
   rasterizeTile,
   renderTile
 } from '../src/tiles'
-import { parseDrapGrid } from '../src/parse'
+import { parseDrapGrid } from 'space-weather/parse'
 import { fixture, fixtureJson } from './fixtures'
 
 const REAL = 'ovation-aurora.2026_08_01.json'

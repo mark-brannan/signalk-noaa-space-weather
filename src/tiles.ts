@@ -21,7 +21,7 @@
  */
 import { deflate } from 'node:zlib'
 import { promisify } from 'node:util'
-import { DrapGrid } from './parse.js'
+import { DrapGrid } from 'space-weather/parse'
 
 const deflateAsync = promisify(deflate)
 

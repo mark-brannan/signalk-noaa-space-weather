@@ -11,7 +11,7 @@ import {
   transformJsonScaleRange,
   zonesForKp,
   zonesForScale
-} from '../src/parse'
+} from 'space-weather/parse'
 import {
   ADVISORY_FIXTURES,
   AURORA_FIXTURES,
@@ -30,6 +30,11 @@ import {
  * failure mode to debug. This guard makes that impossible to introduce
  * accidentally: any network call during a parse becomes a test failure here
  * rather than a red CI run somewhere else.
+ *
+ * The parsers live in the space-weather package now, and its own suite runs
+ * the same guard over every capture. This copy stays because the registry
+ * scores *this* install: what it proves is that the plugin's dependency, as
+ * resolved by its own `npm ci`, parses with no network under it.
  */
 describe('parsing is entirely offline', () => {
   let attempted: string[]
