@@ -71,7 +71,6 @@ jobs:
       # release-please opens its "chore: release" PR as this repo's own GitHub
       # App, not a human, and claude-code-action refuses non-human actors by
       # default (https://github.com/mark-brannan/signalk-noaa-space-weather/actions/runs/33234479071).
-      # mergify[bot] hits the same guard on merge-queue reruns; the shared
-      # workflow's fingerprint cache means allowing it costs nothing on a
-      # no-op sync.
+      # Overriding allowed-bots replaces the shared workflow's default, so
+      # mergify[bot] has to be listed here too, not just implied by it.
       allowed-bots: signalk-noaa-space-weather-release,mergify[bot]
