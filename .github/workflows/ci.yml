@@ -106,6 +106,13 @@ jobs:
       contents: read
     uses: mark-brannan/.github/.github/workflows/nonempty-diff.yml@main
 
+  # No docs/budgets.json here yet, so require-config: false -- wiring the
+  # check now with a real budget config is later, separate work.
+  prose-budget:
+    uses: mark-brannan/.github/.github/workflows/prose-budget.yml@main
+    with:
+      require-config: false
+
   # The single required status check, shared across repositories: the
   # `gate` job of mark-brannan/.github's reusable ci-gate workflow, which fails
   # unless every result in `needs` is green. The reported context is
@@ -117,7 +124,7 @@ jobs:
   # `allow-skipped` because plugin-ci and typecheck deliberately skip a
   # board-only pull request, and that skip is the gate's pass, not its fail.
   ci-gate:
-    needs: [plugin-ci, typecheck, nonempty]
+    needs: [plugin-ci, typecheck, nonempty, prose-budget]
     if: always()
     # It reads nothing and writes nothing; the results go in as an input.
     permissions: {}
