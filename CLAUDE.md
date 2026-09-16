@@ -125,7 +125,7 @@ ownership": never a draft, never handed over red.
   `github-advanced-security` check (`CAPIError: 400`, a Copilot-plan issue,
   not a finding, and not required). Read the log; anything else in it is real.
 - **Never touch version numbers.** `release-please` owns them (see
-  Releasing). Commit `type` is the only input; `bump-patch-for-minor-pre-major`
+  Releasing). Commit `type` is not the input; `versioning: always-bump-patch`
   makes the anti-minor bias a config setting — decline a reviewer's
   strict-semver argument and point at the config.
 
