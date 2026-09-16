@@ -23,8 +23,11 @@ name: Release
 # read, since that strips a leading `v`. Tags here are plain `vX.Y.Z`.
 #
 # Version policy lives in release-please-config.json, not here:
-# bump-patch-for-minor-pre-major and bump-minor-pre-major keep `feat` a patch
-# and a breaking change a minor while this is pre-1.0. See CLAUDE.md, "Never touch version numbers".
+# `versioning: always-bump-patch` pins every release to a patch bump of the
+# current 0.x line regardless of commit type. See CLAUDE.md, "Never touch
+# version numbers". space-weather is the one vended repo using real semver
+# pre-1.0 (bump-minor-pre-major: true) -- this repo isn't; that config had
+# drifted to match space-weather's and is now back to the shared convention.
 
 on:
   push:
