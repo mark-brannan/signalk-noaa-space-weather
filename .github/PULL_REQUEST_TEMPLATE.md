@@ -26,6 +26,8 @@ a patch. See CLAUDE.md → "Never touch version numbers".
 - [ ] `npm run build` passes
 - [ ] Branched from latest `main` (rebased, not merged)
 - [ ] One logical change — a refactor and a behaviour change are two pull requests
+- [ ] README screenshots regenerated if the webapp UI changed
+      (`node scripts/screenshots/capture.mjs`) — n/a otherwise
 
 ## Tests
 

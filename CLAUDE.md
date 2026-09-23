@@ -120,6 +120,12 @@ ownership": never a draft, never handed over red.
   chrome, the core version) carries pictures: `node
   scripts/screenshots/states.mjs` against a built core checkout, attach the
   states touched.
+- The same PR also regenerates the README's own shots if any of them are now
+  stale: `node scripts/screenshots/capture.mjs` rewrites `docs/screenshots/*.png`
+  against a running server (see
+  [docs/development.md](docs/development.md#regenerating-the-readme-screenshots)).
+  Nothing else diffs those PNGs against the live page, so a UI change that
+  skips this step ships a README that no longer matches the webapp.
 - **Temporary, delete when [#67](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/67)
   closes:** every scannable PR carries a failing, **empty**-output
   `github-advanced-security` check (`CAPIError: 400`, a Copilot-plan issue,
