@@ -5,7 +5,7 @@
 //
 // The shipping page with no Signal K server under it, via the same one
 // substitution the demo uses: app/signalk.js lands as signalk.js. What makes
-// it an app rather than the demo's ?live mode lives in app/ -- the device's
+// it an app rather than the demo's live mode lives in app/ -- the device's
 // position, a store that outlives the tab, a manifest and a service worker.
 import fs from 'node:fs/promises'
 import path from 'node:path'

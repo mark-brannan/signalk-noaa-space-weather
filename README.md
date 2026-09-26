@@ -1,6 +1,6 @@
 # NOAA Space Weather for Signal K
 
-**[Try it in your browser](https://mark-brannan.github.io/signalk-noaa-space-weather/)** using data from a saved NOAA snapshot, or **[run it on live NOAA data](https://mark-brannan.github.io/signalk-noaa-space-weather/?live)**.
+**[Try it in your browser](https://mark-brannan.github.io/signalk-noaa-space-weather/)** on live NOAA data, or **[on a saved NOAA snapshot](https://mark-brannan.github.io/signalk-noaa-space-weather/?snapshot)**.
 
 [![The browser demo: NOAA's radio-blackout model and the aurora oval on a globe](docs/screenshots/demo.png)](https://mark-brannan.github.io/signalk-noaa-space-weather/)
 
