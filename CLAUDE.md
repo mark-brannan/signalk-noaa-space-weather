@@ -116,8 +116,12 @@ ownership": never a draft, never handed over red.
 - Branch from latest `main`; `npm run format` and `npm test` must pass.
 - One logical change per PR. Title as the release note — it becomes one.
   Rebase onto `main`, never merge it in.
-- A PR touching what the page renders here (the tiles, the demo or app
-  chrome, the core version) carries pictures: `node
+- **Any change a reader could see is shown on the mock rig as bare URLs
+  before the tests re-run** — the tiles, the demo or app chrome, the core
+  version, copy, styling
+  ([docs/development.md](docs/development.md)). Unsure whether it shows? Show
+  it.
+- A PR touching what the page renders here carries pictures: `node
   scripts/screenshots/states.mjs` against a built core checkout, attach the
   states touched.
 - The same PR also regenerates the README's own shots if any of them are now

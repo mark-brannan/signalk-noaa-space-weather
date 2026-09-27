@@ -6,8 +6,10 @@ keeps the handful of things that bite before you get this far — the shared
 servers and their lock files, the branch the dev server follows, the ports —
 and points here for the procedures.
 
-Whenever Claude makes a local change likely to affect the UI, show it
-running with 4 links, each one a bare URL in a list:
+Whenever Claude makes a local change that could affect anything a reader
+sees, show it running with 4 links, each one a bare URL in a list. When
+unsure whether it does, treat it as if it does — a rig nobody needed costs a
+click, a UI change nobody saw costs a release:
 
 - mock rig on `localhost`
 - test rig on `localhost`
@@ -23,7 +25,7 @@ This is the norm: show all 4 links. Skip some only in these two cases:
 - **UI-only change** (styling, layout, control wiring, most webapp changes)
   — show just the mock rig.
 - **Backend-only change** (data handling, Signal K plugin code) — show just
-  the test rig.
+  the test rig, and only when nothing it publishes reaches the page.
 
 Anything else: show all 4.
 
