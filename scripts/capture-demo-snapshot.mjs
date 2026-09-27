@@ -1,7 +1,7 @@
 // Captures one real NOAA snapshot into demo/snapshot.json, for the GitHub
-// Pages demo (issue #199). The demo page shows a saved moment, not live data
-// -- saved keeps it fast, free, and impossible to break from outside -- so
-// this is run by hand when the snapshot is worth refreshing, never by the
+// Pages demo's ?snapshot layer (issue #199): a saved moment, fast, free, and
+// impossible to break from outside -- the way to show a stormy day in a quiet
+// week. It is run by hand when the snapshot is worth refreshing, never by the
 // page.
 //
 //   npm install && node scripts/capture-demo-snapshot.mjs
