@@ -16,8 +16,10 @@
 // The assembling itself -- the closure walk, the dist/ copy, the
 // outside-the-site guard -- is scripts/site.mjs, shared with the standalone
 // app build. What is left here is only what makes this site the demo.
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { DEMO_POSITION } from 'space-weather/browser/live'
 import { REPO, ENTRY, defineSite } from './site.mjs'
 
 const MODULE_PATH = fileURLToPath(import.meta.url)
@@ -25,6 +27,38 @@ const MODULE_PATH = fileURLToPath(import.meta.url)
 // Loaded after the page's own script, so it inserts into a built page rather
 // than racing it.
 const CHROME_TAG = '\n<script type="module" src="./demo-chrome.js"></script>\n'
+
+// demo/chrome.js's one build-time blank: the footnote's stand-in position,
+// filled from the core package's own DEMO_POSITION rather than a place name
+// hand-typed into the browser module. Read here, at build time in Node --
+// never as a runtime import in chrome.js itself, which would pull the whole
+// live-layer product closure into a page a ?snapshot visitor loads to avoid
+// exactly that (see demo/signalk.js's `live()`).
+const POSITION_PLACEHOLDER = '__DEMO_POSITION__'
+
+const formatPosition = ({ latitude, longitude }) =>
+  `${Math.abs(latitude)}°${latitude >= 0 ? 'N' : 'S'} ` +
+  `${Math.abs(longitude)}°${longitude >= 0 ? 'E' : 'W'}`
+
+/**
+ * Exported and taking its template, so the test can check the substitution
+ * without an assembled site on disk -- the same shape as build-app.mjs's
+ * fillWorker. Throws rather than ship the literal placeholder: a chrome.js
+ * that no longer carries it (hand-typed a place name back in, say) is exactly
+ * the regression this whole mechanism exists to catch.
+ */
+export function fillChrome(template) {
+  if (!template.includes(POSITION_PLACEHOLDER)) {
+    throw new Error(
+      `demo/chrome.js: ${POSITION_PLACEHOLDER} not found -- the stand-in ` +
+        'position note may have been hand-typed again'
+    )
+  }
+  return template.replaceAll(
+    POSITION_PLACEHOLDER,
+    formatPosition(DEMO_POSITION)
+  )
+}
 
 const site = defineSite({
   out: 'demo-dist',
@@ -56,9 +90,15 @@ export const {
   sourceOf
 } = site
 
+async function build() {
+  await site.build()
+  const chrome = path.join(site.OUT, 'demo-chrome.js')
+  await fs.writeFile(chrome, fillChrome(await fs.readFile(chrome, 'utf8')))
+}
+
 // Only when run, never on import: the tests read SITE_FILES out of this
 // module, and two of them importing it in parallel workers would otherwise
 // race each other's rm -rf of demo-dist/.
 if (process.argv[1] && path.resolve(process.argv[1]) === MODULE_PATH) {
-  await site.build()
+  await build()
 }

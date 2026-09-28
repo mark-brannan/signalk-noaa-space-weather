@@ -10,7 +10,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { refreshFailure } from '../public/aurora.js'
 import * as demo from '../demo/signalk.js'
 import * as real from '../public/signalk.js'
+import { DEMO_POSITION } from 'space-weather/browser/live'
 import {
+  fillChrome,
   PUBLIC_MODULES,
   SITE_FILES,
   resolveImports,
@@ -99,6 +101,29 @@ describe('the assembled demo site', () => {
   it('leaves the admin UI config screen out', () => {
     expect(SITE_FILES).not.toContain('remoteEntry.js')
     expect(SITE_FILES).not.toContain('config-panel.js')
+  })
+})
+
+// demo/chrome.js's footnote used to hand-type "off Bergen" -- twice -- which
+// would have started lying the moment the core package's own DEMO_POSITION
+// moved. fillChrome fills a build-time blank from that export instead, so
+// this pins the wiring rather than the place name.
+describe("demo/chrome.js's stand-in position", () => {
+  const source = readFileSync(join(ROOT, 'demo', 'chrome.js'), 'utf8')
+
+  it('carries no hard-coded place name for the position', () => {
+    expect(source).not.toMatch(/bergen/i)
+  })
+
+  it('fills both footnotes from the core DEMO_POSITION', () => {
+    const label = `${DEMO_POSITION.latitude}°N ${DEMO_POSITION.longitude}°E`
+    const filled = fillChrome(source)
+    expect(filled).not.toContain('__DEMO_POSITION__')
+    expect(filled.match(new RegExp(label, 'g'))).toHaveLength(2)
+  })
+
+  it('refuses a template that lost its blank', () => {
+    expect(() => fillChrome('no placeholder here')).toThrow(/not found/)
   })
 })
 
