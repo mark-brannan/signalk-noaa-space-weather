@@ -985,7 +985,7 @@ reading through one seam — `public/signalk.js`, substituted at build time by
 [#239](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/239)
 puts a third thing behind that seam: not a Signal K server, and not a saved
 capture, but the plugin's own product modules fetching NOAA from the visitor's
-tab. Twenty-six compiled modules, no bundler, no server, on `?live`.
+tab. Twenty-six compiled modules, no bundler, no server.
 
 Nothing in `src/products/` was written for this and nothing in it changed to
 allow it. A product takes a client, a publisher and settings; the server hands
@@ -994,12 +994,13 @@ last host resources behind those parameters — the network into
 `noaa/client.ts` long ago, and storage into the Publisher in
 [#272](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/272).
 
-**Live is opt-in, and the default stays the saved snapshot.** A page anyone can
-open must not spend a fresh 927 KB aurora grid of NOAA's bandwidth on every
-visit, and the snapshot shows the same surfaces for nothing. Opt-in also keeps
-the cost of the live layer off a snapshot visitor entirely: the import is
-dynamic, so a reader who never asks for live data downloads none of it —
-verified in Chromium, zero requests under `plugin/`.
+**Live is the default, and the saved snapshot is on `?snapshot`** (Solace,
+2026-09-26). The demo should show what someone would see in a working install,
+and a saved capture never quite does. That spends a fresh 927 KB aurora grid
+of NOAA's bandwidth on every visit, which was the reason the snapshot used to
+be the default. The snapshot shows the same surfaces for nothing and is kept
+for a stormy moment in a quiet week. The live import stays dynamic, so a
+snapshot visitor downloads none of it.
 
 **The browser client is the shipping client with two flags, not a second
 implementation.** `createClient` takes `conditionalGet` and `userAgent`, and
@@ -1249,10 +1250,10 @@ flex row and nothing in it measures anything.
 
 `public/signalk.js` is the one module the webapp page reaches a server
 through. Three things already sat behind it: a Signal K server, the demo's
-saved capture, and — on `?live` — the plugin's own product modules fetching
+saved capture, and its live layer — the plugin's own product modules fetching
 NOAA from the visitor's tab. The standalone app (`app/`,
 `scripts/build-app.mjs`, `npm run app:build`) is the fourth, and it is the
-`?live` layer made a product rather than a proof.
+live layer made a product rather than a proof.
 
 **It is the same page, and that is the point.** `public/index.html` is copied
 verbatim into `app-dist/` with exactly one substitution — `app/signalk.js`
@@ -1263,7 +1264,7 @@ file. The app's own framing arrives as one appended script tag
 exports, so a surface added to the server layer cannot silently go missing
 here.
 
-**What makes it an app rather than the demo's `?live` is four things, and
+**What makes it an app rather than the demo's live layer is four things, and
 none of them is a fork:**
 
 - **The position is the device's**, not a stated viewpoint. `BrowserPublisher`

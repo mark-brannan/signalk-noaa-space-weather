@@ -1,19 +1,19 @@
 // The demo's stand-in for public/signalk.js (issues #199, #239). Same exports,
 // same shapes, and two things behind them instead of a Signal K server:
 //
-//   snapshot  one saved NOAA capture, demo/snapshot.json  (the default)
 //   live      the plugin's own product modules, fetching NOAA from this tab
+//             (the default)
+//   snapshot  one saved NOAA capture, demo/snapshot.json, on ?snapshot
 //
 // scripts/build-demo.mjs copies this file over signalk.js in the assembled
 // site, so public/index.html itself, and every module it imports, runs
 // unchanged against either. This file is the whole seam: if the page can
 // reach a server any other way, the demo silently draws nothing.
 //
-// Live is opt-in, on ?live, and not the default -- a page anyone can open
-// must not spend a fresh ~900 KB aurora grid of somebody else's bandwidth on
-// every visit. The snapshot costs NOAA nothing and shows the same surfaces;
-// live is there for a reader who wants to see the plugin actually work, and
-// for checking the real parsers against what NOAA is serving today.
+// Live is the default: the demo should show what the app shows on a boat, and
+// a saved capture never quite does. The snapshot stays on ?snapshot -- it
+// costs NOAA nothing, and it is how to show a stormy moment in a quiet week.
+// What live spends per visit is in docs/design-decisions.md.
 
 // --- The demo's clock ------------------------------------------------------
 //
@@ -39,11 +39,12 @@
  * Which data layer this page is running. Read once, from the URL, before
  * anything else in the module body -- the clock install below depends on it.
  * Live data is real and current, so it runs on the real clock; only the saved
- * capture needs one moved.
+ * capture needs one moved. No `location` is the test suite, which drives the
+ * snapshot layer: live needs a network the suite runs without.
  */
 export const LIVE =
   typeof location !== 'undefined' &&
-  new URLSearchParams(location.search).has('live')
+  !new URLSearchParams(location.search).has('snapshot')
 
 const RealDate = Date
 let clockShiftMs = 0

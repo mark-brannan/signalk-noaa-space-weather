@@ -1,9 +1,9 @@
 name: demo-pages
 
 # Publishes the browser demo (issues #199, #239) to GitHub Pages: the map stack
-# from public/ against the saved NOAA snapshot in demo/, and -- on ?live -- the
-# plugin's own compiled product modules fetching NOAA from the visitor's
-# browser. Assembled by scripts/build-demo.mjs. Requires Pages to be set to
+# from public/ against the plugin's own compiled product modules fetching NOAA
+# from the visitor's browser, and -- on ?snapshot -- the saved NOAA snapshot in
+# demo/. Assembled by scripts/build-demo.mjs. Requires Pages to be set to
 # "GitHub Actions" in the repo settings, once.
 
 on:

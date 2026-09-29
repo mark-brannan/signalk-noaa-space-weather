@@ -198,7 +198,7 @@ npm run demo:build                     # assembles demo-dist/
 npx http-server demo-dist              # any static server works
 ```
 
-Then `/` for the saved snapshot, and `/?live` for live NOAA data.
+Then `/` for live NOAA data, and `/?snapshot` for the saved snapshot.
 
 The public demo ([issue #199](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/199))
 is the shipping webapp page itself, served as static files, with exactly one
@@ -214,16 +214,16 @@ The two layers behind that one seam:
 
 | URL | Layer | Reaches NOAA |
 | --- | --- | --- |
-| `/` | `demo/snapshot.json`, one saved capture | no |
-| `/?live` | the plugin's own products, from `plugin/` | yes, all 16 endpoints |
+| `/` | the plugin's own products, from `plugin/` | yes, all 16 endpoints |
+| `/?snapshot` | `demo/snapshot.json`, one saved capture | no |
 
 Live ([#239](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/239)
 leg 2) is `src/browser/live.ts` driving `PRODUCTS` against a browser publisher
 and an in-memory cache, with `createClient` in its no-extra-headers mode. The
 build copies `dist/` into the site under `plugin/`, following the emitted
 imports, so **`npm run build` has to have run** — `demo:build` says so and
-stops if it has not. It is opt-in and dynamically imported: a visitor who never
-asks for live data downloads none of those modules and makes no NOAA request.
+stops if it has not. It is dynamically imported: a `?snapshot` visitor
+downloads none of those modules and makes no NOAA request.
 Why it is shaped this way is in
 [design-decisions.md](design-decisions.md#the-demos-third-data-layer-is-the-plugin-itself).
 
@@ -236,7 +236,7 @@ thing can be checked at all: it is the one that decides whether a CORS
 preflight kills a request, and `npm test` runs under `firejail --net=none`
 with a 60-second cap, so nothing about reaching NOAA can be pinned there.
 
-What to look for on `/?live`: every tile populated within about ten seconds,
+What to look for on `/`: every tile populated within about ten seconds,
 the aurora oval and the D-RAP layer drawn on the map, and an empty console. A
 `plugin/` module failing to resolve shows up as one import error and a page
 that never leaves its no-data state.

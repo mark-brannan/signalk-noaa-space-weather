@@ -7,8 +7,8 @@
 // The demo is the shipping webapp page, not a copy of it: public/index.html
 // itself, with exactly one substitution -- demo/signalk.js lands as
 // signalk.js, so the page and every module it imports resolve their
-// './signalk.js' to the demo's data layer and run unchanged against a saved
-// capture, or (on ?live) against NOAA itself, instead of a Signal K server.
+// './signalk.js' to the demo's data layer and run unchanged against NOAA
+// itself, or (on ?snapshot) a saved capture, instead of a Signal K server.
 // The demo's own framing (what this page is, when it was captured, where to
 // get the real thing) is appended as one script tag rather than edited in,
 // which is what keeps index.html unforked.

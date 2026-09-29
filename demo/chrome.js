@@ -9,29 +9,26 @@ import { LIVE, snapshot } from './signalk.js'
 const REPO = 'https://github.com/mark-brannan/signalk-noaa-space-weather'
 
 // The two data layers are one URL apart, and the link between them is the
-// honest way to say what each is: a reader who doubts a saved capture can go
-// and watch the same page fetch NOAA itself, and a reader who lands on the
-// live one can go back to the moment that was worth saving.
-const LIVE_URL = './?live'
-const SNAPSHOT_URL = './'
+// honest way to say what each is: a reader on live data can go and see the
+// saved moment, and a reader on the capture can go back to today.
+const LIVE_URL = './'
+const SNAPSHOT_URL = './?snapshot'
 
+// Sized and ruled like the page's own footstrip, which it sits under: the
+// page a visitor sees should read as the app, with the demo's framing as its
+// last line rather than its first.
 const STYLE = `
 .demo-note {
-  border: 1px solid var(--grid);
-  border-radius: 4px;
-  background: var(--panel);
-  box-shadow: var(--shadow);
-  padding: 12px 16px;
-  margin-bottom: 12px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--grid);
   color: var(--text-dim);
-  font-family: var(--font-round);
-  font-size: 0.82rem;
+  font-size: 0.68rem;
   line-height: 1.5;
 }
-.demo-note p { margin: 0 0 6px; }
-.demo-note p:last-child { margin-bottom: 0; }
 .demo-note a { color: var(--amber); }
 .demo-note b { color: var(--text); font-weight: 600; }
+.demo-note .demo-links { white-space: nowrap; margin-left: 6px; }
 `
 
 /**
@@ -57,44 +54,24 @@ const style = document.createElement('style')
 style.textContent = STYLE
 document.head.append(style)
 
-const note = document.createElement('div')
-note.className = 'demo-note'
-// Above the status bar rather than below the page: a visitor who reads
-// nothing else still has to learn where these numbers came from.
-note.innerHTML = `
-  <p>
-    NOAA's radio-blackout model and the aurora oval, drawn over a coastline,
-    and what the sun was doing to the marine HF bands at one position. No
-    install and no server: this is the webapp of the
-    <a href="${REPO}">signalk-noaa-space-weather</a> Signal K plugin, running
-    ${
-      LIVE
-        ? 'in this tab against NOAA itself.'
-        : 'on a saved NOAA capture.'
-    }
-  </p>
-  <p id="demoCaptured">${
-    LIVE
-      ? 'Live data — the plugin\'s own code, fetching NOAA from your browser.' +
-        ` <a href="${SNAPSHOT_URL}">See the saved snapshot instead</a>.`
-      : 'A saved NOAA snapshot — not live data.' +
-        ` <a href="${LIVE_URL}">Fetch it live instead</a>.`
-  }</p>
-  <p>
-    The boat is a stand-in: the position everything here is worked out from —
-    the aurora probability, the HF bands, the mark on the map — is a viewpoint
-    chosen for this page, not a vessel anyone is on. On the water the plugin
-    reads your own.
-  </p>
-  <p>
-    Like it? <a href="${REPO}#installation">Run it on your own boat</a> — it
-    installs from the Signal K app store, and then reads NOAA continuously
-    from your own position.
-  </p>
-`
+const plugin = `<a href="${REPO}">signalk-noaa-space-weather</a>`
+const install = `<a href="${REPO}#installation">Run it on your boat</a>`
+const links = (other) =>
+  `<span class="demo-links">${other} · ${install}</span>`
 
-const shell = document.querySelector('.shell')
-shell.prepend(note)
+const note = document.createElement('p')
+note.className = 'demo-note'
+// The position is the one thing on the page a reader would otherwise take as
+// theirs: on the water the plugin reads the boat's own.
+note.innerHTML = LIVE
+  ? `Demo of the ${plugin} plugin, fetching live NOAA data from your browser` +
+    ' for a stand-in position off Bergen.' +
+    links(`<a href="${SNAPSHOT_URL}">Saved snapshot</a>`)
+  : `<span id="demoCaptured">A saved NOAA snapshot — not live data.</span>` +
+    ` Demo of the ${plugin} plugin, for a stand-in position off Bergen.` +
+    links(`<a href="${LIVE_URL}">Live data</a>`)
+
+document.querySelector('.shell').append(note)
 
 // Last, and unawaited by everything above: a snapshot that fails to load
 // should still leave the visitor with the note telling them what this is --
@@ -107,8 +84,7 @@ if (!LIVE) {
   snapshot()
     .then((data) => {
       document.getElementById('demoCaptured').innerHTML =
-        `A saved NOAA snapshot, captured <b>${captured(data.capturedAt)}</b> — not live data.` +
-        ` <a href="${LIVE_URL}">Fetch it live instead</a>.`
+        `A saved NOAA snapshot, captured <b>${captured(data.capturedAt)}</b> — not live data.`
     })
     .catch(() => {})
 }
