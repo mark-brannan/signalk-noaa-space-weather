@@ -16,6 +16,7 @@
 // The assembling itself -- the closure walk, the dist/ copy, the
 // outside-the-site guard -- is scripts/site.mjs, shared with the standalone
 // app build. What is left here is only what makes this site the demo.
+import fssync from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -28,15 +29,20 @@ const MODULE_PATH = fileURLToPath(import.meta.url)
 // than racing it.
 const CHROME_TAG = '\n<script type="module" src="./demo-chrome.js"></script>\n'
 
-// demo/chrome.js's one build-time blank: the footnote's stand-in position,
-// filled from the core package's own DEMO_POSITION rather than a place name
-// hand-typed into the browser module. Read here, at build time in Node --
-// never as a runtime import in chrome.js itself, which would pull the whole
-// live-layer product closure into a page a ?snapshot visitor loads to avoid
-// exactly that (see demo/signalk.js's `live()`).
-const POSITION_PLACEHOLDER = '__DEMO_POSITION__'
+// demo/chrome.js's build-time blanks: the footnote's stand-in position, one
+// per data layer. Live runs at the core package's DEMO_POSITION; the snapshot
+// was captured wherever DEMO_POSITION stood at capture time, which a core bump
+// can move without a recapture, so its label comes from the snapshot itself.
+// Read here, at build time in Node -- never as a runtime import in chrome.js,
+// which would pull the whole live-layer product closure into a page a
+// ?snapshot visitor loads to avoid exactly that (see demo/signalk.js's
+// `live()`).
+const PLACEHOLDERS = {
+  __DEMO_POSITION__: 'live',
+  __SNAPSHOT_POSITION__: 'snapshot'
+}
 
-const formatPosition = ({ latitude, longitude }) =>
+export const formatPosition = ({ latitude, longitude }) =>
   `${Math.abs(latitude)}°${latitude >= 0 ? 'N' : 'S'} ` +
   `${Math.abs(longitude)}°${longitude >= 0 ? 'E' : 'W'}`
 
@@ -47,17 +53,29 @@ const formatPosition = ({ latitude, longitude }) =>
  * that no longer carries it (hand-typed a place name back in, say) is exactly
  * the regression this whole mechanism exists to catch.
  */
-export function fillChrome(template) {
-  if (!template.includes(POSITION_PLACEHOLDER)) {
-    throw new Error(
-      `demo/chrome.js: ${POSITION_PLACEHOLDER} not found -- the stand-in ` +
-        'position note may have been hand-typed again'
-    )
+export function fillChrome(
+  template,
+  positions = { live: DEMO_POSITION, snapshot: snapshotPosition() }
+) {
+  let filled = template
+  for (const [blank, layer] of Object.entries(PLACEHOLDERS)) {
+    if (!filled.includes(blank)) {
+      throw new Error(
+        `demo/chrome.js: ${blank} not found -- the stand-in ` +
+          'position note may have been hand-typed again'
+      )
+    }
+    filled = filled.replaceAll(blank, formatPosition(positions[layer]))
   }
-  return template.replaceAll(
-    POSITION_PLACEHOLDER,
-    formatPosition(DEMO_POSITION)
+  return filled
+}
+
+/** The position demo/snapshot.json was captured at, as its data records it. */
+export function snapshotPosition() {
+  const saved = JSON.parse(
+    fssync.readFileSync(path.join(REPO, 'demo', 'snapshot.json'), 'utf8')
   )
+  return saved.values['navigation.position'].value
 }
 
 const site = defineSite({
