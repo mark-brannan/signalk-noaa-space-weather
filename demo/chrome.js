@@ -56,19 +56,21 @@ document.head.append(style)
 
 const plugin = `<a href="${REPO}">signalk-noaa-space-weather</a>`
 const install = `<a href="${REPO}#installation">Run it on your boat</a>`
-const links = (other) =>
-  `<span class="demo-links">${other} · ${install}</span>`
+const links = (other) => `<span class="demo-links">${other} · ${install}</span>`
 
 const note = document.createElement('p')
 note.className = 'demo-note'
 // The position is the one thing on the page a reader would otherwise take as
-// theirs: on the water the plugin reads the boat's own.
+// theirs: on the water the plugin reads the boat's own. The blanks below are
+// filled in by scripts/build-demo.mjs's fillChrome -- live from the core
+// package's DEMO_POSITION, the snapshot from the position it was captured at --
+// not hand-typed here, so neither can drift from the data it describes.
 note.innerHTML = LIVE
   ? `Demo of the ${plugin} plugin, fetching live NOAA data from your browser` +
-    ' for a stand-in position off Bergen.' +
+    ' for a stand-in position at __DEMO_POSITION__.' +
     links(`<a href="${SNAPSHOT_URL}">Saved snapshot</a>`)
   : `<span id="demoCaptured">A saved NOAA snapshot — not live data.</span>` +
-    ` Demo of the ${plugin} plugin, for a stand-in position off Bergen.` +
+    ` Demo of the ${plugin} plugin, for a stand-in position at __SNAPSHOT_POSITION__.` +
     links(`<a href="${LIVE_URL}">Live data</a>`)
 
 document.querySelector('.shell').append(note)

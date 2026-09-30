@@ -10,7 +10,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { refreshFailure } from '../public/aurora.js'
 import * as demo from '../demo/signalk.js'
 import * as real from '../public/signalk.js'
+import { DEMO_POSITION } from 'space-weather/browser/live'
 import {
+  fillChrome,
+  formatPosition,
   PUBLIC_MODULES,
   SITE_FILES,
   resolveImports,
@@ -99,6 +102,45 @@ describe('the assembled demo site', () => {
   it('leaves the admin UI config screen out', () => {
     expect(SITE_FILES).not.toContain('remoteEntry.js')
     expect(SITE_FILES).not.toContain('config-panel.js')
+  })
+})
+
+// demo/chrome.js's footnote used to hand-type "off Bergen" -- twice -- which
+// would have started lying the moment the core package's own DEMO_POSITION
+// moved. fillChrome fills build-time blanks instead: live from that export,
+// the snapshot from the position it was captured at. This pins the wiring
+// rather than the place name.
+describe("demo/chrome.js's stand-in position", () => {
+  const source = readFileSync(join(ROOT, 'demo', 'chrome.js'), 'utf8')
+
+  it('carries no hard-coded place name for the position', () => {
+    expect(source).not.toMatch(/bergen/i)
+  })
+
+  it('fills live from the core DEMO_POSITION, the snapshot from its capture', () => {
+    const filled = fillChrome(source)
+    expect(filled).not.toMatch(/__\w+_POSITION__/)
+    expect(filled).toContain(`at ${formatPosition(DEMO_POSITION)}.`)
+    const snapshot = JSON.parse(
+      readFileSync(join(ROOT, 'demo', 'snapshot.json'), 'utf8')
+    ).values['navigation.position'].value
+    expect(filled).toContain(`at ${formatPosition(snapshot)}.`)
+  })
+
+  it('labels a snapshot captured elsewhere by where it was captured', () => {
+    const filled = fillChrome(source, {
+      live: { latitude: 60.4, longitude: 5.3 },
+      snapshot: { latitude: -33.9, longitude: -151.2 }
+    })
+    expect(filled).toContain('at 60.4°N 5.3°E.')
+    expect(filled).toContain('at 33.9°S 151.2°W.')
+  })
+
+  it('refuses a template that lost a blank', () => {
+    expect(() => fillChrome('no placeholder here')).toThrow(/not found/)
+    expect(() => fillChrome('only __DEMO_POSITION__')).toThrow(
+      /__SNAPSHOT_POSITION__ not found/
+    )
   })
 })
 
