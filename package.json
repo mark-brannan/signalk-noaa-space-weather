@@ -57,7 +57,7 @@
     ]
   },
   "author": "mark-brannan",
-  "license": "AGPL-3.0-or-later",
+  "license": "Apache-2.0",
   "dependencies": {
     "space-weather": "^0.1.0"
   },
