@@ -1320,3 +1320,28 @@ added to it fails a test rather than a page. The one cost is that a built site
 is flat while the repo is not, so `demo/signalk.js` names it
 `./plugin/browser/seam.js` and `vitest.config.ts` carries the single alias that
 makes the two layouts agree.
+
+## The R-scale lines are coloured by severity, capped to their band, not by rarity alone
+
+The Storm Scales card splits one radio-blackout probability into two lines,
+R1-R2 and R3-R5. Colouring both by the same rarity table (5% / 10% / 25%)
+let a merely likely minor forecast outrank a rarer, far more severe one on the
+same day: R1-R2 at 55% painted red while R3-R5 at 15% painted orange, so the
+row read backwards on the day it mattered
+([#131](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/131)).
+The six `sev-*` tokens can mean one thing at a time, and on this card that
+thing is severity. So each line's tier is clamped to the band it colours:
+R1-R2 caps at `sev-2` (NOAA's own "Moderate", the ceiling of that band) and
+R3-R5 floors at `sev-3` ("Strong", its own floor). A tie sorts by severity, so
+30% against 30% still shows R3-R5 as the redder line. The S line and the arc
+gauge pass no range and keep the plain rarity table.
+
+The cost, accepted: a 15% chance of R3 or worse can no longer read as calm as
+a 15% chance of S1. The "still genuinely rare" cue is spent at the low end of
+R3-R5, because a floor that protects severity has to override it. The rarity
+itself is still printed beside the colour as the percentage.
+
+The code is the core's (`tierClass` in its `public/scales.js`, landed in
+[core#11](https://github.com/mark-brannan/space-weather/pull/11)); the plugin
+keeps the argument because it consumes the card through the core and owns the
+issue.
