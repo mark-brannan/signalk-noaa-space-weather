@@ -112,10 +112,8 @@ the org-wide default now that this repo doesn't carry its own copy.
 
 ## Licence and the CLA
 
-Contributions are licensed under the [AGPL-3.0-or-later licence](LICENSE) that
-covers this project, which carries an additional permission under section 7 of
-the AGPL for programs that merely load this plugin — Signal K server, and the
-boat images that ship it.
+Contributions are licensed under the [Apache-2.0 licence](LICENSE) that covers
+this project.
 
 They also need the [contributor licence agreement](CLA.md), which is one line
 in the description of your first pull request:
