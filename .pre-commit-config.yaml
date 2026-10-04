@@ -1,0 +1,20 @@
+# Local secret and hygiene guards, from the shared hook repo.
+# Install: `pre-commit install` (installs both stages below).
+#
+# Fast feedback only: `--no-verify` skips them. The enforcement boundary is
+# .github/workflows/secret-scan.yml, which scans full history on every push.
+#
+# Bump `rev` with:
+#   pre-commit autoupdate --freeze --repo https://github.com/mark-brannan/pre-commit-hooks
+minimum_pre_commit_version: "3.2.0"
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/mark-brannan/pre-commit-hooks
+    rev: 0296010e6d99b1a79e78217cba4cab0d5b53e8c5
+    hooks:
+      - id: gitleaks              # staged diff; skips with a note if no docker
+      - id: prepush-secret-scan   # every commit being pushed
+      - id: repo-hygiene          # .gitattributes filters are configured
+      - id: encoding-health       # staged files are UTF-8, no mojibake

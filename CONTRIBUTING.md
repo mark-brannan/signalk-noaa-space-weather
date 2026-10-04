@@ -54,6 +54,7 @@ cd signalk-noaa-space-weather
 npm install
 npm run build
 npm test
+pre-commit install   # optional: local secret and encoding guards
 ```
 
 Node 18 or newer. The one runtime dependency is the
