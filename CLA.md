@@ -1,9 +1,9 @@
 # Contributor Licence Agreement
 
 This project is owned by one person and licensed to everyone under
-[AGPL-3.0-or-later](LICENSE). Keeping the copyright whole is what makes it
+[Apache-2.0](LICENSE). Keeping the copyright whole is what makes it
 possible to offer the same code under a different licence later — to someone
-who needs it closed, or in an app store that will not take AGPL. A single
+who needs different terms. A single
 merged contribution with no grant behind it takes that option away
 permanently, so this file asks for the grant up front.
 
@@ -57,6 +57,5 @@ is the copyright holder in what you submit; "the owner" is Mark Brannan.
    clause 4.
 
 6. **The public licence still applies.** Your contribution is also released
-   to the public under [AGPL-3.0-or-later](LICENSE), with the section 7
-   additional permission stated there, on the same terms as the rest of the
-   project.
+   to the public under [Apache-2.0](LICENSE), on the same terms as the rest of
+   the project.
