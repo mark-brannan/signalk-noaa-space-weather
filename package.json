@@ -59,7 +59,7 @@
   "author": "mark-brannan",
   "license": "Apache-2.0",
   "dependencies": {
-    "space-weather": "^0.1.0"
+    "space-weather": "^0.1.3"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
