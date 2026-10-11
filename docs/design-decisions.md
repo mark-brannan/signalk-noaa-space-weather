@@ -167,10 +167,11 @@ Three choices came out of that replay, each against a measured alternative:
   including it raises "a storm is happening" days before one is. The watch
   already has its own per-code path.
 
-Still open in [#298](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/298):
-the path name (the current leaf is a deliberate placeholder) and whether
-loudness stays on the shared `alarmLevel`/`popupLevel` thresholds — it does
-for now, tentatively, so don't cite this section as settling either.
+The path is `notifications.noaa.swpc.storm` (ruled 2026-10-03; the
+`stormPlaceholder` leaf that shipped in 0.30.8 is retired by the core's
+rename and stood down once). Whether loudness stays on the shared
+`alarmLevel`/`popupLevel` thresholds is still tentative — it does for now, so
+don't cite this section as settling it.
 
 [gannon-storm-replay.html](gannon-storm-replay.html) is the felt version of
 this argument: the Gannon storm replayed hourly through the shipped state
