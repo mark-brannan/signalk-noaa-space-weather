@@ -22,6 +22,8 @@
 import { deflate } from 'node:zlib'
 import { promisify } from 'node:util'
 import { DrapGrid } from 'space-weather/parse'
+import { auroraRampColor } from 'space-weather/public/aurora.js'
+import { drapNoaaColor } from 'space-weather/public/drap-colors.js'
 
 const deflateAsync = promisify(deflate)
 
@@ -116,47 +118,12 @@ function sample(lattice: Lattice, latitude: number, longitude: number): number {
 }
 
 /**
- * NOAA's own OVATION colour scale, sampled directly from the legend on
- * `services.swpc.noaa.gov/images/aurora-forecast-northern-hemisphere.jpg` at
- * 5% intervals (the "Probability of Aurora" bar, ticked 10/50/90%).
+ * NOAA's own OVATION colour scale, as `auroraRampColor` in the core's
+ * public/aurora.js -- the webapp map and this overlay are two pictures of one
+ * forecast, so they share one table. Only the alpha differs, and for a stated
+ * reason: this one has to let a nautical chart through.
  *
- * Read off the image rather than invented, because the point of a chart
- * overlay is that it looks like the aurora forecast everyone else is looking
- * at. NOAA publishes no numeric definition of this ramp anywhere, so the
- * image is the only source of truth there is.
- *
- * `NOAA_AURORA_RAMP` in public/aurora.js is the same table -- the webapp map
- * and this overlay are two pictures of one forecast, and
- * test/aurora-webapp.test.ts pins them identical. Only the alpha differs, and
- * for a stated reason: this one has to let a nautical chart through.
- */
-export const NOAA_RAMP: ReadonlyArray<readonly [number, number, number]> = [
-  [116, 166, 117], // 0%  -- desaturated; we draw this fully transparent
-  [50, 196, 53], // 5%
-  [23, 227, 16], // 10%
-  [30, 232, 10], // 15%
-  [37, 241, 6], // 20%
-  [45, 247, 3], // 25%
-  [61, 255, 0], // 30%
-  [109, 255, 0], // 35%
-  [156, 255, 2], // 40%
-  [199, 255, 1], // 45%
-  [248, 255, 1], // 50%
-  [255, 238, 0], // 55%
-  [254, 222, 0], // 60%
-  [254, 201, 0], // 65%
-  [255, 182, 0], // 70%
-  [255, 163, 0], // 75%
-  [255, 144, 2], // 80%
-  [254, 113, 0], // 85%
-  [250, 54, 0], // 90%
-  [249, 2, 0], // 95%
-  [228, 0, 0] // 100%
-]
-const RAMP_STEP_PERCENT = 5
-
-/**
- * Colour lookup indexed at 1/8 of a percent rather than whole percents.
+ * The lookup is indexed at 1/8 of a percent rather than whole percents.
  *
  * The grid stores integers but bilinear sampling produces fractions, and
  * quantising them back to integers on lookup renders as hard contour bands
@@ -171,14 +138,7 @@ function buildAuroraLut(): Uint8Array {
   const lut = new Uint8Array((AURORA_LUT_MAX + 1) * 4)
   for (let i = 0; i <= AURORA_LUT_MAX; i++) {
     const percent = i / AURORA_LUT_SCALE
-    const position = percent / RAMP_STEP_PERCENT
-    const seg = Math.min(NOAA_RAMP.length - 2, Math.floor(position))
-    const localT = position - seg
-    const a = NOAA_RAMP[seg]
-    const b = NOAA_RAMP[seg + 1]
-    lut[i * 4 + 0] = Math.round(a[0] + (b[0] - a[0]) * localT)
-    lut[i * 4 + 1] = Math.round(a[1] + (b[1] - a[1]) * localT)
-    lut[i * 4 + 2] = Math.round(a[2] + (b[2] - a[2]) * localT)
+    lut.set(auroraRampColor(percent), i * 4)
     // NOAA draws this ramp opaque over a dark globe. An overlay has to let a
     // nautical chart through, so alpha carries the low end instead: fully
     // transparent at zero, faded in across the first 2% rather than switched
@@ -209,62 +169,12 @@ export function auroraLattice(values: Uint8Array): Lattice {
 }
 
 /**
- * NOAA's own D-RAP colorbar, sampled from the legend PNG that ships with
- * "Highest Frequency Affected by 1dB Absorption" -- a palette image, so no
- * JPEG noise -- with 0-35 MHz mapped linearly across its pixel width
- * (2026-08-26, recorded in
- * [#170](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170)).
+ * NOAA's own D-RAP colorbar, alpha ramp included, as `drapNoaaColor` in the
+ * core's public/drap-colors.js -- the same function the webapp's map and
+ * legend draw from, because a cell in two colours on two screens on the same
+ * boat is the failure this palette exists to prevent. Unlike aurora, the
+ * alpha is shared too: the argument for its shape is next to it in the core.
  *
- * `[MHz, r, g, b]`, and **the same table as `NOAA_DRAP_STOPS` in
- * public/drap-colors.js**, which the webapp's map and legend draw from; a
- * browser cannot import this TypeScript, so the copy is pinned identical by
- * `drap-colors.test.ts` -- along with the alpha ramp below, since a cell in
- * two colours on two screens on the same boat is the failure this palette
- * exists to prevent.
- *
- * Unlike aurora, whose webapp map keeps this plugin's own desaturated ramp,
- * both D-RAP surfaces use NOAA's colours: #170 settled that a picture sitting
- * beside NOAA's own image of the same grid has to be the same picture.
- *
- * The last sampled pixel of the strip is 255,12,0, but the legend's own end
- * box is pure red and the scale saturates there, so the table ends on the
- * colour the box holds and every value past 35 MHz gets it.
- */
-export const NOAA_DRAP_STOPS: ReadonlyArray<
-  readonly [number, number, number, number]
-> = [
-  [0, 0, 0, 0],
-  [2, 61, 0, 63],
-  [4, 88, 0, 132],
-  [6, 71, 0, 195],
-  [8, 21, 0, 255],
-  [10, 0, 55, 255],
-  [12, 0, 131, 255],
-  [14, 0, 216, 255],
-  [16, 0, 255, 220],
-  [18, 0, 255, 144],
-  [20, 0, 255, 67],
-  [22, 4, 255, 0],
-  [24, 76, 255, 0],
-  [26, 157, 255, 0],
-  [28, 229, 255, 0],
-  [30, 255, 195, 0],
-  [32, 255, 123, 0],
-  [34, 255, 42, 0],
-  [35, 255, 0, 0]
-]
-
-/**
- * Where the alpha ramp reaches opaque, in MHz. The argument for the shape is
- * in public/drap-colors.js, next to the copy of it the webapp uses; in short,
- * NOAA's 0 MHz stop is #000000 and an opaque black cell over a chart reads as
- * "no data", so alpha fades in from invisible instead -- and reaches *full*
- * opacity early, because hue now carries the severity and a diluted colour
- * would carry a second, contradicting one.
- */
-const DRAP_ALPHA_FULL_MHZ = 4
-
-/**
  * Indexed at 1/16 MHz. The grid is whole tenths of a MHz at most and bilinear
  * sampling produces fractions between them, so the table has to be finer than
  * the data for the same reason aurora's is.
@@ -275,24 +185,9 @@ const DRAP_LUT_MAX = DRAP_MAX_MHZ * DRAP_LUT_SCALE
 
 function buildDrapLut(): Uint8Array {
   const lut = new Uint8Array((DRAP_LUT_MAX + 1) * 4)
-  const top = NOAA_DRAP_STOPS[NOAA_DRAP_STOPS.length - 1]
   for (let i = 0; i <= DRAP_LUT_MAX; i++) {
-    const mhz = i / DRAP_LUT_SCALE
-    let seg = 0
-    while (
-      seg < NOAA_DRAP_STOPS.length - 2 &&
-      mhz >= NOAA_DRAP_STOPS[seg + 1][0]
-    ) {
-      seg++
-    }
-    const a = NOAA_DRAP_STOPS[seg]
-    const b = NOAA_DRAP_STOPS[seg + 1]
-    const localT = (mhz - a[0]) / (b[0] - a[0])
-    const held = mhz >= top[0]
-    lut[i * 4 + 0] = held ? top[1] : Math.round(a[1] + (b[1] - a[1]) * localT)
-    lut[i * 4 + 1] = held ? top[2] : Math.round(a[2] + (b[2] - a[2]) * localT)
-    lut[i * 4 + 2] = held ? top[3] : Math.round(a[3] + (b[3] - a[3]) * localT)
-    lut[i * 4 + 3] = Math.round(255 * Math.min(1, mhz / DRAP_ALPHA_FULL_MHZ))
+    const [r, g, b, a] = drapNoaaColor(i / DRAP_LUT_SCALE)
+    lut.set([r, g, b, Math.round(255 * a)], i * 4)
   }
   return lut
 }
