@@ -29,15 +29,10 @@ conditions 3 and 4:
 
 So:
 
-- **Type the `sub` lines yourself**, in your own mail client, and send them
-  from the mailbox you want the replies in. A scheduled delivery entered that
-  way is Saildocs' own feature, run by Saildocs; you asked for it once, by hand.
-- **Do not script, schedule or forward them.** No cron job, no mail rule, no
-  "send for me" button, and not this plugin: it never composes a request and
-  never triggers a radio session
+- **Type the `sub` lines yourself**, from the mailbox you want the replies in.
+- **Do not script, schedule or forward them**: no cron, no mail rule, not this plugin
   ([why](hf-email-transport.md#the-constraint-that-shapes-everything-the-plugin-never-transmits)).
-- Part 2 needs no request from the boat at all: it is a web form, filled in
-  ashore.
+- Part 2 needs no request from the boat: it is a web form, filled in ashore.
 
 ## Part 1: the briefing, from Saildocs
 
@@ -62,11 +57,11 @@ sent from Sailmail, and it does no harm there.
 deliveries (the default is daily), `days=` how long the subscription runs (the
 default is 14).
 
-| Line                   | What it brings                                                          | When (UTC)     | Size    | A week, as written |
-| ---------------------- | ----------------------------------------------------------------------- | -------------- | ------- | ------------------ |
-| `wwv.txt`              | Solar flux, estimated planetary A, current K, 24 h summary and forecast | 00, 06, 12, 18 | 540 B   | 15,120 B           |
-| `3-day-forecast.txt`   | NOAA's plain-language 3-day outlook                                     | daily 01:00    | 1,907 B | 13,349 B           |
-| `advisory-outlook.txt` | The weekly space weather advisory outlook                               | daily 04:00    | 1,538 B | 10,766 B           |
+| Line                   | What it brings                                                          | Size    | A week, as written |
+| ---------------------- | ----------------------------------------------------------------------- | ------- | ------------------ |
+| `wwv.txt`              | Solar flux, estimated planetary A, current K, 24 h summary and forecast | 540 B   | 15,120 B           |
+| `3-day-forecast.txt`   | NOAA's plain-language 3-day outlook                                     | 1,907 B | 13,349 B           |
+| `advisory-outlook.txt` | The weekly space weather advisory outlook                               | 1,538 B | 10,766 B           |
 
 Sizes are the research's, measured 2026-08-29; the same URLs returned 578,
 2,297 and 723 bytes on 2026-10-10. As written that is about 39 KB a week of
@@ -77,18 +72,8 @@ wrapper ([unverified](#what-this-recipe-has-not-verified)). Against Sailmail's
 
 Two things about those lines to know before you send them:
 
-- **`time=00:00` delivers the previous bulletin.** SWPC issues a few minutes
-  after the hour: the 0900 bulletin fetched on 2026-10-10 says
-  `:Issued: 2026 Oct 10 0905 UTC`, and the research's sample says 0305 (two
-  samples, not a survey). A request at exactly 00:00 would get the 2100
-  one. Moving each `time=` a quarter hour later (`time=00:15`) would deliver
-  the bulletin for its own slot; whether Saildocs honours a time to the minute
-  is **unverified**.
-- **The third line delivers every day, not every week.** `interval=24` is a
-  daily delivery, and the advisory outlook is issued about weekly (the two on
-  hand are Monday 27 July and Monday 5 October 2026), so most copies are
-  repeats. One a week would be `interval=168`; whether Saildocs accepts an
-  interval that long is **unverified**.
+- `time=00:00` gets the previous bulletin; `time=00:15` would get the slot's own (unverified).
+- `interval=24` is daily; the outlook is weekly, so `interval=168` would match (unverified).
 
 **Check it took.** Saildocs confirms every change to a subscription. To see
 the whole list, send:
@@ -216,8 +201,7 @@ as `SUMX01`, `SUMX10` and `SUMX20`, issued when the event is over.
 `ALTTP4`, `SUM10R`, the 100 MeV proton codes (`ALTPC0`, `SUMPC0`, `WARPC0`)
 and the sudden-impulse codes (`WARSUD`, `SUMSUD`) carry no `NOAA Scale:` line,
 so no threshold applies to them and the plugin never raises them. In the
-core's three 30-day archives they are 245 of 498 messages, `WARK04` alone 122. (The page spells the K-index-4 alert `ATLK04`; SWPC's
-payload spells it `ALTK04`.)
+core's three 30-day archives they are 245 of 498 messages, `WARK04` alone 122.
 
 **Watches are the one optional extra.** `WATA20`, `WATA30`, `WATA50` and
 `WATA99` carry no scale line either, so they never raise a notification, but
@@ -273,8 +257,7 @@ reply closes the first, second and fourth (follow-up 7 in
 4. **Whether `interval=` works on a URL.** If not, `wwv.txt` is daily.
 5. **Whether `days=0` and `cancel` work on a URL.** If not, the subscription
    lapses in 14 days.
-6. **Whether `time=` is honoured to the minute, and whether `interval=168` is
-   accepted.** The two timing fixes above depend on them.
+6. **Whether `time=` is honoured to the minute, and `interval=168` accepted.**
 7. **Whether SWPC confirms a new address by return mail.**
 8. **Whether SWPC's WWV, 3-day and other forecast emails carry the same text
    as the `.txt` files.**
