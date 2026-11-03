@@ -106,12 +106,27 @@ jobs:
       contents: read
     uses: mark-brannan/.github/.github/workflows/nonempty-diff.yml@main
 
+  # The squash title is the commit release-please reads, so it carries a
+  # type: `fix(area): ...`, not `area: ...`.
+  pr-title:
+    permissions:
+      pull-requests: read
+    uses: mark-brannan/.github/.github/workflows/pr-title.yml@main
+
   # No docs/budgets.json here yet, so require-config: false -- wiring the
   # check now with a real budget config is later, separate work.
   prose-budget:
     uses: mark-brannan/.github/.github/workflows/prose-budget.yml@main
     with:
       require-config: false
+
+  # A measurement, not a gate, so it stays out of ci-gate's needs. Writes the
+  # sticky PR comment, hence pull-requests: write.
+  complexity:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: mark-brannan/.github/.github/workflows/complexity.yml@main
 
   # The single required status check, shared across repositories: the
   # `gate` job of mark-brannan/.github's reusable ci-gate workflow, which fails
@@ -124,7 +139,7 @@ jobs:
   # `allow-skipped` because plugin-ci and typecheck deliberately skip a
   # board-only pull request, and that skip is the gate's pass, not its fail.
   ci-gate:
-    needs: [plugin-ci, typecheck, nonempty, prose-budget]
+    needs: [plugin-ci, typecheck, nonempty, pr-title, prose-budget]
     if: always()
     # It reads nothing and writes nothing; the results go in as an input.
     permissions: {}
