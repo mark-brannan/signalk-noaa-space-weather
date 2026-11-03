@@ -158,11 +158,7 @@ issued" to any address registered
 ([subscription services](https://www.spaceweather.gov/content/subscription-services)).
 Nothing here is built, relayed or requested over the radio.
 
-1. Before you leave, with an internet link, open
-   <https://pss.swpc.noaa.gov> and follow the **register** link ("New user?").
-   Use the boat's radio address as the email address. The form is a website,
-   so this cannot be done from the boat. Whether SWPC asks you to confirm the
-   address by return mail is **unverified**; find out in port.
+1. Before you leave, register the boat's radio address at <https://pss.swpc.noaa.gov> ("New user?").
 2. Select the products below, then review your choices.
 
 ### Which products
