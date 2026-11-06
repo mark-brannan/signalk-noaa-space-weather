@@ -1,0 +1,11 @@
+# Rendered paths: a PR touching any of these must show a picture in its body
+# (mark-brannan/.github show-dont-tell workflow). No `urls:`: the live demo
+# is main, not the PR. The page itself comes from the space-weather package;
+# what renders here is the map tiles, the demo and app shells, and the
+# pictures themselves.
+paths:
+  - "src/tiles.ts"            # the aurora and D-RAP map tiles
+  - "demo/**"                 # the GitHub Pages demo's shell
+  - "app/**"                  # the standalone app's shell
+  - "screenshots/goldens/**"  # the configuration screen's goldens
+  - "docs/screenshots/**"     # what the README and the plugin registry show

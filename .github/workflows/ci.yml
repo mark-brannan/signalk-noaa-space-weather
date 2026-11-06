@@ -96,6 +96,56 @@ jobs:
       # show up as noise in an unrelated diff.
       - run: npm run format:check
 
+  # Screenshot goldens of the plugin configuration screen
+  # (scripts/goldens.mjs): the admin UI's form for this plugin at 1400 and
+  # 360 px, on a Signal K server the script starts with the built plugin
+  # linked in. Fails when a shot differs from screenshots/goldens by more than
+  # 0.1% of pixels; goldens-out/ (the renders, plus a red-mask diff-*.png per
+  # failure) is uploaded either way. On a deliberate change,
+  # `npm run goldens:update` and commit. A measurement, not a gate, so it
+  # stays out of ci-gate's needs until it has a track record.
+  goldens:
+    needs: changes
+    if: needs.changes.outputs.board-only != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            scripts/screenshots/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm ci --prefix scripts/screenshots --no-audit --no-fund
+      - run: npx --prefix scripts/screenshots playwright install --with-deps chromium
+      - run: npm run goldens:check
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: goldens-out
+          path: goldens-out/
+          if-no-files-found: ignore
+
+  # Scores every golden a pull request moves -- changed pixels, SSIM, regions
+  # -- and posts the table as one sticky comment, with an old | new | diff
+  # artifact. No `label:` input: a new label here waits on the user's say-so.
+  # docs/screenshots/ is
+  # scored too: it is what the README and the plugin registry show. A
+  # measurement, not a gate, so it stays out of ci-gate's needs. The engine
+  # and its pencil thresholds live in mark-brannan/.github.
+  golden-diff:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: mark-brannan/.github/.github/workflows/golden-diff.yml@main
+    with:
+      paths: screenshots/goldens/** docs/screenshots/**
+
   # Refuses to call an empty PR green: a branch whose tree equals its base at
   # the merge base (a stray commit reverted it) merges cleanly and lands
   # nothing. Listed in ci-gate's needs, so it needs no ruleset entry.

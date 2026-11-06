@@ -9,6 +9,7 @@
     "states": "node states.mjs"
   },
   "dependencies": {
-    "playwright": "^1.62.1"
+    "playwright": "^1.62.1",
+    "signalk-server": "2.36.0"
   }
 }
