@@ -1,0 +1,15 @@
+name: Show, don't tell
+
+# A pull request touching a rendered path (.github/show-dont-tell.yml) must
+# carry a picture or a preview URL in its description. The `edited` type is
+# what re-runs the check when the description changes.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  show-dont-tell:
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: mark-brannan/.github/.github/workflows/show-dont-tell.yml@main

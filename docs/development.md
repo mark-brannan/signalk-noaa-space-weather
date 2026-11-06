@@ -300,8 +300,9 @@ worker substitution, and a browser is what confirms it draws.
 
 ## Regenerating the README screenshots
 
-`scripts/screenshots/capture.mjs` rewrites all five PNGs in `docs/screenshots/`
-against a running server. It is a **separate npm package** on purpose —
+`scripts/screenshots/capture.mjs` rewrites the webapp and data browser PNGs in
+`docs/screenshots/` against a running server; `plugin-configuration.png` is a
+golden instead (below). It is a **separate npm package** on purpose —
 Playwright would blow both the registry's offline `npm ci` and its 60 second
 cap — so install it on its own:
 
@@ -321,9 +322,7 @@ Docker instance when the point is to match what a registry installer sees
 instead — and read symphony's compose files for its port rather than assuming
 one.
 
-Four of the five shots need only a **readonly** login. Just `plugin-configuration`
-needs admin, because `/skServer/plugins` is admin-gated — with a readonly session
-that one shot is skipped and the others still render. Note the plugin's own data
+Every shot needs only a **readonly** login. Note the plugin's own data
 endpoints are readable by a readonly user only because they are mounted under
 `/signalk/v1/api/*` rather than `/plugins/*`; see the comment in `src/index.ts`.
 
@@ -339,11 +338,35 @@ their labels absorb count badges ("Data" is really "Data1") — so the script mo
 *hard* navigation straight to a deep route still doesn't work, which is why it
 loads `/admin/` first.
 
+## Goldens of the configuration screen
+
+`scripts/goldens.mjs` shoots the admin UI's configuration screen for this
+plugin, at 1400 and 360 px, against a Signal K server it starts itself from
+a throwaway config directory, and compares each shot with
+`screenshots/goldens/`. The server is the screenshots package's pinned
+`signalk-server`, with security off and the plugin saved as disabled, so
+nothing reaches NOAA and the picture is the same on every run.
+
+```shell
+npm run build
+npm ci --prefix scripts/screenshots
+npx --prefix scripts/screenshots playwright install chromium
+npm run goldens:check     # exit 1 past 0.1% of pixels; renders and diffs in goldens-out/
+npm run goldens:update    # rewrite the goldens and docs/screenshots/plugin-configuration.png
+```
+
+`update` writes the 1400 px golden to the README's
+`docs/screenshots/plugin-configuration.png` too, so the two cannot drift. CI's
+`goldens` job runs `check` and uploads `goldens-out/`; it is a measurement,
+not a gate. On a pull request that moves a golden, the shared golden-diff
+workflow scores each one (changed pixels, SSIM, regions) and posts the table
+as a comment.
+
 ## Pictures for a webapp pull request
 
 `scripts/screenshots/states.mjs` is the other half of that package, and the two
 answer different questions. `capture.mjs` shoots a live server and rewrites the
-five PNGs the README ships; `states.mjs` starts the core's mock rig itself,
+README's webapp and data browser PNGs; `states.mjs` starts the core's mock rig itself,
 walks every state it declares, and writes a gitignored `.hero-states/` with
 the PNGs and an `index.html` contact sheet. Nothing is committed — these are
 review material for one pull request, and pinning them would mean recapturing

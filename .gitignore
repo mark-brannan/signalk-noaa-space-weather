@@ -135,3 +135,6 @@ dist
 # dist/.
 /demo-dist/
 /app-dist/
+
+# Renders and red-mask diffs from `scripts/goldens.mjs check`; CI uploads them.
+/goldens-out/

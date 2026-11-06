@@ -14,10 +14,11 @@
 // other direction when the point is to match what a registry installer sees.
 //
 // Credentials come from --username/--password, SK_USERNAME/SK_PASSWORD, or a
-// prompt; nothing is written to disk. A read-only user is enough for four of
-// the five shots — the admin UI exposes Data → Browser to any logged-in user.
-// Only the plugin-configuration shot needs admin, because /skServer/plugins is
-// admin-gated; with a non-admin login it is skipped rather than failing.
+// prompt; nothing is written to disk. A read-only user is enough — the admin
+// UI exposes Data → Browser to any logged-in user. plugin-configuration.png is
+// not shot here: it is a golden, rewritten by `node scripts/goldens.mjs
+// update` against a server that script starts, so the README's picture and
+// the golden are one file.
 
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
@@ -132,14 +133,6 @@ const SHOTS = {
     // is regenerated, which is what renames the shot.
     run: (page) => openWebapp(page, 'kpview')
   },
-  'plugin-configuration': {
-    file: 'plugin-configuration.png',
-    theme: 'light',
-    height: 940,
-    full: true,
-    admin: true,
-    run: shotPluginConfiguration
-  },
   'data-browser': {
     file: 'data-browser.png',
     theme: 'light',
@@ -196,7 +189,6 @@ async function main() {
   )
 
   const browser = await chromium.launch()
-  const skipped = []
   try {
     // One login, reused: every context is built from the resulting cookie jar
     // so the admin UI is not re-authenticated five times.
@@ -205,20 +197,12 @@ async function main() {
     const storageState = await authContext.storageState()
     await authContext.close()
 
-    const isAdmin = !needsLogin || userLevel === 'admin'
     console.log(
       `  session: ${needsLogin ? `${userLevel || 'unknown'} user` : 'security disabled'}\n`
     )
 
     for (const name of wanted) {
       const shot = SHOTS[name]
-      if (shot.admin && !isAdmin) {
-        skipped.push(name)
-        console.log(
-          `  – ${name} skipped: needs an admin login (/skServer/plugins is admin-gated)`
-        )
-        continue
-      }
       const context = await browser.newContext({
         viewport: { width: WIDTH, height: shot.height },
         deviceScaleFactor: 1,
@@ -243,8 +227,6 @@ async function main() {
   } finally {
     await browser.close()
   }
-  if (skipped.length)
-    console.log(`\n${skipped.length} shot(s) skipped: ${skipped.join(', ')}`)
   console.log('\ndone. `git diff --stat docs/screenshots` to see what moved.')
 }
 
@@ -385,16 +367,6 @@ async function navigate(page, route) {
   await page.evaluate((r) => {
     window.location.hash = `#${r}`
   }, route)
-}
-
-async function shotPluginConfiguration(page) {
-  await openAdmin(page)
-  await navigate(page, '/apps/configuration/-')
-  const row = page.locator(`[data-plugin-id="${PLUGIN_ID}"]`)
-  await row.waitFor({ state: 'visible', timeout: 30000 })
-  await row.click()
-  await page.waitForSelector('#plugin-config-header', { timeout: 30000 })
-  await settle(page)
 }
 
 async function dataBrowserSearch(page, term, expectRow) {

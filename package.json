@@ -33,7 +33,9 @@
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "prepublishOnly": "npm run build && npm test",
     "prepare": "node scripts/sync-webapp.mjs && node scripts/sync-icon.mjs",
-    "app:build": "node scripts/build-app.mjs"
+    "app:build": "node scripts/build-app.mjs",
+    "goldens:check": "node scripts/goldens.mjs check",
+    "goldens:update": "node scripts/goldens.mjs update"
   },
   "repository": {
     "type": "git",
